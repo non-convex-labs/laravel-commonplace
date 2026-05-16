@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NonConvexLabs\Commonplace\Services;
 
-use NonConvexLabs\Commonplace\Models\VaultNote;
+use NonConvexLabs\Commonplace\Models\Note;
 
 class WikilinkParser
 {
@@ -27,15 +27,15 @@ class WikilinkParser
         return $links;
     }
 
-    public function resolveTarget(string $target): ?VaultNote
+    public function resolveTarget(string $target): ?Note
     {
-        $note = VaultNote::where('path', $target)->first();
+        $note = Note::where('path', $target)->first();
 
         if ($note) {
             return $note;
         }
 
-        $note = VaultNote::whereRaw('LOWER(title) = ?', [mb_strtolower($target)])->first();
+        $note = Note::whereRaw('LOWER(title) = ?', [mb_strtolower($target)])->first();
 
         if ($note) {
             return $note;
@@ -43,7 +43,7 @@ class WikilinkParser
 
         $segment = basename($target);
 
-        return VaultNote::where(function ($query) use ($segment) {
+        return Note::where(function ($query) use ($segment) {
             $query->where('path', 'like', '%/'.$segment)
                 ->orWhere('path', $segment);
         })->first();
