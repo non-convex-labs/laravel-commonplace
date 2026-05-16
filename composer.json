@@ -25,7 +25,9 @@
     "require": {
         "php": "^8.4",
         "illuminate/contracts": "^12.0",
-        "spatie/laravel-package-tools": "^1.16"
+        "league/commonmark": "^2.8",
+        "spatie/laravel-package-tools": "^1.16",
+        "symfony/yaml": "^7.2"
     },
     "require-dev": {
         "laravel/pint": "^1.18",
