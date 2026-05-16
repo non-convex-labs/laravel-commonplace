@@ -67,7 +67,7 @@
     @if ($selectedDate)
         <section class="cp-journal-notes" aria-labelledby="journal-day-heading">
             <h3 id="journal-day-heading">
-                {{ \Illuminate\Support\Carbon::parse($selectedDate)->format('l, F j, Y') }}
+                {{ $selectedDateLabel }}
             </h3>
 
             @if ($selectedNotes->isNotEmpty())

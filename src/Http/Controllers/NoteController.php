@@ -10,12 +10,13 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 use NonConvexLabs\Commonplace\Models\Note;
 use NonConvexLabs\Commonplace\Services\Commonplace;
+use NonConvexLabs\Commonplace\Services\JournalCalendar;
 use NonConvexLabs\Commonplace\Services\MarkdownRenderer;
+use NonConvexLabs\Commonplace\Services\NoteBrowser;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class NoteController extends Controller
@@ -23,6 +24,8 @@ class NoteController extends Controller
     public function __construct(
         private readonly Commonplace $commonplace,
         private readonly MarkdownRenderer $markdown,
+        private readonly NoteBrowser $noteBrowser,
+        private readonly JournalCalendar $journalCalendar,
     ) {}
 
     public function index(Request $request): View
@@ -209,123 +212,23 @@ class NoteController extends Controller
 
     private function browseFolder(string $folder, Request $request): View
     {
-        $user = $request->user();
-
-        $query = Note::accessibleBy($user)->with('tags');
-
-        if ($folder !== '') {
-            $query->inFolder($folder);
-        }
-
-        $allNotes = $query->orderBy('path')->get();
-
-        $directNotes = collect();
-        $subfolders = [];
-
-        foreach ($allNotes as $note) {
-            $relativePath = $folder !== '' ? Str::after($note->path, $folder.'/') : $note->path;
-
-            if (! str_contains($relativePath, '/')) {
-                $directNotes->push($note);
-            } else {
-                $subfolder = Str::before($relativePath, '/');
-                $subfolders[$subfolder] = ($subfolders[$subfolder] ?? 0) + 1;
-            }
-        }
-
-        ksort($subfolders);
-
+        $result = $this->noteBrowser->browse($request->user(), $folder);
         $view = $folder === '' ? 'commonplace::index' : 'commonplace::browse';
 
         return view($view, [
             'folder' => $folder,
-            'notes' => $directNotes,
-            'subfolders' => $subfolders,
+            'notes' => $result['notes'],
+            'subfolders' => $result['subfolders'],
             'breadcrumbs' => $this->buildBreadcrumbs($folder),
         ]);
     }
 
     private function journal(Request $request, int $year, int $month, ?string $selectedDate): View
     {
-        $user = $request->user();
-        $year = max(2000, min(2100, $year));
-        $month = max(1, min(12, $month));
-
-        $monthStart = Carbon::createFromDate($year, $month, 1);
-
-        $prefix = sprintf('journal/%04d-%02d-', $year, $month);
-        $journalNotes = Note::accessibleBy($user)
-            ->where('path', 'like', $prefix.'%')
-            ->with('tags')
-            ->orderBy('path')
-            ->get();
-
-        $notesByDay = [];
-        foreach ($journalNotes as $note) {
-            $relative = Str::after($note->path, 'journal/');
-            if (preg_match('/^(\d{4}-\d{2}-\d{2})/', $relative, $matches)) {
-                $notesByDay[$matches[1]][] = $note;
-            }
-        }
-
-        $selectedNotes = isset($notesByDay[$selectedDate])
-            ? collect($notesByDay[$selectedDate])
-            : collect();
-
-        $prevMonth = $monthStart->copy()->subMonth();
-        $nextMonth = $monthStart->copy()->addMonth();
-
-        $calendarDays = $this->buildCalendarDays($year, $month, $monthStart, $notesByDay, $selectedDate);
-
-        return view('commonplace::journal', [
-            'year' => $year,
-            'month' => $month,
-            'monthName' => $monthStart->format('F'),
-            'calendarDays' => $calendarDays,
-            'selectedDate' => $selectedDate,
-            'selectedNotes' => $selectedNotes,
-            'prevYear' => $prevMonth->year,
-            'prevMonthNum' => $prevMonth->month,
-            'nextYear' => $nextMonth->year,
-            'nextMonthNum' => $nextMonth->month,
-        ]);
-    }
-
-    private function buildCalendarDays(int $year, int $month, Carbon $monthStart, array $notesByDay, ?string $selectedDate): array
-    {
-        $daysInMonth = $monthStart->daysInMonth;
-        $startDayOfWeek = $monthStart->dayOfWeek;
-        $totalCells = (int) ceil(($startDayOfWeek + $daysInMonth) / 7) * 7;
-        $today = date('Y-m-d');
-
-        $days = [];
-        $dayCounter = 1;
-
-        for ($cell = 0; $cell < $totalCells; $cell++) {
-            $isValidDay = $cell >= $startDayOfWeek && $dayCounter <= $daysInMonth;
-
-            if (! $isValidDay) {
-                $days[] = null;
-
-                continue;
-            }
-
-            $dateStr = sprintf('%04d-%02d-%02d', $year, $month, $dayCounter);
-            $noteCount = isset($notesByDay[$dateStr]) ? count($notesByDay[$dateStr]) : 0;
-
-            $days[] = [
-                'day' => $dayCounter,
-                'date' => $dateStr,
-                'hasNotes' => $noteCount > 0,
-                'noteCount' => $noteCount,
-                'isSelected' => $dateStr === $selectedDate,
-                'isToday' => $dateStr === $today,
-            ];
-
-            $dayCounter++;
-        }
-
-        return $days;
+        return view(
+            'commonplace::journal',
+            $this->journalCalendar->buildMonth($request->user(), $year, $month, $selectedDate),
+        );
     }
 
     private function buildBreadcrumbs(string $path): array
