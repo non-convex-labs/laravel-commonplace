@@ -167,7 +167,7 @@ class NoteControllerTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('New Note');
-        $response->assertSee('csrf-token', false);
+        $response->assertSee('name="_token"', false);
     }
 
     public function test_store_creates_note_and_redirects_to_show(): void
