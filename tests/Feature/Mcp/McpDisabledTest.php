@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace NonConvexLabs\Commonplace\Tests\Feature\Mcp;
 
+use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Laravel\Mcp\Server\McpServiceProvider;
 use NonConvexLabs\Commonplace\Tests\TestCase;
 
 class McpDisabledTest extends TestCase
 {
+    /**
+     * @param  Application  $app
+     */
     protected function getPackageProviders($app): array
     {
         return [
@@ -18,6 +22,9 @@ class McpDisabledTest extends TestCase
         ];
     }
 
+    /**
+     * @param  Application  $app
+     */
     protected function defineEnvironment($app): void
     {
         parent::defineEnvironment($app);

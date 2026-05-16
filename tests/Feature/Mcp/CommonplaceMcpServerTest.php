@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NonConvexLabs\Commonplace\Tests\Feature\Mcp;
 
+use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route;
 use Laravel\Mcp\Server\McpServiceProvider;
@@ -40,6 +41,9 @@ class CommonplaceMcpServerTest extends TestCase
 
     private User $owner;
 
+    /**
+     * @param  Application  $app
+     */
     protected function getPackageProviders($app): array
     {
         return [
@@ -48,6 +52,9 @@ class CommonplaceMcpServerTest extends TestCase
         ];
     }
 
+    /**
+     * @param  Application  $app
+     */
     protected function defineEnvironment($app): void
     {
         $this->defineCommonplaceEnvironment($app);

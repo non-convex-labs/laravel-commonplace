@@ -4,8 +4,14 @@ declare(strict_types=1);
 
 namespace NonConvexLabs\Commonplace\Tests\Fixtures;
 
+use Illuminate\Foundation\Application;
+use Illuminate\Routing\Router;
+
 trait InteractsWithCommonplaceDatabase
 {
+    /**
+     * @param  Application  $app
+     */
     protected function defineEnvironment($app): void
     {
         parent::defineEnvironment($app);
@@ -21,6 +27,9 @@ trait InteractsWithCommonplaceDatabase
         $this->loadMigrationsFrom(__DIR__.'/../../database/migrations');
     }
 
+    /**
+     * @param  Router  $router
+     */
     protected function defineRoutes($router): void
     {
         $router->get('/login', fn () => 'login stub')->name('login');
