@@ -109,13 +109,9 @@ class SearchControllerTest extends TestCase
         $response->assertExactJson([]);
     }
 
-    public function test_semantic_search_path_is_exercised_but_skipped_on_sqlite(): void
+    public function test_semantic_search_requires_pgvector(): void
     {
-        // Semantic search uses pgvector's `<=>` distance operator (see issue #1).
-        // SQLite cannot resolve it, so this test exists solely as a placeholder
-        // for the route being wired; the SQL itself is exercised by the
-        // service tests (which mark themselves skipped).
-        $this->markTestSkipped('Semantic search requires pgvector; see issue #1.');
+        $this->markTestSkipped('requires pgvector — issue #1 (semantic search uses pgvector\'s `<=>` distance operator)');
     }
 
     public function test_suggested_links_api_returns_404_for_missing_note(): void
