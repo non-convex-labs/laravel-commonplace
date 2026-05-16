@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace NonconvexLabs\Commonplace\Facades;
+namespace NonConvexLabs\Commonplace\Facades;
 
 use Illuminate\Support\Facades\Facade;
 

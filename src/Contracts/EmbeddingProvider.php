@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace NonconvexLabs\Commonplace\Contracts;
+namespace NonConvexLabs\Commonplace\Contracts;
 
 interface EmbeddingProvider
 {

@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace NonconvexLabs\Commonplace;
+namespace NonConvexLabs\Commonplace;
 
 use InvalidArgumentException;
-use NonconvexLabs\Commonplace\Contracts\EmbeddingProvider;
-use NonconvexLabs\Commonplace\Drivers\Embedding\NullEmbeddingProvider;
-use NonconvexLabs\Commonplace\Drivers\Embedding\VoyageEmbeddingProvider;
+use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
+use NonConvexLabs\Commonplace\Drivers\Embedding\NullEmbeddingProvider;
+use NonConvexLabs\Commonplace\Drivers\Embedding\VoyageEmbeddingProvider;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 

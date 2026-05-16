@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace NonconvexLabs\Commonplace\Drivers\Embedding;
+namespace NonConvexLabs\Commonplace\Drivers\Embedding;
 
-use NonconvexLabs\Commonplace\Contracts\EmbeddingProvider;
+use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
 
 class NullEmbeddingProvider implements EmbeddingProvider
 {

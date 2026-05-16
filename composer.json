@@ -1,5 +1,5 @@
 {
-    "name": "nonconvexlabs/laravel-commonplace",
+    "name": "non-convex-labs/laravel-commonplace",
     "description": "A personal markdown knowledge vault for Laravel — wikilinks, version history, semantic search, and MCP for Claude Code.",
     "keywords": [
         "laravel",
@@ -13,7 +13,7 @@
         "mcp",
         "commonplace"
     ],
-    "homepage": "https://github.com/nonconvexlabs/laravel-commonplace",
+    "homepage": "https://github.com/non-convex-labs/laravel-commonplace",
     "license": "MIT",
     "authors": [
         {
@@ -34,13 +34,13 @@
     },
     "autoload": {
         "psr-4": {
-            "NonconvexLabs\\Commonplace\\": "src/",
-            "NonconvexLabs\\Commonplace\\Database\\Factories\\": "database/factories/"
+            "NonConvexLabs\\Commonplace\\": "src/",
+            "NonConvexLabs\\Commonplace\\Database\\Factories\\": "database/factories/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "NonconvexLabs\\Commonplace\\Tests\\": "tests/"
+            "NonConvexLabs\\Commonplace\\Tests\\": "tests/"
         }
     },
     "scripts": {
@@ -53,10 +53,10 @@
     "extra": {
         "laravel": {
             "providers": [
-                "NonconvexLabs\\Commonplace\\CommonplaceServiceProvider"
+                "NonConvexLabs\\Commonplace\\CommonplaceServiceProvider"
             ],
             "aliases": {
-                "Commonplace": "NonconvexLabs\\Commonplace\\Facades\\Commonplace"
+                "Commonplace": "NonConvexLabs\\Commonplace\\Facades\\Commonplace"
             }
         }
     },

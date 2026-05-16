@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace NonconvexLabs\Commonplace\Tests;
+namespace NonConvexLabs\Commonplace\Tests;
 
-use NonconvexLabs\Commonplace\CommonplaceServiceProvider;
+use NonConvexLabs\Commonplace\CommonplaceServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
 
 abstract class TestCase extends Orchestra

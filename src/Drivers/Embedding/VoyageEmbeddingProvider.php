@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace NonconvexLabs\Commonplace\Drivers\Embedding;
+namespace NonConvexLabs\Commonplace\Drivers\Embedding;
 
 use Illuminate\Http\Client\Factory as HttpClient;
-use NonconvexLabs\Commonplace\Contracts\EmbeddingProvider;
+use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
 use RuntimeException;
 
 class VoyageEmbeddingProvider implements EmbeddingProvider

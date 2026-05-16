@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace NonconvexLabs\Commonplace\Tests\Unit;
+namespace NonConvexLabs\Commonplace\Tests\Unit;
 
 use InvalidArgumentException;
-use NonconvexLabs\Commonplace\Contracts\EmbeddingProvider;
-use NonconvexLabs\Commonplace\Drivers\Embedding\NullEmbeddingProvider;
-use NonconvexLabs\Commonplace\Drivers\Embedding\VoyageEmbeddingProvider;
-use NonconvexLabs\Commonplace\Tests\TestCase;
+use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
+use NonConvexLabs\Commonplace\Drivers\Embedding\NullEmbeddingProvider;
+use NonConvexLabs\Commonplace\Drivers\Embedding\VoyageEmbeddingProvider;
+use NonConvexLabs\Commonplace\Tests\TestCase;
 
 class EmbeddingProviderResolutionTest extends TestCase
 {
