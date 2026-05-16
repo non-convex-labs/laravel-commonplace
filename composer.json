@@ -1,0 +1,65 @@
+{
+    "name": "nonconvexlabs/laravel-commonplace",
+    "description": "A personal markdown knowledge vault for Laravel — wikilinks, version history, semantic search, and MCP for Claude Code.",
+    "keywords": [
+        "laravel",
+        "knowledge-base",
+        "vault",
+        "obsidian",
+        "wikilinks",
+        "markdown",
+        "pgvector",
+        "semantic-search",
+        "mcp",
+        "commonplace"
+    ],
+    "homepage": "https://github.com/nonconvexlabs/laravel-commonplace",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Aaron Addrick",
+            "email": "aaddrick@gmail.com",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.4",
+        "illuminate/contracts": "^12.0",
+        "spatie/laravel-package-tools": "^1.16"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.18",
+        "orchestra/testbench": "^10.0",
+        "phpunit/phpunit": "^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "NonconvexLabs\\Commonplace\\": "src/",
+            "NonconvexLabs\\Commonplace\\Database\\Factories\\": "database/factories/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "NonconvexLabs\\Commonplace\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "vendor/bin/phpunit",
+        "format": "vendor/bin/pint"
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "NonconvexLabs\\Commonplace\\CommonplaceServiceProvider"
+            ],
+            "aliases": {
+                "Commonplace": "NonconvexLabs\\Commonplace\\Facades\\Commonplace"
+            }
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

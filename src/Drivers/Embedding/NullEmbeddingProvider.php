@@ -1,0 +1,25 @@
+<?php
+
+declare(strict_types=1);
+
+namespace NonconvexLabs\Commonplace\Drivers\Embedding;
+
+use NonconvexLabs\Commonplace\Contracts\EmbeddingProvider;
+
+class NullEmbeddingProvider implements EmbeddingProvider
+{
+    public function embed(string $text): array
+    {
+        return array_fill(0, $this->dimensions(), 0.0);
+    }
+
+    public function embedBatch(array $texts): array
+    {
+        return array_map(fn (string $text) => $this->embed($text), $texts);
+    }
+
+    public function dimensions(): int
+    {
+        return (int) config('commonplace.embedding.null.dimensions', 1024);
+    }
+}
