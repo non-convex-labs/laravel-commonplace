@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace NonConvexLabs\Commonplace\Tests;
 
+use Illuminate\Foundation\Application;
 use NonConvexLabs\Commonplace\CommonplaceServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
 
 abstract class TestCase extends Orchestra
 {
+    /**
+     * @param  Application  $app
+     */
     protected function getPackageProviders($app): array
     {
         return [
@@ -16,6 +20,9 @@ abstract class TestCase extends Orchestra
         ];
     }
 
+    /**
+     * @param  Application  $app
+     */
     protected function defineEnvironment($app): void
     {
         $app['config']->set('app.key', 'base64:'.base64_encode(random_bytes(32)));
