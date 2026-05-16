@@ -7,6 +7,7 @@ namespace NonConvexLabs\Commonplace\Tests\Feature\Jobs;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use NonConvexLabs\Commonplace\Jobs\BackupToGitHub;
 use NonConvexLabs\Commonplace\Models\Note;
@@ -213,6 +214,58 @@ class BackupToGitHubTest extends TestCase
         Http::assertNotSent(function ($request) {
             return $request->method() === 'PATCH';
         });
+    }
+
+    public function test_it_declares_retry_configuration(): void
+    {
+        $job = new BackupToGitHub;
+
+        $this->assertSame(5, $job->tries);
+        $this->assertSame([30, 120, 300], $job->backoff());
+    }
+
+    public function test_failed_logs_exception_context(): void
+    {
+        Log::spy();
+
+        $job = new BackupToGitHub;
+        $exception = new RuntimeException('boom');
+
+        $job->failed($exception);
+
+        Log::shouldHaveReceived('error')
+            ->once()
+            ->withArgs(function ($message, $context) {
+                return $message === 'Commonplace GitHub backup failed'
+                    && $context['repo'] === 'octo/notes'
+                    && $context['exception'] === RuntimeException::class
+                    && $context['message'] === 'boom';
+            });
+    }
+
+    public function test_failed_logs_context_when_handle_throws_on_http_error(): void
+    {
+        Log::spy();
+
+        Http::fake([
+            'https://api.github.com/repos/octo/notes' => Http::response(['error' => 'server'], 500),
+        ]);
+
+        $job = new BackupToGitHub;
+
+        try {
+            $job->handle();
+            $this->fail('Expected RuntimeException to be thrown.');
+        } catch (RuntimeException $exception) {
+            $job->failed($exception);
+        }
+
+        Log::shouldHaveReceived('error')
+            ->once()
+            ->withArgs(function ($message, $context) {
+                return $message === 'Commonplace GitHub backup failed'
+                    && $context['repo'] === 'octo/notes';
+            });
     }
 
     private function fakeGitHubInitial(): void
