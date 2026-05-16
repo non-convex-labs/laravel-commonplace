@@ -8,6 +8,8 @@ use InvalidArgumentException;
 use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
 use NonConvexLabs\Commonplace\Drivers\Embedding\NullEmbeddingProvider;
 use NonConvexLabs\Commonplace\Drivers\Embedding\VoyageEmbeddingProvider;
+use NonConvexLabs\Commonplace\Services\Commonplace;
+use NonConvexLabs\Commonplace\Services\MarkdownRenderer;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
@@ -41,6 +43,11 @@ class CommonplaceServiceProvider extends PackageServiceProvider
                 default => throw new InvalidArgumentException("Unknown commonplace embedding driver: {$driver}"),
             };
         });
+
+        $this->app->singleton(MarkdownRenderer::class);
+
+        $this->app->singleton(Commonplace::class);
+        $this->app->alias(Commonplace::class, 'commonplace');
     }
 
     public function packageBooted(): void
