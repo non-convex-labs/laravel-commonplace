@@ -20,6 +20,22 @@ class ReindexNotes implements ShouldQueue
     use Queueable;
     use SerializesModels;
 
+    public int $tries = 3;
+
+    public function backoff(): array
+    {
+        return [10, 30, 120];
+    }
+
+    public function failed(\Throwable $exception): void
+    {
+        Log::error('Commonplace reindex job failed', [
+            'job' => self::class,
+            'exception' => $exception::class,
+            'message' => $exception->getMessage(),
+        ]);
+    }
+
     public function handle(EmbeddingProvider $embedder): void
     {
         $cooldown = (int) config('commonplace.reindex.cooldown_minutes', 60);
