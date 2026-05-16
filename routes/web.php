@@ -3,15 +3,67 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
+use NonConvexLabs\Commonplace\Http\Controllers\AssetController;
+use NonConvexLabs\Commonplace\Http\Controllers\GraphController;
+use NonConvexLabs\Commonplace\Http\Controllers\NoteController;
+use NonConvexLabs\Commonplace\Http\Controllers\SearchController;
 
 if (! (bool) config('commonplace.routes.enabled', true)) {
     return;
 }
 
+Route::middleware(['web'])
+    ->prefix((string) config('commonplace.routes.prefix', 'commonplace'))
+    ->as('commonplace.')
+    ->group(function (): void {
+        Route::get('/assets/commonplace.css', [AssetController::class, 'css'])->name('asset.css');
+        Route::get('/assets/commonplace.js', [AssetController::class, 'js'])->name('asset.js');
+    });
+
 Route::middleware(config('commonplace.routes.middleware', ['web', 'auth']))
     ->prefix((string) config('commonplace.routes.prefix', 'commonplace'))
     ->as('commonplace.')
     ->group(function (): void {
-        // Controllers will be wired here as they are ported from the
-        // upstream nonconvexlabs-com application.
+        Route::get('/', [NoteController::class, 'index'])->name('index');
+
+        Route::get('/create', [NoteController::class, 'create'])->name('create');
+        Route::post('/', [NoteController::class, 'store'])->name('store');
+
+        Route::get('/graph', [GraphController::class, 'graph'])->name('graph');
+        Route::get('/api/graph', [GraphController::class, 'graphApi'])->name('graph.api');
+
+        Route::get('/search', [SearchController::class, 'search'])->name('search');
+        Route::get('/api/search', [SearchController::class, 'searchApi'])->name('search.api');
+
+        Route::get('/api/neighborhood/{path}', [GraphController::class, 'neighborhood'])
+            ->where('path', '.*')
+            ->name('neighborhood');
+
+        Route::get('/api/suggested-links/{path}', [SearchController::class, 'suggestedLinks'])
+            ->where('path', '.*')
+            ->name('suggested-links');
+
+        Route::get('/raw/{path}', [NoteController::class, 'showRaw'])
+            ->where('path', '.*')
+            ->name('showRaw');
+
+        Route::get('/download/{path}', [NoteController::class, 'downloadRaw'])
+            ->where('path', '.*')
+            ->name('downloadRaw');
+
+        Route::get('/edit/{path}', [NoteController::class, 'edit'])
+            ->where('path', '.*')
+            ->name('edit');
+
+        Route::put('/{path}', [NoteController::class, 'update'])
+            ->where('path', '.*')
+            ->name('update');
+
+        Route::delete('/{path}', [NoteController::class, 'destroy'])
+            ->where('path', '.*')
+            ->name('destroy');
+
+        Route::get('/{path}', [NoteController::class, 'show'])
+            ->where('path', '.*')
+            ->name('show');
     });

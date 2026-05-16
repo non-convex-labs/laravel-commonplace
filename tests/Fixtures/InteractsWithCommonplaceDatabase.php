@@ -20,4 +20,9 @@ trait InteractsWithCommonplaceDatabase
         $this->loadMigrationsFrom(__DIR__.'/database/migrations');
         $this->loadMigrationsFrom(__DIR__.'/../../database/migrations');
     }
+
+    protected function defineRoutes($router): void
+    {
+        $router->get('/login', fn () => 'login stub')->name('login');
+    }
 }
