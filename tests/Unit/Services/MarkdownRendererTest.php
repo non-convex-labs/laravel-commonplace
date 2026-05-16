@@ -4,22 +4,10 @@ declare(strict_types=1);
 
 namespace NonConvexLabs\Commonplace\Tests\Unit\Services;
 
-use LogicException;
+use NonConvexLabs\Commonplace\Models\Note;
 use NonConvexLabs\Commonplace\Services\MarkdownRenderer;
 use NonConvexLabs\Commonplace\Services\WikilinkParser;
 use NonConvexLabs\Commonplace\Tests\TestCase;
-
-// Fallback stub for the WikilinkParser class while chunk 2 lands in parallel.
-// Once chunk 2 is merged, this conditional becomes a no-op because class_exists()
-// triggers autoloading and finds the real implementation first.
-if (! class_exists(WikilinkParser::class)) {
-    eval(
-        'namespace NonConvexLabs\\Commonplace\\Services;'
-        .' class WikilinkParser {'
-        .'   public function resolveTarget(string $target): ?object { return null; }'
-        .' }'
-    );
-}
 
 class MarkdownRendererTest extends TestCase
 {
@@ -71,9 +59,9 @@ class MarkdownRendererTest extends TestCase
     {
         $html = $this->renderer->render("```php\necho 'hi';\n```");
 
-        $this->assertStringContainsString('<pre>', $html);
-        $this->assertStringContainsString('<code', $html);
-        $this->assertStringContainsString("echo 'hi';", $html);
+        $this->assertStringContainsString('<pre', $html);
+        $this->assertStringContainsString('echo', $html);
+        $this->assertStringContainsString("'hi'", $html);
     }
 
     public function test_renders_inline_code(): void
@@ -278,13 +266,35 @@ class MarkdownRendererTest extends TestCase
         $this->assertStringContainsString('<h1>Different Title</h1>', $html);
     }
 
-    public function test_render_vault_note_throws_until_chunk_4(): void
+    public function test_render_note_strips_frontmatter_and_renders_body(): void
     {
-        $this->expectException(LogicException::class);
-        $this->expectExceptionMessage(
-            'Wikilink resolution to Note records will be wired in chunk 4 (Commonplace service)'
-        );
+        $renderer = new MarkdownRenderer($this->stubWikilinkParser());
 
-        $this->renderer->renderVaultNote("---\ntitle: Foo\n---\n\n# Foo\n\nLink to [[Other Note]].");
+        $html = $renderer->renderNote("---\ntitle: Foo\n---\n\n# Heading\n\nBody copy.");
+
+        $this->assertStringContainsString('<h1>Heading</h1>', $html);
+        $this->assertStringContainsString('Body copy.', $html);
+        $this->assertStringNotContainsString('title: Foo', $html);
+    }
+
+    public function test_render_note_emits_broken_wikilink_when_target_missing(): void
+    {
+        $renderer = new MarkdownRenderer($this->stubWikilinkParser());
+
+        $html = $renderer->renderNote('See [[Missing Note]] for context.');
+
+        $this->assertStringContainsString('vault-link-broken', $html);
+        $this->assertStringContainsString('Missing Note', $html);
+    }
+
+    private function stubWikilinkParser(): WikilinkParser
+    {
+        return new class extends WikilinkParser
+        {
+            public function resolveTarget(string $target): ?Note
+            {
+                return null;
+            }
+        };
     }
 }

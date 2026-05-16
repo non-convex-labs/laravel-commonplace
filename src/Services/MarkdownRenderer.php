@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace NonConvexLabs\Commonplace\Services;
 
+use ElGigi\CommonMarkEmoji\EmojiExtension;
 use League\CommonMark\Environment\Environment;
 use League\CommonMark\Extension\CommonMark\CommonMarkCoreExtension;
 use League\CommonMark\Extension\Footnote\FootnoteExtension;
 use League\CommonMark\Extension\GithubFlavoredMarkdownExtension;
 use League\CommonMark\MarkdownConverter;
-use LogicException;
+use NonConvexLabs\Commonplace\Support\Highlight\Bash\BashLanguage;
+use Tempest\Highlight\CommonMark\HighlightExtension;
+use Tempest\Highlight\Highlighter;
 
 class MarkdownRenderer
 {
@@ -18,6 +21,9 @@ class MarkdownRenderer
     public function __construct(
         private readonly WikilinkParser $wikilinkParser,
     ) {
+        $highlighter = new Highlighter;
+        $highlighter->addLanguage(new BashLanguage);
+
         $environment = new Environment([
             'html_input' => 'allow',
             'allow_unsafe_links' => false,
@@ -26,11 +32,8 @@ class MarkdownRenderer
         $environment->addExtension(new CommonMarkCoreExtension);
         $environment->addExtension(new GithubFlavoredMarkdownExtension);
         $environment->addExtension(new FootnoteExtension);
-
-        // TODO(chunk-4): re-enable EmojiExtension (elgigi/commonmark-emoji) and
-        // HighlightExtension (tempest/highlight) once those packages are added
-        // to composer.json. The nonconvexlabs-com source configures both, plus
-        // a custom BashLanguage definition wired into the highlighter.
+        $environment->addExtension(new EmojiExtension);
+        $environment->addExtension(new HighlightExtension($highlighter));
 
         $this->converter = new MarkdownConverter($environment);
     }
@@ -47,14 +50,12 @@ class MarkdownRenderer
         return $this->render($markdown);
     }
 
-    public function renderVaultNote(string $content): string
+    public function renderNote(string $content): string
     {
-        // TODO(chunk-4): wire vault-note rendering once the Note model (chunk 1)
-        // and the Commonplace service (chunk 4) land. This method must resolve
-        // wikilinks against the database, which is not available in this chunk.
-        throw new LogicException(
-            'Wikilink resolution to Note records will be wired in chunk 4 (Commonplace service)'
-        );
+        $content = $this->stripFrontmatter($content);
+        $content = $this->convertWikilinksToHtml($content);
+
+        return $this->render($content);
     }
 
     public function render(string $markdown): string
@@ -102,12 +103,22 @@ class MarkdownRenderer
             $target = trim($parts[0]);
             $display = isset($parts[1]) ? trim($parts[1]) : $this->wikilinkDisplayText($target);
 
-            // TODO(chunk-4): replace this guard with $this->wikilinkParser->resolveTarget($target)
-            // once chunk 1's Note model is available and chunk 2's WikilinkParser exposes the
-            // resolveTarget() lookup against it.
-            throw new LogicException(
-                'Wikilink resolution to Note records will be wired in chunk 4 (Commonplace service)'
-            );
+            $resolved = $this->wikilinkParser->resolveTarget($target);
+            $escapedDisplay = htmlspecialchars($display, ENT_QUOTES, 'UTF-8');
+
+            $prefix = rtrim((string) config('commonplace.routes.prefix', 'commonplace'), '/');
+
+            if ($resolved) {
+                $href = '/'.$prefix.'/'.ltrim($resolved->path, '/');
+                $escapedHref = htmlspecialchars($href, ENT_QUOTES, 'UTF-8');
+
+                return '<a href="'.$escapedHref.'" class="vault-link">'.$escapedDisplay.'</a>';
+            }
+
+            $href = '/'.$prefix.'/'.ltrim($target, '/');
+            $escapedHref = htmlspecialchars($href, ENT_QUOTES, 'UTF-8');
+
+            return '<a href="'.$escapedHref.'" class="vault-link vault-link-broken">'.$escapedDisplay.'</a>';
         }, $content);
     }
 
