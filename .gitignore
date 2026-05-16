@@ -1,6 +1,7 @@
 /vendor/
 /build/
 /coverage/
+/.worktrees/
 /.phpunit.cache/
 .phpunit.result.cache
 composer.lock
