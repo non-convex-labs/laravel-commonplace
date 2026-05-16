@@ -200,6 +200,57 @@ class CommonplaceMcpServerTest extends TestCase
         $this->assertSame('hello universe', Note::where('path', 'projects/edit-me')->first()->content);
     }
 
+    public function test_edit_note_tool_returns_not_found_for_missing_path(): void
+    {
+        $response = CommonplaceMcpServer::actingAs($this->owner)->tool(EditNoteTool::class, [
+            'path' => 'does/not/exist',
+            'old_string' => 'foo',
+            'new_string' => 'bar',
+        ]);
+
+        $response->assertHasErrors(['Note not found.']);
+    }
+
+    public function test_edit_note_tool_returns_auth_error_for_non_owner(): void
+    {
+        Note::factory()->create([
+            'path' => 'projects/private-note',
+            'content' => 'hello world',
+            'user_id' => $this->owner->id,
+        ]);
+
+        $other = User::factory()->create();
+
+        $response = CommonplaceMcpServer::actingAs($other)->tool(EditNoteTool::class, [
+            'path' => 'projects/private-note',
+            'old_string' => 'world',
+            'new_string' => 'universe',
+        ]);
+
+        $response->assertHasErrors(['You do not have access to this note.']);
+    }
+
+    public function test_edit_note_tool_returns_current_content_envelope_when_old_string_is_ambiguous(): void
+    {
+        Note::factory()->create([
+            'path' => 'projects/ambiguous',
+            'content' => 'foo bar foo',
+            'user_id' => $this->owner->id,
+        ]);
+
+        $response = CommonplaceMcpServer::actingAs($this->owner)->tool(EditNoteTool::class, [
+            'path' => 'projects/ambiguous',
+            'old_string' => 'foo',
+            'new_string' => 'baz',
+            'replace_all' => false,
+        ]);
+
+        $response->assertHasErrors([
+            'old_string appears 2 times in the note.',
+            "--- current note content ---\nfoo bar foo",
+        ]);
+    }
+
     public function test_delete_note_tool_removes_note(): void
     {
         Note::factory()->create([
