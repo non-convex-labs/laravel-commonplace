@@ -56,7 +56,7 @@ class EditNoteTool extends Tool
                 ."\n\n--- current note content ---\n"
                 .$note->content
             );
-        } catch (\Throwable) {
+        } catch (AuthorizationException|ModelNotFoundException) {
             return Response::error($message);
         }
     }
