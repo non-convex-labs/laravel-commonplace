@@ -7,12 +7,14 @@ namespace NonConvexLabs\Commonplace\Tests\Feature\Jobs;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
 use NonConvexLabs\Commonplace\Jobs\ReindexNotes;
 use NonConvexLabs\Commonplace\Models\Note;
 use NonConvexLabs\Commonplace\Tests\Fixtures\InteractsWithCommonplaceDatabase;
 use NonConvexLabs\Commonplace\Tests\TestCase;
+use RuntimeException;
 
 class ReindexNotesTest extends TestCase
 {
@@ -130,6 +132,37 @@ class ReindexNotesTest extends TestCase
         Bus::dispatchSync(new ReindexNotes);
 
         $this->assertGreaterThan(0, $recorder->batchCalls);
+    }
+
+    public function test_it_declares_tries(): void
+    {
+        $job = new ReindexNotes;
+
+        $this->assertSame(3, $job->tries);
+    }
+
+    public function test_it_declares_backoff(): void
+    {
+        $job = new ReindexNotes;
+
+        $this->assertSame([10, 30, 120], $job->backoff());
+    }
+
+    public function test_failed_logs_the_failure(): void
+    {
+        Log::spy();
+
+        $job = new ReindexNotes;
+        $job->failed(new RuntimeException('boom'));
+
+        Log::shouldHaveReceived('error')
+            ->once()
+            ->withArgs(function (string $message, array $context): bool {
+                return $message === 'Commonplace reindex job failed'
+                    && ($context['job'] ?? null) === ReindexNotes::class
+                    && ($context['exception'] ?? null) === RuntimeException::class
+                    && ($context['message'] ?? null) === 'boom';
+            });
     }
 
     private function bindRecordingEmbedder(RecordingEmbeddingProvider $recorder): void
