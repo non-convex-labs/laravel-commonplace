@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NonConvexLabs\Commonplace\Concerns;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use NonConvexLabs\Commonplace\Models\Note;
 use NonConvexLabs\Commonplace\Models\NoteVersion;
@@ -15,7 +16,7 @@ trait HasCommonplaceNotes
         return $this->hasMany(Note::class, 'user_id');
     }
 
-    public function recentNotes(int $limit = 10)
+    public function recentNotes(int $limit = 10): Collection
     {
         return $this->notes()
             ->orderByDesc('updated_at')

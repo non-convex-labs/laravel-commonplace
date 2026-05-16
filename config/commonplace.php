@@ -22,8 +22,8 @@ return [
     */
 
     'routes' => [
-        'enabled'    => (bool) env('COMMONPLACE_ROUTES_ENABLED', true),
-        'prefix'     => env('COMMONPLACE_ROUTES_PREFIX', 'commonplace'),
+        'enabled' => (bool) env('COMMONPLACE_ROUTES_ENABLED', true),
+        'prefix' => env('COMMONPLACE_ROUTES_PREFIX', 'commonplace'),
         'middleware' => ['web', 'auth'],
     ],
 
@@ -40,8 +40,8 @@ return [
         'driver' => env('COMMONPLACE_EMBEDDING_DRIVER', 'voyage'),
 
         'voyage' => [
-            'api_key'    => env('VOYAGE_API_KEY'),
-            'model'      => env('VOYAGE_EMBEDDING_MODEL', 'voyage-3.5'),
+            'api_key' => env('VOYAGE_API_KEY'),
+            'model' => env('VOYAGE_EMBEDDING_MODEL', 'voyage-3.5'),
             'dimensions' => (int) env('VOYAGE_EMBEDDING_DIMENSIONS', 1024),
         ],
 
@@ -57,8 +57,8 @@ return [
     */
 
     'reindex' => [
-        'cooldown_minutes'    => (int) env('COMMONPLACE_REINDEX_COOLDOWN', 60),
-        'batch_size'          => (int) env('COMMONPLACE_REINDEX_BATCH_SIZE', 10),
+        'cooldown_minutes' => (int) env('COMMONPLACE_REINDEX_COOLDOWN', 60),
+        'batch_size' => (int) env('COMMONPLACE_REINDEX_BATCH_SIZE', 10),
         'batch_delay_seconds' => (int) env('COMMONPLACE_REINDEX_BATCH_DELAY', 25),
     ],
 
@@ -72,7 +72,7 @@ return [
 
     'mcp' => [
         'enabled' => (bool) env('COMMONPLACE_MCP_ENABLED', false),
-        'prefix'  => env('COMMONPLACE_MCP_PREFIX', 'mcp/commonplace'),
+        'prefix' => env('COMMONPLACE_MCP_PREFIX', 'mcp/commonplace'),
     ],
 
     /*
@@ -83,7 +83,7 @@ return [
 
     'backup' => [
         'github' => [
-            'repo'  => env('COMMONPLACE_GITHUB_BACKUP_REPO'),
+            'repo' => env('COMMONPLACE_GITHUB_BACKUP_REPO'),
             'token' => env('COMMONPLACE_GITHUB_BACKUP_TOKEN'),
         ],
     ],
