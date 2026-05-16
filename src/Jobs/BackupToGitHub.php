@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use NonConvexLabs\Commonplace\Models\Note;
 use RuntimeException;
+use Throwable;
 
 class BackupToGitHub implements ShouldQueue
 {
@@ -22,11 +23,30 @@ class BackupToGitHub implements ShouldQueue
     use Queueable;
     use SerializesModels;
 
+    public int $tries = 5;
+
     private const API_BASE = 'https://api.github.com';
 
     private const COMMITTER_NAME = 'Commonplace Backup';
 
     private const COMMITTER_EMAIL = 'commonplace-backup@users.noreply.github.com';
+
+    /**
+     * @return array<int, int>
+     */
+    public function backoff(): array
+    {
+        return [30, 120, 300];
+    }
+
+    public function failed(Throwable $exception): void
+    {
+        Log::error('Commonplace GitHub backup failed', [
+            'repo' => config('commonplace.backup.github.repo'),
+            'exception' => $exception::class,
+            'message' => $exception->getMessage(),
+        ]);
+    }
 
     public function handle(): void
     {
