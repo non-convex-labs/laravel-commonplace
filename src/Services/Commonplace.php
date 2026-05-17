@@ -30,6 +30,9 @@ class Commonplace
         string $visibility,
         Authenticatable $owner,
     ): Note {
+        $path = $this->normalizePath($path);
+        $content = $this->normalizeContent($content);
+
         $parsed = $this->frontmatterParser->parse($content);
         $meta = $parsed['meta'];
 
@@ -55,6 +58,8 @@ class Commonplace
 
     public function readNote(string $path, Authenticatable $user): Note
     {
+        $path = $this->normalizePath($path);
+
         $note = Note::where('path', $path)->firstOrFail();
 
         $this->checkAccess($note, $user);
@@ -64,6 +69,16 @@ class Commonplace
 
     public function updateNote(string $path, array $data, Authenticatable $user): Note
     {
+        $path = $this->normalizePath($path);
+
+        if (isset($data['content'])) {
+            $data['content'] = $this->normalizeContent($data['content']);
+        }
+
+        if (isset($data['new_path'])) {
+            $data['new_path'] = $this->normalizePath($data['new_path']);
+        }
+
         $note = Note::where('path', $path)->firstOrFail();
 
         $this->checkAccess($note, $user, 'write');
@@ -132,6 +147,10 @@ class Commonplace
         bool $replaceAll,
         Authenticatable $user,
     ): Note {
+        $path = $this->normalizePath($path);
+        $oldString = $this->normalizeContent($oldString);
+        $newString = $this->normalizeContent($newString);
+
         $note = Note::where('path', $path)->firstOrFail();
 
         $this->checkAccess($note, $user, 'write');
@@ -166,6 +185,8 @@ class Commonplace
 
     public function deleteNote(string $path, Authenticatable $user): void
     {
+        $path = $this->normalizePath($path);
+
         $note = Note::where('path', $path)->firstOrFail();
 
         $this->checkAccess($note, $user, 'owner');
@@ -190,7 +211,7 @@ class Commonplace
         $query = Note::accessibleBy($user)->with(['tags', 'owner']);
 
         if ($folder !== null) {
-            $query->inFolder($folder);
+            $query->inFolder($this->normalizePath($folder));
         }
 
         if ($tag !== null) {
@@ -241,6 +262,8 @@ class Commonplace
 
     public function getBacklinks(string $path, Authenticatable $user): Collection
     {
+        $path = $this->normalizePath($path);
+
         $note = Note::where('path', $path)->firstOrFail();
 
         $sourceNoteIds = Link::where('target_note_id', $note->id)
@@ -254,6 +277,9 @@ class Commonplace
 
     public function moveNote(string $fromPath, string $toPath, Authenticatable $user): Note
     {
+        $fromPath = $this->normalizePath($fromPath);
+        $toPath = $this->normalizePath($toPath);
+
         $note = Note::where('path', $fromPath)->firstOrFail();
 
         $this->checkAccess($note, $user, 'owner');
@@ -271,6 +297,8 @@ class Commonplace
 
     public function getHistory(string $path, Authenticatable $user): Collection
     {
+        $path = $this->normalizePath($path);
+
         $note = Note::where('path', $path)->first();
 
         if ($note) {
@@ -290,6 +318,8 @@ class Commonplace
 
     public function getNeighborhood(string $path, int $maxHops, Authenticatable $user): array
     {
+        $path = $this->normalizePath($path);
+
         $note = Note::where('path', $path)->firstOrFail();
         $this->checkAccess($note, $user);
 
@@ -344,6 +374,9 @@ class Commonplace
 
     public function getShortestPath(string $fromPath, string $toPath, Authenticatable $user): ?array
     {
+        $fromPath = $this->normalizePath($fromPath);
+        $toPath = $this->normalizePath($toPath);
+
         $from = Note::where('path', $fromPath)->firstOrFail();
         $to = Note::where('path', $toPath)->firstOrFail();
 
@@ -441,6 +474,8 @@ class Commonplace
 
     public function getSuggestedLinks(string $path, Authenticatable $user, int $limit = 10): array
     {
+        $path = $this->normalizePath($path);
+
         $note = Note::where('path', $path)->firstOrFail();
         $this->checkAccess($note, $user);
 
@@ -561,5 +596,15 @@ class Commonplace
     private function likeOperator(): string
     {
         return DB::connection()->getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
+    }
+
+    private function normalizePath(string $path): string
+    {
+        return str_replace('\\', '/', $path);
+    }
+
+    private function normalizeContent(string $content): string
+    {
+        return str_replace(["\r\n", "\r"], "\n", $content);
     }
 }
