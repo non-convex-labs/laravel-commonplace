@@ -54,7 +54,6 @@
             <label for="visibility">Visibility</label>
             <select id="visibility" name="visibility">
                 <option value="private" @selected(old('visibility', 'private') === 'private')>Private</option>
-                <option value="shared" @selected(old('visibility') === 'shared')>Shared</option>
                 <option value="public" @selected(old('visibility') === 'public')>Public</option>
             </select>
         </div>

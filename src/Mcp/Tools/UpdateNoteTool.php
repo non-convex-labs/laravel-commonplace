@@ -11,6 +11,7 @@ use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
+use NonConvexLabs\Commonplace\Enums\Visibility;
 use NonConvexLabs\Commonplace\Services\Commonplace;
 
 #[Description('Update an existing note. Only provided fields are changed; omitted fields remain unchanged. Prefer this over delete + recreate to preserve version history. Read the note first to avoid overwriting content.')]
@@ -55,7 +56,9 @@ class UpdateNoteTool extends Tool
             'path' => $schema->string('Virtual path of the note to update'),
             'content' => $schema->string('New markdown content')->nullable(),
             'tags' => $schema->array('New tag names (replaces existing tags)', $schema->string('Tag name'))->nullable(),
-            'visibility' => $schema->string('New visibility: private, shared, or public')->nullable(),
+            'visibility' => $schema->string()
+                ->description('New visibility: '.Visibility::describe())
+                ->nullable(),
             'new_path' => $schema->string('New path to rename/move the note to')->nullable(),
         ];
     }

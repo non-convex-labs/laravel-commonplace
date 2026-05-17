@@ -11,7 +11,9 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use NonConvexLabs\Commonplace\Enums\Visibility;
 use NonConvexLabs\Commonplace\Models\Note;
 use NonConvexLabs\Commonplace\Services\Commonplace;
 use NonConvexLabs\Commonplace\Services\JournalCalendar;
@@ -120,7 +122,7 @@ class NoteController extends Controller
             'path' => ['required', 'string'],
             'content' => ['required', 'string'],
             'tags' => ['sometimes', 'string'],
-            'visibility' => ['sometimes', 'string', 'in:private,shared,public'],
+            'visibility' => ['sometimes', 'string', Rule::in(Visibility::values())],
         ]);
 
         $tags = isset($validated['tags'])
@@ -160,7 +162,7 @@ class NoteController extends Controller
         $validated = $request->validate([
             'content' => ['sometimes', 'string'],
             'tags' => ['sometimes', 'string'],
-            'visibility' => ['sometimes', 'string', 'in:private,shared,public'],
+            'visibility' => ['sometimes', 'string', Rule::in(Visibility::values())],
             'new_path' => ['sometimes', 'string'],
         ]);
 

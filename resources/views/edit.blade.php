@@ -51,9 +51,8 @@
         <div class="cp-field">
             <label for="visibility">Visibility</label>
             <select id="visibility" name="visibility">
-                <option value="private" @selected(old('visibility', $note->visibility) === 'private')>Private</option>
-                <option value="shared" @selected(old('visibility', $note->visibility) === 'shared')>Shared</option>
-                <option value="public" @selected(old('visibility', $note->visibility) === 'public')>Public</option>
+                <option value="private" @selected(old('visibility', $note->visibility->value) === 'private')>Private</option>
+                <option value="public" @selected(old('visibility', $note->visibility->value) === 'public')>Public</option>
             </select>
         </div>
 

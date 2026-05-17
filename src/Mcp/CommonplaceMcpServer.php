@@ -40,7 +40,7 @@ Read the `commonplace-guide` note first with `read-note-tool` (path: "commonplac
 - **Wikilinks** (`[[path]]`) connect notes bidirectionally. Use `backlinks-tool` to discover inbound links.
 - **Tags** provide cross-cutting categorization independent of folders. Common tags: `ncl`, `ai`, `guide`, `decision`, `reference`, `draft`.
 - **Frontmatter** (optional YAML between `---` fences) can set `title` and `tags`.
-- **Visibility**: `private` (default), `shared`, or `public`.
+- **Visibility**: `private` (default) or `public`. Sharing with specific other users is granted per-note via the `Share` model — not a visibility value.
 
 ## Workflow
 

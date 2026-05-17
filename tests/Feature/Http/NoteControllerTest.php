@@ -112,7 +112,7 @@ class NoteControllerTest extends TestCase
             'user_id' => $stranger->id,
             'path' => 'shared/topic',
             'title' => 'Shared topic',
-            'visibility' => 'shared',
+            'visibility' => 'private',
         ]);
 
         Share::create([

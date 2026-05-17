@@ -127,7 +127,7 @@ $validated = $request->validate([
     'path'       => ['required', 'string'],
     'content'    => ['required', 'string'],
     'tags'       => ['sometimes', 'string'],         // comma-separated
-    'visibility' => ['sometimes', 'string', 'in:private,shared,public'],
+    'visibility' => ['sometimes', 'string', Rule::in(Visibility::values())],
 ]);
 ```
 
@@ -142,7 +142,7 @@ From [`NoteController::update()`](../src/Http/Controllers/NoteController.php#L15
 $validated = $request->validate([
     'content'    => ['sometimes', 'string'],
     'tags'       => ['sometimes', 'string'],
-    'visibility' => ['sometimes', 'string', 'in:private,shared,public'],
+    'visibility' => ['sometimes', 'string', Rule::in(Visibility::values())],
     'new_path'   => ['sometimes', 'string'],          // rename
 ]);
 ```
@@ -247,8 +247,8 @@ full setup. [`PublicNoteController`](../src/Http/Controllers/PublicNoteControlle
 registers `GET /public/{path}` (HTML) and `GET /public/raw/{path}`
 (`text/plain`) under the configured prefix.
 
-Notes with any other visibility (`private`, `shared`) return **404, not
-403** ([`PublicNoteController.php:62`](../src/Http/Controllers/PublicNoteController.php#L62))
+Notes with `visibility != public` return **404, not 403**
+([`PublicNoteController.php:62`](../src/Http/Controllers/PublicNoteController.php#L62))
 so unauthenticated visitors can't enumerate the private vault by probing
 paths.
 

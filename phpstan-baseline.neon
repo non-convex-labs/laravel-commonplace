@@ -225,7 +225,7 @@ parameters:
 		-
 			message: '#^Method Illuminate\\Contracts\\JsonSchema\\JsonSchema\:\:string\(\) invoked with 1 parameter, 0 required\.$#'
 			identifier: arguments.count
-			count: 4
+			count: 3
 			path: src/Mcp/Tools/CreateNoteTool.php
 
 		-
@@ -351,7 +351,7 @@ parameters:
 		-
 			message: '#^Method Illuminate\\Contracts\\JsonSchema\\JsonSchema\:\:string\(\) invoked with 1 parameter, 0 required\.$#'
 			identifier: arguments.count
-			count: 3
+			count: 2
 			path: src/Mcp/Tools/ListTool.php
 
 		-
@@ -597,7 +597,7 @@ parameters:
 		-
 			message: '#^Method Illuminate\\Contracts\\JsonSchema\\JsonSchema\:\:string\(\) invoked with 1 parameter, 0 required\.$#'
 			identifier: arguments.count
-			count: 5
+			count: 4
 			path: src/Mcp/Tools/UpdateNoteTool.php
 
 		-
