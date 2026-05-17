@@ -42,8 +42,10 @@ final class FilesystemBackupDestination implements BackupDestination
             ));
         }
 
+        $written = [];
         foreach ($bundle->files() as $file) {
             $target = $this->join($this->path, $file['path']);
+            $written[] = $target;
 
             if (! $disk->put($target, $file['content'])) {
                 throw new RuntimeException(sprintf(
@@ -51,6 +53,36 @@ final class FilesystemBackupDestination implements BackupDestination
                     $target,
                     $this->disk,
                 ));
+            }
+        }
+
+        $this->pruneOrphans($disk, $written, $manifestPath);
+    }
+
+    /**
+     * Prune `.md` files under the configured root that aren't in the
+     * current bundle. Mirrors the GitHub destination's tree-replace
+     * semantics so a restore from this backup matches the current
+     * state of the vault exactly (no ghost notes).
+     *
+     * Only files we ourselves wrote into get pruned — non-`.md` files
+     * and the manifest are preserved.
+     *
+     * @param  array<int, string>  $written
+     */
+    private function pruneOrphans(Filesystem $disk, array $written, string $manifestPath): void
+    {
+        $expected = array_flip($written);
+
+        // Walk every file under the root and delete `.md` files that
+        // we didn't write this run. Use `allFiles` to be recursive.
+        foreach ($disk->allFiles($this->path) as $existing) {
+            if ($existing === $manifestPath || ! str_ends_with($existing, '.md')) {
+                continue;
+            }
+
+            if (! isset($expected[$existing])) {
+                $disk->delete($existing);
             }
         }
     }
