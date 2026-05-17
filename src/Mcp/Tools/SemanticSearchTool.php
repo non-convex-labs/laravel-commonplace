@@ -22,8 +22,13 @@ class SemanticSearchTool extends Tool
     public function handle(Request $request): Response
     {
         try {
-            $scope = SemanticSearchScope::tryFrom((string) ($request->get('scope') ?? ''))
-                ?? SemanticSearchScope::Accessible;
+            $rawScope = $request->get('scope');
+            $scope = $rawScope === null || $rawScope === ''
+                ? SemanticSearchScope::Accessible
+                : (SemanticSearchScope::tryFrom((string) $rawScope)
+                    ?? throw new \InvalidArgumentException(
+                        "Unknown scope '{$rawScope}'. Use one of: mine, public, accessible."
+                    ));
 
             $results = $this->commonplace->semanticSearch(
                 query: $request->get('query'),
@@ -38,6 +43,8 @@ class SemanticSearchTool extends Tool
                 'distance' => $note->distance ?? null,
                 'updated_at' => $note->updated_at->toIso8601String(),
             ])->all());
+        } catch (\InvalidArgumentException $e) {
+            return Response::error($e->getMessage());
         } catch (\RuntimeException $e) {
             return Response::error($e->getMessage());
         }

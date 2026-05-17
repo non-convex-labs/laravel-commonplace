@@ -46,12 +46,17 @@ class Note extends Model
     /**
      * Embedding is read-only on the model — the active VectorSearchDriver
      * owns serialization and the write path is `$driver->store($id, $vec)`.
+     *
+     * Deliberately NOT cached: the driver is resolved on every read so
+     * test rebinds (`$app->instance(VectorSearchDriver::class, ...)`)
+     * take effect against already-hydrated Notes. Parsing a JSON array
+     * is cheap relative to anything that consumes it.
      */
     protected function embedding(): Attribute
     {
         return Attribute::make(
             get: fn (mixed $value) => app(VectorSearchDriver::class)->parse($value),
-        )->shouldCache();
+        );
     }
 
     public function getRouteKeyName(): string

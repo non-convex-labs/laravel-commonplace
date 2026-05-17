@@ -6,6 +6,7 @@ namespace NonConvexLabs\Commonplace\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Database\Connection;
+use Illuminate\Support\Facades\Schema;
 use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
 use NonConvexLabs\Commonplace\Contracts\VectorSearchDriver;
 
@@ -24,6 +25,7 @@ class DoctorCommand extends Command
             $this->checkConfiguredDriver(),
             $this->checkEmbeddingProvider(),
             $this->checkDatabaseDriver($db),
+            $this->checkSchema(),
             $this->checkPgvectorExtension($db),
             $this->checkEmbeddingColumn($db),
             $this->checkDriverReadiness(),
@@ -113,6 +115,34 @@ class DoctorCommand extends Command
         }
 
         return $this->report(label: 'Database driver', status: 'ok', detail: $name);
+    }
+
+    /**
+     * @return array{label: string, status: string, detail: string, recommendation?: string}
+     */
+    private function checkSchema(): array
+    {
+        try {
+            $exists = Schema::hasTable('commonplace_notes');
+        } catch (\Throwable $e) {
+            return $this->report(
+                label: 'commonplace_notes table',
+                status: 'fail',
+                detail: 'could not query schema: '.$e->getMessage(),
+                recommendation: 'Verify database connection works.',
+            );
+        }
+
+        if (! $exists) {
+            return $this->report(
+                label: 'commonplace_notes table',
+                status: 'fail',
+                detail: 'not present',
+                recommendation: 'Run `php artisan migrate`.',
+            );
+        }
+
+        return $this->report(label: 'commonplace_notes table', status: 'ok', detail: 'present');
     }
 
     /**

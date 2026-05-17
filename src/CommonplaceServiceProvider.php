@@ -50,7 +50,7 @@ class CommonplaceServiceProvider extends PackageServiceProvider
             };
         });
 
-        $this->app->bind(VectorSearchDriver::class, function () {
+        $this->app->singleton(VectorSearchDriver::class, function () {
             $driver = (string) config('commonplace.vector.driver', 'in_php_cosine');
 
             return match ($driver) {

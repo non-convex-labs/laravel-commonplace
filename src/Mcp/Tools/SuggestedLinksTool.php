@@ -26,8 +26,13 @@ class SuggestedLinksTool extends Tool
         try {
             $limit = $request->get('limit') ?? 10;
 
-            $scope = SemanticSearchScope::tryFrom((string) ($request->get('scope') ?? ''))
-                ?? SemanticSearchScope::Mine;
+            $rawScope = $request->get('scope');
+            $scope = $rawScope === null || $rawScope === ''
+                ? SemanticSearchScope::Mine
+                : (SemanticSearchScope::tryFrom((string) $rawScope)
+                    ?? throw new \InvalidArgumentException(
+                        "Unknown scope '{$rawScope}'. Use one of: mine, public, accessible."
+                    ));
 
             $results = $this->commonplace->getSuggestedLinks(
                 path: $request->get('path'),
@@ -37,6 +42,8 @@ class SuggestedLinksTool extends Tool
             );
 
             return Response::json($results);
+        } catch (\InvalidArgumentException $e) {
+            return Response::error($e->getMessage());
         } catch (AuthorizationException $e) {
             return Response::error($e->getMessage());
         } catch (ModelNotFoundException) {

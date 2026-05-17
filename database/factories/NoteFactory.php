@@ -50,7 +50,6 @@ class NoteFactory extends Factory
         return $this->afterCreating(function (Note $note) use ($vector) {
             $vector ??= array_fill(0, 8, 0.1);
             app(VectorSearchDriver::class)->store($note->id, $vector);
-            $note->refresh();
         });
     }
 

@@ -30,12 +30,12 @@ class InPhpCosineDriver implements VectorSearchDriver
 
     public function search(Builder $baseQuery, array $vector, int $limit): Collection
     {
-        $baseQuery = (clone $baseQuery)->whereNotNull('embedding');
-
-        $candidateCount = $baseQuery->toBase()->getCountForPagination();
-
         $hardMax = (int) $this->config->get('commonplace.vector.in_php_cosine.hard_max_candidates', 20000);
         $softMax = (int) $this->config->get('commonplace.vector.in_php_cosine.max_candidates', 2000);
+
+        // Cheap pre-check so we don't load a runaway result set into PHP.
+        $candidateCount = (clone $baseQuery)->whereNotNull('embedding')
+            ->toBase()->getCountForPagination();
 
         if ($candidateCount > $hardMax) {
             throw new VectorCandidateLimitExceeded(
@@ -52,7 +52,7 @@ class InPhpCosineDriver implements VectorSearchDriver
             ]);
         }
 
-        $ranked = $baseQuery->get()
+        $ranked = $baseQuery->whereNotNull('embedding')->get()
             ->map(function (Note $note) use ($vector) {
                 $stored = $this->parse($note->getRawOriginal('embedding'));
 
