@@ -66,9 +66,10 @@ class BackupToGitHubTest extends TestCase
 
         Bus::dispatchSync(new BackupToGitHub);
 
-        Http::assertSent(fn ($request) => str_ends_with($request->url(), '/repos/octo/notes'));
-        Http::assertNotSent(fn ($request) => str_contains($request->url(), '/git/blobs'));
-        Http::assertNotSent(fn ($request) => str_contains($request->url(), '/git/commits') && $request->method() === 'POST');
+        // Empty bundle now short-circuits before any API contact —
+        // no wasted quota and the log claim "no notes to back up"
+        // matches reality.
+        Http::assertNothingSent();
     }
 
     public function test_it_creates_blobs_tree_commit_and_updates_ref(): void
@@ -258,9 +259,10 @@ class BackupToGitHubTest extends TestCase
         ]);
 
         $job = new BackupToGitHub;
+        $destination = $this->app->make(\NonConvexLabs\Commonplace\Backup\Destinations\GitHubBackupDestination::class);
 
         try {
-            $job->handle();
+            $job->handle($destination);
             $this->fail('Expected RuntimeException to be thrown.');
         } catch (RuntimeException $exception) {
             $job->failed($exception);
