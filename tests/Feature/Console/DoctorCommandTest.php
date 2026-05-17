@@ -320,4 +320,59 @@ class DoctorCommandTest extends TestCase
         $this->assertSame(0, $exit);
         $this->assertStringContainsString('1 (under threshold 50)', $output);
     }
+
+    public function test_doctor_skips_mcp_middleware_check_when_mcp_disabled(): void
+    {
+        config(['commonplace.mcp.enabled' => false]);
+
+        Artisan::call('commonplace:doctor');
+        $output = Artisan::output();
+
+        $this->assertStringContainsString('MCP middleware', $output);
+        $this->assertStringContainsString('mcp.enabled = false', $output);
+    }
+
+    public function test_doctor_fails_when_mcp_enabled_but_middleware_empty(): void
+    {
+        config(['commonplace.mcp.enabled' => true]);
+        config(['commonplace.mcp.middleware' => []]);
+
+        $exit = Artisan::call('commonplace:doctor', ['--exit-code' => true]);
+        $output = Artisan::output();
+
+        $this->assertSame(1, $exit);
+        $this->assertStringContainsString('MCP middleware', $output);
+        $this->assertStringContainsString('empty', $output);
+        $this->assertStringContainsString('COMMONPLACE_MCP_MIDDLEWARE', $output);
+    }
+
+    public function test_doctor_fails_when_sanctum_default_but_sanctum_not_installed(): void
+    {
+        // Sanctum is NOT in this package's `require`; it's `suggest`. The
+        // test environment doesn't pull it in, so the check fires under
+        // the default middleware stack and recommends the install.
+        config(['commonplace.mcp.enabled' => true]);
+        config(['commonplace.mcp.middleware' => ['auth:sanctum']]);
+
+        $exit = Artisan::call('commonplace:doctor', ['--exit-code' => true]);
+        $output = Artisan::output();
+
+        $this->assertSame(1, $exit);
+        $this->assertStringContainsString('MCP middleware', $output);
+        $this->assertStringContainsString('auth:sanctum', $output);
+        $this->assertStringContainsString('composer require laravel/sanctum', $output);
+    }
+
+    public function test_doctor_passes_when_middleware_does_not_require_missing_package(): void
+    {
+        config(['commonplace.mcp.enabled' => true]);
+        config(['commonplace.mcp.middleware' => ['auth']]);
+
+        $exit = Artisan::call('commonplace:doctor', ['--exit-code' => true]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('MCP middleware', $output);
+        $this->assertStringContainsString('auth', $output);
+    }
 }

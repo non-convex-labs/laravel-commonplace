@@ -233,6 +233,22 @@ return [
     'mcp' => [
         'enabled' => (bool) env('COMMONPLACE_MCP_ENABLED', false),
         'prefix' => env('COMMONPLACE_MCP_PREFIX', 'mcp/commonplace'),
+
+        // Middleware stack applied to every route the MCP transport
+        // registers (POST + the 405 GET/DELETE stubs). Default is
+        // `auth:sanctum` because the dominant MCP client class
+        // (Claude Desktop, Cursor, remote bridges) sends
+        // `Authorization: Bearer …` from non-browser contexts —
+        // `web,auth` would 419-CSRF the JSON-RPC POST and 302-to-login
+        // a Bearer-token client. Sanctum's guard accepts both PATs and
+        // (with `EnsureFrontendRequestsAreStateful` added) browser
+        // session cookies. Override per app:
+        //   COMMONPLACE_MCP_MIDDLEWARE=auth:api          # Passport
+        //   COMMONPLACE_MCP_MIDDLEWARE=web,auth:sanctum  # SPA cookie auth
+        'middleware' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('COMMONPLACE_MCP_MIDDLEWARE', 'auth:sanctum')),
+        ))),
     ],
 
     /*

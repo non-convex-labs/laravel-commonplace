@@ -40,7 +40,8 @@
         "phpunit/phpunit": "^12.0"
     },
     "suggest": {
-        "aws/aws-sdk-php": "Required to use the Bedrock embedding driver (Amazon Titan Text Embeddings v2)."
+        "aws/aws-sdk-php": "Required to use the Bedrock embedding driver (Amazon Titan Text Embeddings v2).",
+        "laravel/sanctum": "Required by the default `auth:sanctum` middleware on the MCP route group. Install if you keep the default; otherwise override COMMONPLACE_MCP_MIDDLEWARE."
     },
     "autoload": {
         "psr-4": {

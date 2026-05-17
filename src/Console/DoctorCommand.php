@@ -41,6 +41,7 @@ class DoctorCommand extends Command
             $this->checkInPhpCosineCandidates(),
             $this->checkMultiUserVault(),
             $this->checkOrphanedLinks(),
+            $this->checkMcpMiddleware(),
         ];
 
         $failed = collect($checks)->where('status', 'fail')->count();
@@ -577,6 +578,75 @@ class DoctorCommand extends Command
             recommendation: "{$count} link rows have target_note_id IS NULL. Run "
                 .'`php artisan commonplace:relink` to re-resolve. If the count keeps growing, '
                 .'check that a queue worker is processing UpdateWikilinksJob.',
+        );
+    }
+
+    /**
+     * The MCP transport ships unauthenticated if its middleware stack is
+     * empty — the registrar's GET / DELETE 405 stubs would be reachable
+     * by anyone, and the POST relies on tools' own `$request->user()`
+     * fail-closed (`AuthorizationException`) to avoid leaking data. That
+     * fail-closed is defense-in-depth, not the auth boundary. Default
+     * is `auth:sanctum`; if it's the default, Sanctum must be installed
+     * or the guard resolution explodes at first request.
+     *
+     * Skipped when MCP is disabled — no routes register, nothing to gate.
+     *
+     * @return array{label: string, status: string, detail: string, recommendation?: string}
+     */
+    private function checkMcpMiddleware(): array
+    {
+        if (! (bool) config('commonplace.mcp.enabled', false)) {
+            return $this->report(
+                label: 'MCP middleware',
+                status: 'skip',
+                detail: 'mcp.enabled = false',
+            );
+        }
+
+        $middleware = (array) config('commonplace.mcp.middleware', []);
+
+        if ($middleware === []) {
+            return $this->report(
+                label: 'MCP middleware',
+                status: 'fail',
+                detail: 'empty',
+                recommendation: 'Set COMMONPLACE_MCP_MIDDLEWARE (or commonplace.mcp.middleware) to a non-empty stack. '
+                    .'Default is `auth:sanctum`. The MCP transport must not ship unauthenticated.',
+            );
+        }
+
+        $referencesSanctum = false;
+        foreach ($middleware as $entry) {
+            if (is_string($entry) && (
+                $entry === 'auth:sanctum'
+                || str_starts_with($entry, 'auth:sanctum,')
+                || str_contains($entry, ',sanctum')
+            )) {
+                $referencesSanctum = true;
+                break;
+            }
+        }
+
+        // String form keeps the class reference unresolved for static
+        // analysers — Sanctum is a `suggest` dep, not a require, and
+        // referring to the class symbol triggers a `P1009 Undefined
+        // type` warning in installs that haven't pulled it in.
+        if ($referencesSanctum && ! class_exists('Laravel\\Sanctum\\Sanctum')) {
+            return $this->report(
+                label: 'MCP middleware',
+                status: 'fail',
+                detail: '`auth:sanctum` in stack but Laravel\\Sanctum\\Sanctum class is not loaded',
+                recommendation: 'Run `composer require laravel/sanctum` and publish its config, '
+                    .'or switch COMMONPLACE_MCP_MIDDLEWARE to a guard you do have installed '
+                    .'(e.g. `auth:api` for Passport).',
+            );
+        }
+
+        return $this->report(
+            label: 'MCP middleware',
+            status: 'ok',
+            detail: implode(', ', array_map(static fn ($m) => (string) $m, $middleware)),
         );
     }
 
