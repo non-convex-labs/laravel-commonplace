@@ -246,4 +246,123 @@ class OpenAIEmbeddingProviderTest extends TestCase
 
         $this->assertSame(1536, $this->provider->dimensions());
     }
+
+    public function test_dimensions_falls_back_to_native_size_for_v3_large(): void
+    {
+        config()->set('commonplace.embedding.openai', [
+            'api_key' => $this->apiKey,
+            'model' => 'text-embedding-3-large',
+            'dimensions' => null,
+        ]);
+
+        $this->assertSame(3072, $this->provider->dimensions());
+    }
+
+    public function test_dimensions_falls_back_to_native_size_for_ada_002(): void
+    {
+        config()->set('commonplace.embedding.openai', [
+            'api_key' => $this->apiKey,
+            'model' => 'text-embedding-ada-002',
+            'dimensions' => null,
+        ]);
+
+        $this->assertSame(1536, $this->provider->dimensions());
+    }
+
+    public function test_embed_omits_dimensions_for_non_v3_model(): void
+    {
+        config()->set('commonplace.embedding.openai.model', 'text-embedding-ada-002');
+        config()->set('commonplace.embedding.openai.dimensions', null);
+
+        Http::fake([
+            self::OPENAI_URL => Http::response([
+                'data' => [['index' => 0, 'embedding' => [0.1, 0.2, 0.3]]],
+            ], 200),
+        ]);
+
+        $this->provider->embed('hello');
+
+        Http::assertSent(function ($request) {
+            $data = $request->data();
+
+            return $data['model'] === 'text-embedding-ada-002'
+                && ! array_key_exists('dimensions', $data);
+        });
+    }
+
+    public function test_embed_throws_when_dimensions_configured_for_non_v3_model(): void
+    {
+        config()->set('commonplace.embedding.openai.model', 'text-embedding-ada-002');
+        config()->set('commonplace.embedding.openai.dimensions', 512);
+
+        Http::fake();
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('text-embedding-ada-002');
+        $this->expectExceptionMessage('commonplace.embedding.openai.dimensions');
+
+        $this->provider->embed('hello');
+
+        Http::assertNothingSent();
+    }
+
+    public function test_dimensions_throws_when_configured_for_non_v3_model(): void
+    {
+        config()->set('commonplace.embedding.openai.model', 'text-embedding-ada-002');
+        config()->set('commonplace.embedding.openai.dimensions', 1024);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('text-embedding-ada-002');
+        $this->expectExceptionMessage('commonplace.embedding.openai.dimensions');
+
+        $this->provider->dimensions();
+    }
+
+    public function test_dimensions_throws_for_unknown_v3_model_when_not_configured(): void
+    {
+        // Future / typo'd v3 model: refuse to guess the storage column size.
+        config()->set('commonplace.embedding.openai.model', 'text-embedding-3-medium');
+        config()->set('commonplace.embedding.openai.dimensions', null);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('text-embedding-3-medium');
+        $this->expectExceptionMessage('OPENAI_EMBEDDING_DIMENSIONS');
+
+        $this->provider->dimensions();
+    }
+
+    public function test_unknown_v3_model_with_explicit_dimensions_is_allowed(): void
+    {
+        // User opts in by setting dimensions explicitly.
+        config()->set('commonplace.embedding.openai.model', 'text-embedding-3-medium');
+        config()->set('commonplace.embedding.openai.dimensions', 2048);
+
+        Http::fake([
+            self::OPENAI_URL => Http::response([
+                'data' => [['index' => 0, 'embedding' => array_fill(0, 2048, 0.1)]],
+            ], 200),
+        ]);
+
+        $this->assertSame(2048, $this->provider->dimensions());
+
+        $this->provider->embed('hello');
+
+        Http::assertSent(function ($request) {
+            return $request->data()['model'] === 'text-embedding-3-medium'
+                && $request->data()['dimensions'] === 2048;
+        });
+    }
+
+    public function test_embed_batch_throws_when_dimensions_configured_for_non_v3_model(): void
+    {
+        config()->set('commonplace.embedding.openai.model', 'text-embedding-ada-002');
+        config()->set('commonplace.embedding.openai.dimensions', 512);
+
+        Http::fake();
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('commonplace.embedding.openai.dimensions');
+
+        $this->provider->embedBatch(['hello']);
+    }
 }

@@ -73,7 +73,11 @@ OPENAI_EMBEDDING_DIMENSIONS=3072
 
 You can also truncate the vectors below the model's native size by setting
 `OPENAI_EMBEDDING_DIMENSIONS` to a smaller value (e.g. `512`). OpenAI applies
-the truncation server-side.
+the truncation server-side. **This parameter is supported only on
+`text-embedding-3-*` models.** If you set `OPENAI_EMBEDDING_DIMENSIONS` while
+using a non-v3 model (e.g. `text-embedding-ada-002`), the driver throws a
+configuration error before any API call — unset the variable to let the model
+use its native size.
 
 ### Cohere
 
