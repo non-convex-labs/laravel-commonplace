@@ -10,7 +10,10 @@ use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
 use NonConvexLabs\Commonplace\Contracts\VectorSearch;
 use NonConvexLabs\Commonplace\Contracts\VectorSearchDriver;
 use NonConvexLabs\Commonplace\Contracts\VectorStorage;
+use NonConvexLabs\Commonplace\Drivers\Embedding\BedrockEmbeddingProvider;
+use NonConvexLabs\Commonplace\Drivers\Embedding\CohereEmbeddingProvider;
 use NonConvexLabs\Commonplace\Drivers\Embedding\NullEmbeddingProvider;
+use NonConvexLabs\Commonplace\Drivers\Embedding\OpenAIEmbeddingProvider;
 use NonConvexLabs\Commonplace\Drivers\Embedding\VoyageEmbeddingProvider;
 use NonConvexLabs\Commonplace\Drivers\Vector\InPhpCosineDriver;
 use NonConvexLabs\Commonplace\Drivers\Vector\NullDriver;
@@ -47,6 +50,9 @@ class CommonplaceServiceProvider extends PackageServiceProvider
 
             return match ($driver) {
                 'voyage' => $this->app->make(VoyageEmbeddingProvider::class),
+                'openai' => $this->app->make(OpenAIEmbeddingProvider::class),
+                'cohere' => $this->app->make(CohereEmbeddingProvider::class),
+                'bedrock' => $this->app->make(BedrockEmbeddingProvider::class),
                 'null' => $this->app->make(NullEmbeddingProvider::class),
                 default => throw new InvalidArgumentException("Unknown commonplace embedding driver: {$driver}"),
             };

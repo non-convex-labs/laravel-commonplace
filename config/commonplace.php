@@ -31,9 +31,13 @@ return [
     |--------------------------------------------------------------------------
     | Embedding provider
     |--------------------------------------------------------------------------
-    | Drivers: 'voyage' | 'null'. The Null driver returns zero vectors and is
-    | intended for tests, or for installations that want to disable semantic
-    | search entirely.
+    | Drivers: 'voyage' | 'openai' | 'cohere' | 'bedrock' | 'null'.
+    | The Null driver returns zero vectors and is intended for tests, or for
+    | installations that want to disable semantic search entirely.
+    |
+    | The `dimensions` value drives the vector storage column size. Switching
+    | provider or model without re-embedding existing rows will produce garbage
+    | results — run `php artisan commonplace:reindex` after any such change.
     */
 
     'embedding' => [
@@ -43,6 +47,26 @@ return [
             'api_key' => env('VOYAGE_API_KEY'),
             'model' => env('VOYAGE_EMBEDDING_MODEL', 'voyage-3.5'),
             'dimensions' => (int) env('VOYAGE_EMBEDDING_DIMENSIONS', 1024),
+        ],
+
+        'openai' => [
+            'api_key' => env('OPENAI_API_KEY'),
+            'model' => env('OPENAI_EMBEDDING_MODEL', 'text-embedding-3-small'),
+            'dimensions' => (int) env('OPENAI_EMBEDDING_DIMENSIONS', 1536),
+        ],
+
+        'cohere' => [
+            'api_key' => env('COHERE_API_KEY'),
+            'model' => env('COHERE_EMBEDDING_MODEL', 'embed-english-v3.0'),
+            'dimensions' => (int) env('COHERE_EMBEDDING_DIMENSIONS', 1024),
+            'input_type' => env('COHERE_EMBEDDING_INPUT_TYPE', 'search_document'),
+        ],
+
+        'bedrock' => [
+            'region' => env('AWS_BEDROCK_REGION', env('AWS_DEFAULT_REGION', 'us-east-1')),
+            'model' => env('BEDROCK_EMBEDDING_MODEL', 'amazon.titan-embed-text-v2:0'),
+            'dimensions' => (int) env('BEDROCK_EMBEDDING_DIMENSIONS', 1024),
+            'normalize' => (bool) env('BEDROCK_EMBEDDING_NORMALIZE', true),
         ],
 
         'null' => [
