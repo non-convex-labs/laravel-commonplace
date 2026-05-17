@@ -37,7 +37,8 @@ return [
     |
     | The `dimensions` value drives the vector storage column size. Switching
     | provider or model without re-embedding existing rows will produce garbage
-    | results — run `php artisan commonplace:reindex` after any such change.
+    | results — run `php artisan commonplace:reindex --force` after any such
+    | change (without --force, existing rows are skipped).
     */
 
     'embedding' => [

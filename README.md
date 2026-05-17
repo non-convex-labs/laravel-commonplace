@@ -31,8 +31,10 @@ Pick one driver in `config/commonplace.php` (or via
 `COMMONPLACE_EMBEDDING_DRIVER`). Each driver self-reports the dimensionality of
 its output vectors, and that dimensionality is what the storage column will be
 sized to. **Changing driver or model without re-embedding existing rows
-produces garbage results** — always run `php artisan commonplace:reindex` after
-a switch.
+produces garbage results** — always run `php artisan commonplace:reindex --force`
+after a switch (the `--force` flag clears `indexed_at` so existing rows are
+re-embedded instead of skipped). Add `--sync` to run inline if you don't have
+a queue worker.
 
 ### Driver matrix
 

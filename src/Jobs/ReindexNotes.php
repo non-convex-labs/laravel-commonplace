@@ -25,6 +25,8 @@ class ReindexNotes implements ShouldQueue
     use Queueable;
     use SerializesModels;
 
+    public function __construct(public readonly bool $force = false) {}
+
     public function failed(\Throwable $exception): void
     {
         Log::error('Commonplace reindex job failed', [
@@ -42,9 +44,13 @@ class ReindexNotes implements ShouldQueue
 
         $maxBatches = (int) floor(240 / max($batchDelaySeconds, 1));
 
-        $notes = Note::needsReindexing($cooldown)
-            ->limit($batchSize * $maxBatches)
-            ->get();
+        // Force bypasses the updated_at cooldown so a just-cleared row is
+        // picked up immediately (used by `commonplace:reindex --force`).
+        $query = $this->force
+            ? Note::query()->whereNull('indexed_at')
+            : Note::needsReindexing($cooldown);
+
+        $notes = $query->limit($batchSize * $maxBatches)->get();
 
         if ($notes->isEmpty()) {
             return;
