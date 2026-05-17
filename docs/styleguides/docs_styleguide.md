@@ -1,6 +1,6 @@
 # Docs Style Guide
 
-How docs in this repo are organized and written. Synthesized from a survey of Spatie (medialibrary, permission, backup), Filament, Livewire, laravel/docs, and earendil-works/pi.
+Here's how I organize and write docs in this repo. I pulled these patterns from a survey of Spatie (medialibrary, permission, backup), Filament, Livewire, laravel/docs, and earendil-works/pi.
 
 ## Structure
 
@@ -13,7 +13,7 @@ How docs in this repo are organized and written. Synthesized from a survey of Sp
 
 ## Nav config
 
-Once `docs/` crosses ~10 files, introduce a Mintlify-style `docs.json` (see `pi-docs.json` in this folder for a reference). Group pages into a small number of sections — six is a useful upper bound:
+Once `docs/` crosses ~10 files, introduce a Mintlify-style `docs.json` (see `pi-docs.json` in this folder for a reference). Group pages into a small number of sections. Six is a useful upper bound:
 
 1. **Start here** — index, quickstart, install, core feature pages
 2. **Customization** — extension points, theming, custom drivers
@@ -22,11 +22,11 @@ Once `docs/` crosses ~10 files, introduce a Mintlify-style `docs.json` (see `pi-
 5. **Platform Setup** — OS-specific notes, environment quirks
 6. **Development** — local setup, project structure, debugging
 
-Include a `redirects` block from day one — plan renames before doing them.
+Include a `redirects` block from day one. Plan renames before doing them.
 
 ## Page anatomy
 
-Three skeletons recur across high-quality projects. Pick one when starting a page.
+I've seen three skeletons recur across high-quality projects. Pick one when starting a page.
 
 ### Landing page (`index.md`)
 
@@ -51,7 +51,7 @@ No prereqs, no requirements table, no architecture. The landing page exists to m
 ## Advanced / escape hatch  -> for users who outgrow the defaults
 ```
 
-Each `##` is independent — a reader should be able to skim to one section and use it without reading the rest. Open every section with one declarative sentence, then a code block.
+Each `##` is independent. A reader should be able to skim to one section and use it without reading the rest. Open every section with one declarative sentence, then a code block.
 
 ### Reference / internals page
 
@@ -116,7 +116,7 @@ Length: 350 bytes to 3 kB is normal. **Do not pad short topics.** A page can be 
 
 ## Page-size honesty
 
-Page length should track topic depth, not editorial consistency. Reference distribution from earendil-works/pi:
+Page length should track topic depth, not editorial consistency. Here's the reference distribution from earendil-works/pi:
 
 | Size | When |
 |---|---|

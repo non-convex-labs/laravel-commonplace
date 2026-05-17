@@ -1,6 +1,6 @@
 # Artisan commands
 
-The package ships three Artisan commands for diagnosing vector search, rebuilding embeddings, and recovering wikilink graph drift.
+The package ships three Artisan commands. You get one for diagnosing vector search, one for rebuilding embeddings, and one for recovering wikilink graph drift.
 
 **Source files:**
 
@@ -17,7 +17,7 @@ The package ships three Artisan commands for diagnosing vector search, rebuildin
 | `commonplace:reindex` | After switching embedding driver, after changing model dimensions, or to backfill notes created while the queue was down. |
 | `commonplace:relink` | After a queue outage during which `UpdateWikilinksJob` failed; doctor's "Orphaned wikilinks" warning recommends it. |
 
-Doctor never mutates state. Reindex with `--force` clears `indexed_at` on every note and is the only way to recover from embedding dimension drift surfaced by doctor.
+Doctor never mutates state. Reindex with `--force` clears `indexed_at` on every note, and it's the only way to recover from embedding dimension drift that doctor surfaces.
 
 ## `commonplace:doctor`
 
@@ -47,19 +47,19 @@ commonplace:doctor
 
 ### Common invocations
 
-Run as a smoke test after install or after editing `.env`:
+Run it as a smoke test after install or after editing `.env`:
 
 ```bash
 php artisan commonplace:doctor
 ```
 
-Use in CI to fail the build on a misconfiguration:
+Use it in CI to fail the build on a misconfiguration:
 
 ```bash
 php artisan commonplace:doctor --exit-code
 ```
 
-Before applying the published pgvector migration, sanity-check that no legacy JSON-encoded embeddings will trip the type cast:
+Before you apply the published pgvector migration, sanity-check that no legacy JSON-encoded embeddings will trip the type cast:
 
 ```bash
 php artisan commonplace:doctor --pgvector-migration-precheck
@@ -68,7 +68,7 @@ php artisan commonplace:doctor --pgvector-migration-precheck
 ### Pre/post conditions
 
 - Read-only. Safe to run repeatedly, in production, and against a live database.
-- Requires a working database connection. Resolves `EmbeddingProvider` and `VectorSearchDriver` from the container — container binding errors surface as failed checks rather than uncaught exceptions.
+- Requires a working database connection. It resolves `EmbeddingProvider` and `VectorSearchDriver` from the container — container binding errors surface as failed checks rather than uncaught exceptions.
 - Emits `[OK]`, `[WARN]`, `[FAIL]`, `[SKIP]` markers followed by a recommendations footer for every non-`ok` check.
 
 ## `commonplace:reindex`
@@ -98,13 +98,13 @@ commonplace:reindex
 
 ### Common invocations
 
-After switching the embedding driver from `null` to `openai` (or between providers), force a full re-embed:
+After you switch the embedding driver from `null` to `openai` (or between providers), force a full re-embed:
 
 ```bash
 php artisan commonplace:reindex --force
 ```
 
-Run inline against a small dev vault without spinning up a worker:
+Run it inline against a small dev vault without spinning up a worker:
 
 ```bash
 php artisan commonplace:reindex --force --sync
@@ -127,7 +127,7 @@ php artisan commonplace:reindex
 
 Re-resolves `commonplace_links` rows whose `target_note_id` is `NULL` against the current note set, via `WikilinkParser::resolveTarget`. Defined at [`src/Console/RelinkCommand.php`](../src/Console/RelinkCommand.php).
 
-Orphaned link rows are the symptom that `UpdateWikilinksJob` (the move-rewrites-wikilinks job) failed silently — typical cause is a queue worker that wasn't running when a note got moved. `commonplace:doctor` watches the count via `commonplace.wikilinks.orphan_warn_threshold` (default 50) and recommends this command above threshold.
+Orphaned link rows are the symptom that `UpdateWikilinksJob` (the move-rewrites-wikilinks job) failed silently. The typical cause is a queue worker that wasn't running when a note got moved. `commonplace:doctor` watches the count via `commonplace.wikilinks.orphan_warn_threshold` (default 50) and recommends this command above threshold.
 
 **Signature:**
 

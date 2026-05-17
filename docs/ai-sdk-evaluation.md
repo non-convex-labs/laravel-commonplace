@@ -3,30 +3,30 @@
 **Status:** Decision recorded 2026-05-17. Closes #34.
 **Decision:** **Stay.** Keep the in-repo `EmbeddingProvider` contract +
 per-vendor driver pattern. Revisit when (and if) a first-party
-Laravel AI SDK ships an embeddings API that we can adapt without
-losing per-driver knobs.
+Laravel AI SDK ships an embeddings API we can adapt without losing
+per-driver knobs.
 
 ## Context
 
-`docs/styleguides/laravel_styleguide.md` flags:
+`docs/styleguides/laravel_styleguide.md` says:
 
 > Before rolling your own EmbeddingProvider contract + driver pattern,
 > check whether the AI SDK already covers the use case.
 
-In #29 we extended the in-repo contract rather than migrating to a
-first-party SDK, because the migration would be a breaking config
-change for every Voyage user already in production. This document is
-the deliberate check the style guide asked for.
+In #29 I extended the in-repo contract instead of migrating to a
+first-party SDK. The migration would have been a breaking config
+change for every Voyage user already in production. This doc is the
+deliberate check the style guide asked for.
 
-## What we looked at
+## What I looked at
 
 - `vendor/laravel/framework/src/Illuminate/*` — no `AI`, `Embeddings`,
   or `VectorStore` module in the bundled framework at the time of
-  this evaluation. The closest adjacency is `Illuminate/JsonSchema`,
-  which is request/response schema validation — not AI.
+  this evaluation. The closest neighbor is `Illuminate/JsonSchema`,
+  which is request/response schema validation. Not AI.
 - `composer require laravel/ai` / `prism-php/prism` — neither is in
-  `composer.json` or in the vendor tree. Both are third-party today;
-  there is no first-party Anthropic / OpenAI client packaged with
+  `composer.json` or the vendor tree. Both are third-party today.
+  There's no first-party Anthropic / OpenAI client packaged with
   Laravel 13 here.
 - The existing in-repo drivers (`Voyage`, `OpenAI`, `Cohere`,
   `Bedrock`, `Null`) each rely on per-vendor knobs that any
@@ -36,7 +36,7 @@ the deliberate check the style guide asked for.
     - Cohere v3: `input_type` split between indexing vs querying.
     - Bedrock: AWS credential chain, region, `normalize` flag,
       `Aws\CommandPool` concurrency (#31).
-  These aren't surface-level options — they materially affect retrieval
+  These knobs aren't surface-level. They materially affect retrieval
   quality and storage column sizing.
 
 ## Adapter-pattern prototype (not landed)
@@ -61,10 +61,10 @@ final class LaravelAiSdkEmbeddingProvider implements EmbeddingProvider
 }
 ```
 
-We did **not** land this because the `Illuminate\AI\EmbeddingsContract`
-namespace does not exist in the installed Laravel 13 vendor tree (see
-"What we looked at"). The shape is sketched here for the next time
-this is reviewed.
+I didn't land this because the `Illuminate\AI\EmbeddingsContract`
+namespace doesn't exist in the installed Laravel 13 vendor tree (see
+"What I looked at"). The shape is sketched here so the next reviewer
+has a starting point.
 
 ## What we'd lose if we migrated to a generic SDK shape today
 
@@ -79,10 +79,10 @@ this is reviewed.
 ## Vector-store helpers
 
 Laravel 13 ships `Illuminate\Database` query builders that include
-`pgvector` operators (we use this in `PgvectorDriver`). That part is
-**already** first-party and we already use it. The piece we hand-roll
+`pgvector` operators. We use that in `PgvectorDriver`. That piece is
+already first-party and we already use it. The piece we hand-roll
 (`Drivers\Vector\InPhpCosineDriver`, `Drivers\Vector\PgvectorDriver`,
-`Drivers\Vector\NullDriver`) is just a `VectorStorage`/`VectorSearch`
+`Drivers\Vector\NullDriver`) is a `VectorStorage`/`VectorSearch`
 contract on top — a swappable backend selection, not an embeddings
 client. No migration value there.
 
@@ -93,11 +93,11 @@ client. No migration value there.
 Triggers that would flip this:
 
 1. A first-party Laravel AI / Embeddings module ships that exposes
-   per-driver knobs we currently use (notably Cohere's input_type
+   the per-driver knobs we currently use (notably Cohere's input_type
    split and OpenAI v3-only dimensions). Re-run this evaluation.
-2. We discover that our maintenance cost across the 5 drivers
-   exceeds the cost of carrying a per-driver-knob shim on top of an
-   SDK — i.e. when we add a 6th or 7th provider.
+2. Our maintenance cost across the 5 drivers exceeds the cost of
+   carrying a per-driver-knob shim on top of an SDK. Probably when
+   we add a 6th or 7th provider.
 3. A specific feature we want (batched async, fakes for tests,
    observability) becomes meaningfully easier under an SDK than to
    add to the in-repo contract.
@@ -109,18 +109,18 @@ If a future evaluation flips the decision to **migrate**:
 - `config/commonplace.php`: replace `embedding.driver` with a pointer
   into the SDK config (e.g. `embedding.sdk_driver` → SDK's own
   driver map). Per-vendor blocks (`embedding.voyage`,
-  `embedding.openai`, ...) stay; they're either passed through to the
+  `embedding.openai`, ...) stay. They're either passed through to the
   SDK as driver-specific config or get aliased.
 - Upgrade path for existing users: keep both code paths gated behind a
   feature flag for one minor version (`embedding.use_sdk = false` by
   default). Validation of equivalence: a doctor command that compares
   the in-repo provider's `dimensions()` against the SDK's reported
-  dimensions for the same model — must match exactly to avoid silent
-  pgvector column drift.
-- Tests: keep the existing per-driver test files; their assertions
+  dimensions for the same model. They must match exactly to avoid
+  silent pgvector column drift.
+- Tests: keep the existing per-driver test files. Their assertions
   about request shape (POST body, dimensions parameter) translate to
-  SDK assertions if the SDK has its own fake (otherwise the tests
-  themselves migrate to the SDK's fake API).
+  SDK assertions if the SDK has its own fake. Otherwise the tests
+  themselves migrate to the SDK's fake API.
 
 ## Action items
 

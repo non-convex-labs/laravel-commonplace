@@ -1,6 +1,6 @@
 # Embedding drivers
 
-Pick a provider, set its API key, and the rest of the package adapts. Each driver self-reports the dimensionality of its output vectors, and that number is what the storage column gets sized to.
+Pick a provider, set its API key, and the rest of the package adapts. Each driver reports the dimensionality of its output vectors. That number sizes the storage column.
 
 ```dotenv
 COMMONPLACE_EMBEDDING_DRIVER=voyage
@@ -8,9 +8,9 @@ VOYAGE_API_KEY=...
 ```
 
 > [!WARNING]
-> Changing driver or model without re-embedding existing rows produces garbage results. Always run `php artisan commonplace:reindex --force` after a switch — `--force` clears `indexed_at` so existing rows are re-embedded instead of skipped. See [commands.md](./commands.md) for the full reindex flow.
+> Changing driver or model without re-embedding existing rows produces garbage results. Always run `php artisan commonplace:reindex --force` after a switch. `--force` clears `indexed_at` so existing rows are re-embedded instead of skipped. See [commands.md](./commands.md) for the full reindex flow.
 
-The vectors this layer produces flow into [vector storage](./vector-storage.md), which decides where they live and how similarity search executes against them.
+The vectors this layer produces flow into [vector storage](./vector-storage.md). That's where they live and where similarity search runs against them.
 
 ## Basic usage
 
@@ -24,7 +24,7 @@ Set the driver in `config/commonplace.php` (or via `COMMONPLACE_EMBEDDING_DRIVER
 | `bedrock` | `amazon.titan-embed-text-v2:0` | 1024 | Configurable to 256 / 512 / 1024. Uses your default AWS credential chain. |
 | `null` | — | 1024 | Zero vectors. For tests / disabling semantic search. |
 
-All drivers implement [`EmbeddingProvider`](../src/Contracts/EmbeddingProvider.php) and are wired through the container — bind your own to swap providers in tests. See [services.md](./services.md) for the binding points.
+All drivers implement [`EmbeddingProvider`](../src/Contracts/EmbeddingProvider.php) and are wired through the container. Bind your own to swap providers in tests. See [services.md](./services.md) for the binding points.
 
 ## Voyage
 
@@ -64,7 +64,7 @@ COHERE_EMBEDDING_MODEL=embed-english-v3.0
 COHERE_EMBEDDING_DIMENSIONS=1024
 ```
 
-Cohere v3 distinguishes indexing from querying via `input_type`. The driver uses the recommended pair by default: `search_document` when indexing notes, `search_query` when a user searches. Override only if you know what you're doing — see [`config/commonplace.php`](../config/commonplace.php) for the `index_input_type` / `query_input_type` keys.
+Cohere v3 distinguishes indexing from querying via `input_type`. The driver uses the recommended pair by default: `search_document` when indexing notes, `search_query` when a user searches. Override only if you know what you're doing. See [`config/commonplace.php`](../config/commonplace.php) for the `index_input_type` / `query_input_type` keys.
 
 For multilingual content:
 
@@ -98,7 +98,7 @@ Bedrock has no batch-embeddings endpoint. `embedBatch()` fans out concurrent `In
 Sustained RPM is roughly `concurrency * (60 / avg_latency_seconds)`. At Titan v2's typical ~200ms latency, the default `concurrency=2` sustains ~600 RPM if every batch is full.
 
 > [!WARNING]
-> Stay under your account's per-model Bedrock quota. If you exceed it, the SDK's exponential backoff kicks in and the first failure aborts the rest of the batch. The driver surfaces what already succeeded via `PartialBatchEmbeddingException` so callers can checkpoint and retry only the remainder — but a cold AWS account is often capped well below 100 RPM. Start at the default and raise only after confirming headroom in CloudWatch.
+> Stay under your account's per-model Bedrock quota. If you exceed it, the SDK's exponential backoff kicks in and the first failure aborts the rest of the batch. The driver surfaces what already succeeded via `PartialBatchEmbeddingException` so callers can checkpoint and retry only the remainder. But a cold AWS account is often capped well below 100 RPM. Start at the default and raise only after confirming headroom in CloudWatch.
 
 ## Null
 
@@ -109,14 +109,14 @@ COMMONPLACE_EMBEDDING_DRIVER=null
 COMMONPLACE_NULL_DIMENSIONS=1024
 ```
 
-Pair with the `null` vector storage driver if you want search disabled end-to-end; see [vector-storage.md](./vector-storage.md).
+Pair with the `null` vector storage driver if you want search disabled end-to-end. See [vector-storage.md](./vector-storage.md).
 
 ## Reindexing after a switch
 
-Every driver swap (and every model change within a driver) requires a reindex. The command lives in [commands.md](./commands.md); the short form:
+Every driver swap (and every model change within a driver) requires a reindex. The command lives in [commands.md](./commands.md). The short form:
 
 ```bash
 php artisan commonplace:reindex --force
 ```
 
-`--force` clears `indexed_at` on every note so existing rows are re-embedded instead of skipped. Add `--sync` to run inline if you don't have a queue worker. The job batches notes through `embedBatch()` and writes results to the configured [vector storage](./vector-storage.md) driver; tune throughput via the `reindex` block in [`config/commonplace.php`](../config/commonplace.php) (`batch_size`, `batch_delay_seconds`, `cooldown_minutes`).
+`--force` clears `indexed_at` on every note so existing rows are re-embedded instead of skipped. Add `--sync` to run inline if you don't have a queue worker. The job batches notes through `embedBatch()` and writes results to the configured [vector storage](./vector-storage.md) driver. Tune throughput via the `reindex` block in [`config/commonplace.php`](../config/commonplace.php) (`batch_size`, `batch_delay_seconds`, `cooldown_minutes`).

@@ -1,6 +1,6 @@
 # Model relationships
 
-Eloquent models the package ships with, the tables behind them, and how they fit together.
+The Eloquent models the package ships with, the tables behind them, and how they fit together.
 
 **Source files:**
 
@@ -14,7 +14,7 @@ Eloquent models the package ships with, the tables behind them, and how they fit
 
 ## Overview
 
-`Note` is the aggregate root. Each note `belongsTo` an owner (your configured user model) and `hasMany` `NoteVersion` rows that snapshot prior `content`. A note `hasMany` outgoing `Link` rows (wikilinks it emits) and `hasMany` incoming `Link` rows (wikilinks pointing at it); links carry both `target_path` (the literal `[[wikilink]]` text) and a nullable `target_note_id` (resolved when the target note exists). A note `hasMany` `Share` rows that grant a per-user permission to a private note, and `belongsToMany` `Tag` through the `commonplace_note_tag` pivot. The owner side of the graph lives on your user model via the [`HasCommonplaceNotes` trait](user-model.md).
+`Note` is the aggregate root. Each note `belongsTo` an owner (your configured user model) and `hasMany` `NoteVersion` rows that snapshot prior `content`. A note `hasMany` outgoing `Link` rows for the wikilinks it emits, and `hasMany` incoming `Link` rows for the wikilinks pointing at it. Links carry both `target_path` (the literal `[[wikilink]]` text) and a nullable `target_note_id` that gets filled in when the target note exists. A note `hasMany` `Share` rows that grant a per-user permission to a private note, and `belongsToMany` `Tag` through the `commonplace_note_tag` pivot. The owner side of the graph lives on your user model via the [`HasCommonplaceNotes` trait](user-model.md).
 
 ## Note
 
@@ -60,9 +60,9 @@ Eloquent models the package ships with, the tables behind them, and how they fit
 
 ### Casts, accessors, mutators
 
-- `indexed_at` cast to `datetime`; `visibility` cast to the [`Visibility`](../src/Enums/Visibility.php) backed enum — cases `Private` (`'private'`) and `Public` (`'public'`) ([`Note.php:42-47`](../src/Models/Note.php#L42)). Per-user grants on private notes happen via the [`Share`](#share) model, not a third visibility value.
+- `indexed_at` casts to `datetime`. `visibility` casts to the [`Visibility`](../src/Enums/Visibility.php) backed enum with cases `Private` (`'private'`) and `Public` (`'public'`) ([`Note.php:42-47`](../src/Models/Note.php#L42)). Per-user grants on private notes happen via the [`Share`](#share) model. There's no third visibility value.
 - `embedding` is a **read-only** accessor that delegates to the bound `VectorStorage`'s `parse()` ([`Note.php:70-91`](../src/Models/Note.php#L70)). The write path is `$storage->store($note->id, $vector)` — see [vector storage](vector-storage.md). The accessor swallows driver-resolution failures and returns `null` (logged once) so `toArray()` and queue payloads never blow up.
-- `embedding` and `embedding_dimensions` are listed in `$hidden`, so they never leak into `toArray()` / `toJson()`, and `embedding` is not in `$fillable`.
+- `embedding` and `embedding_dimensions` are listed in `$hidden`, so they never leak into `toArray()` / `toJson()`. `embedding` is also not in `$fillable`.
 
 ```php
 use NonConvexLabs\Commonplace\Models\Note;
@@ -78,7 +78,7 @@ $note->tags()->attach(Tag::firstOrCreate(['name' => 'philosophy']));
 
 - **Table:** `commonplace_note_versions` ([migration](../database/migrations/2026_03_08_000003_create_commonplace_note_versions_table.php))
 - **Primary key:** `id`
-- **Timestamps:** `created_at` only; `UPDATED_AT` is disabled ([`NoteVersion.php:16`](../src/Models/NoteVersion.php#L16)) — rows are immutable history.
+- **Timestamps:** `created_at` only; `UPDATED_AT` is disabled ([`NoteVersion.php:16`](../src/Models/NoteVersion.php#L16)). Rows are immutable history.
 
 ### Columns
 
@@ -121,7 +121,7 @@ $note->versions()
 | `target_note_id` | FK → notes, nullable | Resolved note when the target exists; `nullOnDelete`; indexed. |
 | `timestamps` | — | `created_at` / `updated_at`. |
 
-A `target_path` with a `null` `target_note_id` is the dangling-link case — the wikilink exists on disk but no note matches it yet.
+A `target_path` with a `null` `target_note_id` is the dangling-link case. The wikilink exists on disk but no note matches it yet.
 
 ### Relationships
 
@@ -140,7 +140,7 @@ $dangling = Link::whereNull('target_note_id')
 
 - **Table:** `commonplace_shares` ([migration](../database/migrations/2026_03_08_000007_create_commonplace_shares_table.php))
 - **Primary key:** `id`
-- **Timestamps:** `created_at` only ([`Share.php:17`](../src/Models/Share.php#L17)); a share is created or revoked, never edited.
+- **Timestamps:** `created_at` only ([`Share.php:17`](../src/Models/Share.php#L17)). A share is created or revoked, never edited.
 
 ### Columns
 
@@ -215,14 +215,14 @@ WHERE (
 )
 ```
 
-The scope reads the user id via `Authenticatable::getAuthIdentifier()`, so any model implementing the Laravel contract works — it does not require `HasCommonplaceNotes`. Pair this scope with `inFolder` or `withTag` to narrow further:
+The scope reads the user id via `Authenticatable::getAuthIdentifier()`, so any model implementing the Laravel contract works. You don't need `HasCommonplaceNotes`. Pair this scope with `inFolder` or `withTag` to narrow further:
 
 ```php
 Note::accessibleBy($user)->withTag('philosophy')->get();
 ```
 
 > [!NOTE]
-> `permission` on `Share` is captured but not yet branched on inside `accessibleBy` — every share currently grants read access. Higher permissions are a future extension point.
+> `permission` on `Share` is captured but `accessibleBy` doesn't branch on it yet. Every share currently grants read access. Higher permissions are a future extension point.
 
 ## Related
 

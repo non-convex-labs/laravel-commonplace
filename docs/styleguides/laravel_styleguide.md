@@ -1,10 +1,10 @@
 # Laravel Style, Best Practices & Antipatterns
 
-A reference distilled from current (2025–2026) community guidance, framework
+I pulled this together from current (2025–2026) community guidance, framework
 docs, and package-development guides. Scope: Laravel 13 packages and
 applications (PHP 8.3+, ideally 8.4).
 
-Treat this as a checklist when designing or reviewing code, not a contract.
+Use it as a checklist when designing or reviewing code. It's not a contract.
 
 ---
 
@@ -39,9 +39,9 @@ Treat this as a checklist when designing or reviewing code, not a contract.
 
 ## 2. Laravel 13 — What's New & Relevant
 
-Laravel 13 shipped 2026-03-17 at Laracon EU as a deliberately small upgrade
-with **zero breaking changes** from 12. Key additions worth designing around
-when rewriting:
+Laravel 13 shipped 2026-03-17 at Laracon EU. It's a deliberately small upgrade
+with **zero breaking changes** from 12. Here are the additions you'll want to
+design around when rewriting:
 
 ### Laravel AI SDK (first-party, stable in 13)
 - Unified API for text generation, tool-calling agents, **embeddings**,
@@ -107,7 +107,7 @@ when rewriting:
 ## 3. Architecture & Code Organization
 
 ### Single Responsibility & thin controllers
-- Controllers orchestrate; they don't contain business logic. Push work down
+- Controllers orchestrate. They don't contain business logic. Push work down
   into Services, Actions, or domain classes.
 - A class with one reason to change is easier to test, refactor, and replace.
 - Keep controller methods small — ideally < 20 lines. If you can't, the work
@@ -150,7 +150,7 @@ when rewriting:
 
 ## 4. Eloquent & Database
 
-### The N+1 problem (the most common Laravel performance bug)
+### The N+1 problem (the most common Laravel performance bug I see)
 - Eager-load known relationships with `with(['author', 'tags'])`.
 - For collections you already have, use `$collection->load('relation')`.
 - For automatic prevention during dev:
@@ -253,7 +253,7 @@ when rewriting:
 
 ### Frameworks
 - PHPUnit and Pest are both fine. Pest is built on PHPUnit, so PHPUnit
-  configuration applies to either. Don't mix both in one suite — pick one.
+  configuration applies to either. Don't mix both in one suite. Pick one.
 - For packages, use **Orchestra Testbench** to boot a minimal Laravel app
   inside the test process. It lets you test service providers, routes,
   Eloquent, and Blade rendering exactly as a host app would experience
@@ -381,7 +381,7 @@ when rewriting:
 
 ## 10. Quick-Reference Checklist
 
-Before opening a PR, mentally walk through:
+Before you open a PR, walk through this:
 
 - [ ] `pint` clean
 - [ ] Tests green
