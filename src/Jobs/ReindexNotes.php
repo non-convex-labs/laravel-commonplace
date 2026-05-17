@@ -13,6 +13,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
+use NonConvexLabs\Commonplace\Contracts\VectorStorage;
 use NonConvexLabs\Commonplace\Models\Note;
 
 #[Tries(3)]
@@ -33,7 +34,7 @@ class ReindexNotes implements ShouldQueue
         ]);
     }
 
-    public function handle(EmbeddingProvider $embedder): void
+    public function handle(EmbeddingProvider $embedder, VectorStorage $vector): void
     {
         $cooldown = (int) config('commonplace.reindex.cooldown_minutes', 60);
         $batchSize = (int) config('commonplace.reindex.batch_size', 10);
@@ -60,9 +61,8 @@ class ReindexNotes implements ShouldQueue
                 $embeddings = $embedder->embedBatch(array_values($texts));
 
                 foreach ($batch->values() as $index => $note) {
-                    $note->embedding = $embeddings[$index];
-                    $note->indexed_at = now();
-                    $note->save();
+                    $vector->store($note->id, $embeddings[$index]);
+                    $note->forceFill(['indexed_at' => now()])->save();
                 }
 
                 Log::info('Commonplace reindex batch complete', [

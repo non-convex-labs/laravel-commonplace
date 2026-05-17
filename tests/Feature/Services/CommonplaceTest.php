@@ -8,6 +8,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use InvalidArgumentException;
+use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
 use NonConvexLabs\Commonplace\Models\Link;
 use NonConvexLabs\Commonplace\Models\Note;
 use NonConvexLabs\Commonplace\Models\NoteVersion;
@@ -557,20 +558,87 @@ class CommonplaceTest extends TestCase
         $this->commonplace->readNote('does/not/exist', $this->owner);
     }
 
-    public function test_semantic_search_requires_pgvector(): void
+    public function test_semantic_search_returns_empty_when_driver_disabled(): void
     {
-        $this->markTestSkipped(
-            'Semantic search relies on pgvector\'s "<=>" distance operator (issue #1). '
-            .'Tests run on sqlite + the null embedding driver, so the path is not exercised here.'
-        );
+        config(['commonplace.vector.driver' => 'null']);
+
+        $results = $this->commonplace->semanticSearch('anything', $this->owner);
+
+        $this->assertCount(0, $results);
     }
 
-    public function test_get_suggested_links_requires_pgvector(): void
+    public function test_semantic_search_ranks_by_cosine_distance(): void
     {
-        $this->markTestSkipped(
-            'getSuggestedLinks() relies on pgvector\'s "<=>" distance operator (issue #1). '
-            .'Tests run on sqlite + the null embedding driver, so the path is not exercised here.'
+        $near = Note::factory()->withEmbedding([1.0, 0.0, 0.0])->create(['user_id' => $this->owner->id]);
+        $mid = Note::factory()->withEmbedding([0.7, 0.7, 0.0])->create(['user_id' => $this->owner->id]);
+        $far = Note::factory()->withEmbedding([0.0, 0.0, 1.0])->create(['user_id' => $this->owner->id]);
+
+        $this->app->instance(
+            EmbeddingProvider::class,
+            new class implements EmbeddingProvider
+            {
+                public function embed(string $text): array
+                {
+                    return [1.0, 0.0, 0.0];
+                }
+
+                public function embedBatch(array $texts): array
+                {
+                    return array_map(fn () => $this->embed(''), $texts);
+                }
+
+                public function dimensions(): int
+                {
+                    return 3;
+                }
+            }
         );
+        $this->app->forgetInstance(Commonplace::class);
+
+        $commonplace = $this->app->make(Commonplace::class);
+        $ordered = $commonplace->semanticSearch('query', $this->owner)->pluck('id')->all();
+
+        $this->assertSame([$near->id, $mid->id, $far->id], $ordered);
+    }
+
+    public function test_get_suggested_links_returns_empty_when_driver_disabled(): void
+    {
+        config(['commonplace.vector.driver' => 'null']);
+
+        $note = Note::factory()->create(['path' => 'src', 'user_id' => $this->owner->id]);
+
+        $this->assertSame([], $this->commonplace->getSuggestedLinks('src', $this->owner));
+
+        // Suppress unused-variable warning; the factory is the side effect we care about.
+        $this->assertSame($note->id, Note::where('path', 'src')->value('id'));
+    }
+
+    public function test_get_suggested_links_excludes_self_and_existing_links(): void
+    {
+        $source = Note::factory()->withEmbedding([1.0, 0.0, 0.0])->create([
+            'path' => 'src',
+            'user_id' => $this->owner->id,
+        ]);
+        $linked = Note::factory()->withEmbedding([1.0, 0.0, 0.0])->create([
+            'path' => 'linked',
+            'user_id' => $this->owner->id,
+        ]);
+        $candidate = Note::factory()->withEmbedding([0.9, 0.1, 0.0])->create([
+            'path' => 'candidate',
+            'user_id' => $this->owner->id,
+        ]);
+
+        Link::create([
+            'source_note_id' => $source->id,
+            'target_note_id' => $linked->id,
+            'target_path' => 'linked',
+        ]);
+
+        $results = $this->commonplace->getSuggestedLinks('src', $this->owner);
+
+        $this->assertCount(1, $results);
+        $this->assertSame('candidate', $results[0]['path']);
+        $this->assertSame($candidate->id, Note::where('path', 'candidate')->value('id'));
     }
 
     public function test_get_neighborhood_requires_pgvector_recursive_cte(): void
