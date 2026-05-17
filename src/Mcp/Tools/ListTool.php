@@ -10,6 +10,7 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
+use NonConvexLabs\Commonplace\Enums\Visibility;
 use NonConvexLabs\Commonplace\Services\Commonplace;
 
 #[Description('List notes with optional filters. Returns path, title, tags, and timestamps — not content (use read-note-tool for that). Call with no arguments to see all notes. Filter by folder prefix (e.g. "projects/ncl"), tag name, or visibility level.')]
@@ -41,7 +42,9 @@ class ListTool extends Tool
         return [
             'folder' => $schema->string('Filter by folder prefix, e.g. projects/ncl')->nullable(),
             'tag' => $schema->string('Filter by tag name')->nullable(),
-            'visibility' => $schema->string('Filter by visibility: private, shared, or public')->nullable(),
+            'visibility' => $schema->string()
+                ->description('Filter by visibility: '.Visibility::describe())
+                ->nullable(),
         ];
     }
 }

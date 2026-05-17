@@ -7,6 +7,7 @@ namespace NonConvexLabs\Commonplace\Tests\Feature\Http;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use NonConvexLabs\Commonplace\Models\Note;
+use NonConvexLabs\Commonplace\Models\Share;
 use NonConvexLabs\Commonplace\Tests\Fixtures\InteractsWithCommonplaceDatabase;
 use NonConvexLabs\Commonplace\Tests\Fixtures\User;
 use NonConvexLabs\Commonplace\Tests\TestCase;
@@ -84,11 +85,24 @@ class PublicNoteControllerTest extends TestCase
 
     public function test_shared_note_is_not_exposed_via_public_route(): void
     {
-        Note::factory()->create([
+        // Sharing is per-user via the Share model, not a visibility state.
+        // A private note with an explicit Share row must still 404 to
+        // unauthenticated visitors — only `visibility = public` is exposed.
+        $owner = User::factory()->create();
+        $recipient = User::factory()->create();
+
+        $note = Note::factory()->create([
+            'user_id' => $owner->id,
             'path' => 'notes/team',
             'title' => 'Team',
             'content' => 'Team body.',
-            'visibility' => 'shared',
+            'visibility' => 'private',
+        ]);
+
+        Share::create([
+            'note_id' => $note->id,
+            'user_id' => $recipient->id,
+            'permission' => 'read',
         ]);
 
         $this->get('/commonplace/public/notes/team')->assertNotFound();

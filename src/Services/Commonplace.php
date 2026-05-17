@@ -13,6 +13,7 @@ use League\CommonMark\Environment\Environment;
 use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
 use NonConvexLabs\Commonplace\Contracts\VectorSearch;
 use NonConvexLabs\Commonplace\Enums\SemanticSearchScope;
+use NonConvexLabs\Commonplace\Enums\Visibility;
 use NonConvexLabs\Commonplace\Models\Link;
 use NonConvexLabs\Commonplace\Models\Note;
 use NonConvexLabs\Commonplace\Models\NoteVersion;
@@ -101,7 +102,7 @@ class Commonplace
         $meta = $parsed['meta'];
 
         $title = $meta['title'] ?? Str::title(str_replace('-', ' ', basename($path)));
-        $visibility = $meta['visibility'] ?? $visibility;
+        $visibility = $this->validateVisibility($meta['visibility'] ?? $visibility);
         $tags = $meta['tags'] ?? $tags;
 
         $note = Note::create([
@@ -172,7 +173,7 @@ class Commonplace
             }
 
             if (isset($meta['visibility'])) {
-                $note->visibility = $meta['visibility'];
+                $note->visibility = $this->validateVisibility($meta['visibility']);
             }
 
             if (isset($meta['tags'])) {
@@ -187,7 +188,7 @@ class Commonplace
                 && isset($this->frontmatterParser->parse($data['content'])['meta']['visibility']);
 
             if (! $contentHasFrontmatterVisibility) {
-                $note->visibility = $data['visibility'];
+                $note->visibility = $this->validateVisibility($data['visibility']);
             }
         }
 
@@ -616,7 +617,7 @@ class Commonplace
             return;
         }
 
-        if ($note->visibility === 'public' && $level === 'read') {
+        if ($note->visibility === Visibility::Public && $level === 'read') {
             return;
         }
 
@@ -681,6 +682,21 @@ class Commonplace
     private function normalizePath(string $path): string
     {
         return str_replace('\\', '/', $path);
+    }
+
+    private function validateVisibility(mixed $value): Visibility
+    {
+        if ($value instanceof Visibility) {
+            return $value;
+        }
+
+        if (! is_string($value) || Visibility::tryFrom($value) === null) {
+            throw new \InvalidArgumentException(
+                'Invalid visibility value. Expected one of: '.Visibility::describe().'.'
+            );
+        }
+
+        return Visibility::from($value);
     }
 
     private function normalizeContent(string $content): string

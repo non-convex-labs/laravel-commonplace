@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Log;
 use NonConvexLabs\Commonplace\Contracts\VectorStorage;
 use NonConvexLabs\Commonplace\Database\Factories\NoteFactory;
+use NonConvexLabs\Commonplace\Enums\Visibility;
 use Throwable;
 
 class Note extends Model
@@ -42,7 +43,7 @@ class Note extends Model
     {
         return [
             'indexed_at' => 'datetime',
-            'visibility' => 'string',
+            'visibility' => Visibility::class,
         ];
     }
 

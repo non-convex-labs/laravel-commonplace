@@ -21,7 +21,7 @@
                 @endforeach
             </nav>
 
-            <span class="cp-visibility-badge cp-visibility-{{ $note->visibility }}">{{ ucfirst($note->visibility) }}</span>
+            <span class="cp-visibility-badge cp-visibility-{{ $note->visibility->value }}">{{ ucfirst($note->visibility->value) }}</span>
 
             @if ($note->tags->isNotEmpty())
                 <ul class="cp-tag-list" role="list" aria-label="Tags">

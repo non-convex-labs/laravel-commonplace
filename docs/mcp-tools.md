@@ -95,7 +95,7 @@ Create a new markdown note at a virtual path.
 | `path` | string | yes | Virtual path, e.g. `projects/ncl/roadmap`. |
 | `content` | string | yes | Markdown body. May include YAML frontmatter (`title`, `tags`). |
 | `tags` | string[] | no | Tag names. Frontmatter `tags` merge with this. |
-| `visibility` | string | no | `private` (default), `shared`, or `public`. |
+| `visibility` | string | no | `private` (default) or `public`. Per-user sharing is granted via the `Share` model, not a visibility value. |
 
 **Output:**
 
@@ -147,7 +147,7 @@ Replace fields on an existing note. Only fields you provide are touched; omitted
 | `path` | string | yes | Current path of the note. |
 | `content` | string | no | New markdown body. |
 | `tags` | string[] | no | Replaces the existing tag set. |
-| `visibility` | string | no | `private`, `shared`, or `public`. |
+| `visibility` | string | no | `private` or `public`. |
 | `new_path` | string | no | Rename the note. |
 
 **Output:** same shape as `read-note-tool`.
@@ -202,7 +202,7 @@ List notes the caller can see, with optional filters. Returns metadata only — 
 |---|---|---|---|
 | `folder` | string | no | Prefix filter, e.g. `projects/ncl`. |
 | `tag` | string | no | Tag name. |
-| `visibility` | string | no | `private`, `shared`, or `public`. |
+| `visibility` | string | no | `private` or `public`. |
 
 **Output:**
 
