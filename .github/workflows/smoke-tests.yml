@@ -1,0 +1,78 @@
+name: smoke-tests
+
+# Manual, gated smoke test against real embedding-provider APIs. Costs real
+# money on each run (small — one embed + one query + one 2-item batch per
+# enabled driver). See RELEASING.md for the pre-tag checklist that calls this.
+
+on:
+  workflow_dispatch:
+    inputs:
+      drivers:
+        description: 'Which driver(s) to exercise'
+        type: choice
+        required: true
+        default: all
+        options:
+          - all
+          - voyage
+          - openai
+          - cohere
+          - bedrock
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Live-API smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: release-smoke
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@7c071dfe9dc99bdf297fa79cb49ea005b9fcadbc # v2.37.1
+        with:
+          php-version: '8.4'
+          extensions: dom, curl, libxml, mbstring, zip, pdo, sqlite, pdo_sqlite, bcmath, intl, fileinfo
+          coverage: none
+
+      - name: Install dependencies
+        run: composer update --prefer-stable --prefer-dist --no-interaction --no-progress
+
+      - name: Run smoke tests
+        env:
+          COMMONPLACE_SMOKE_TEST: '1'
+
+          # Per-driver keys. A driver's test self-skips if its key is unset,
+          # so the matrix is driven by which secrets the user populated AND
+          # the `drivers` workflow input below.
+          VOYAGE_API_KEY: ${{ (inputs.drivers == 'all' || inputs.drivers == 'voyage') && secrets.VOYAGE_API_KEY || '' }}
+          OPENAI_API_KEY: ${{ (inputs.drivers == 'all' || inputs.drivers == 'openai') && secrets.OPENAI_API_KEY || '' }}
+          COHERE_API_KEY: ${{ (inputs.drivers == 'all' || inputs.drivers == 'cohere') && secrets.COHERE_API_KEY || '' }}
+
+          # Bedrock has its own explicit gate plus AWS credential chain.
+          COMMONPLACE_SMOKE_TEST_BEDROCK: ${{ (inputs.drivers == 'all' || inputs.drivers == 'bedrock') && '1' || '0' }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_BEDROCK_REGION: ${{ vars.AWS_BEDROCK_REGION }}
+
+          # Optional model / dimension overrides (defaults live in config/commonplace.php).
+          VOYAGE_EMBEDDING_MODEL: ${{ vars.VOYAGE_EMBEDDING_MODEL }}
+          VOYAGE_EMBEDDING_DIMENSIONS: ${{ vars.VOYAGE_EMBEDDING_DIMENSIONS }}
+          OPENAI_EMBEDDING_MODEL: ${{ vars.OPENAI_EMBEDDING_MODEL }}
+          OPENAI_EMBEDDING_DIMENSIONS: ${{ vars.OPENAI_EMBEDDING_DIMENSIONS }}
+          COHERE_EMBEDDING_MODEL: ${{ vars.COHERE_EMBEDDING_MODEL }}
+          COHERE_EMBEDDING_DIMENSIONS: ${{ vars.COHERE_EMBEDDING_DIMENSIONS }}
+          BEDROCK_EMBEDDING_MODEL: ${{ vars.BEDROCK_EMBEDDING_MODEL }}
+          BEDROCK_EMBEDDING_DIMENSIONS: ${{ vars.BEDROCK_EMBEDDING_DIMENSIONS }}
+        run: vendor/bin/phpunit --group=smoke
