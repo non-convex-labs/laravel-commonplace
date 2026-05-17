@@ -32,9 +32,9 @@ class BacklinksTool extends Tool
                 'path' => $note->path,
                 'title' => $note->title,
             ])->all());
-        } catch (AuthorizationException $e) {
-            return Response::error($e->getMessage());
-        } catch (ModelNotFoundException) {
+        } catch (AuthorizationException|ModelNotFoundException) {
+            // Collapse "inaccessible" and "missing" into the same response
+            // to prevent path enumeration. See docs/mcp-tools.md#backlinks-tool.
             return Response::error('Note not found.');
         }
     }

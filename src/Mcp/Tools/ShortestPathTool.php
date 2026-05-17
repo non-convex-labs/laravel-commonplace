@@ -34,9 +34,9 @@ class ShortestPathTool extends Tool
             }
 
             return Response::json(['connected' => true, 'path' => $path]);
-        } catch (AuthorizationException $e) {
-            return Response::error($e->getMessage());
-        } catch (ModelNotFoundException) {
+        } catch (AuthorizationException|ModelNotFoundException) {
+            // Collapse "inaccessible" and "missing" into the same response
+            // to prevent path enumeration. See docs/mcp-tools.md#shortest-path-tool.
             return Response::error('One or both notes not found.');
         }
     }

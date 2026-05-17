@@ -475,6 +475,26 @@ class CommonplaceTest extends TestCase
         $this->assertSame('spoke', $backlinks->first()->path);
     }
 
+    public function test_get_backlinks_throws_authorization_exception_when_target_is_inaccessible(): void
+    {
+        Note::factory()->create([
+            'path' => 'private/bobs-note',
+            'user_id' => $this->owner->id,
+            'visibility' => 'private',
+        ]);
+
+        $other = User::factory()->create();
+
+        $this->expectException(AuthorizationException::class);
+
+        // Tool layer collapses this to "Note not found." (matching the
+        // ModelNotFoundException case) so the response is indistinguishable
+        // from a missing path. The service-level throw is what makes that
+        // collapse possible; without it `getBacklinks` would silently
+        // return an empty collection and leak the path's existence.
+        $this->commonplace->getBacklinks('private/bobs-note', $other);
+    }
+
     public function test_move_note_updates_path_and_rejects_collision(): void
     {
         $this->commonplace->createNote(

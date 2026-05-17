@@ -91,8 +91,6 @@ Last full pass: **2026-05-17**, against `main` (commit `2d3b300`), Laravel 13.9 
 | Scenario | Issue | Status |
 |---|---|---|
 | [S-NOTE-04](note-taker.md#s-note-04--update-writes-a-noteversion-and-clears-indexed_at) | [#62](https://github.com/non-convex-labs/laravel-commonplace/issues/62) | Spec ambiguous: does `createNote` write a `NoteVersion`? |
-| [S-AI-07](ai-agent.md#s-ai-07--read-note-tool-returns-full-content-absent-or-inaccessible-notes-both-say-note-not-found) | [#67](https://github.com/non-convex-labs/laravel-commonplace/issues/67) | Error-message differential leaks path existence |
-| [S-AI-15](ai-agent.md#s-ai-15--backlinks-tool-requires-target-visibility) | [#67](https://github.com/non-convex-labs/laravel-commonplace/issues/67) | `backlinks-tool` returns `[]` for inaccessible target (silent leak) |
 | [S-PUB-01](public-visitor.md#s-pub-01--get-commonplacepublicpath-renders-public-notes) | [#68](https://github.com/non-convex-labs/laravel-commonplace/issues/68) | Public template renders authenticated owner chrome |
 | [S-PUB-04](public-visitor.md#s-pub-04--public-read-does-not-expose-listing-search-or-graph) | [#61](https://github.com/non-convex-labs/laravel-commonplace/issues/61) | `/{prefix}/public/` route precedence ambiguity |
 | [S-INT-04](integrator.md#s-int-04--php-artisan-migrate-creates-all-package-tables) | [#64](https://github.com/non-convex-labs/laravel-commonplace/issues/64) | `migrate` alone is insufficient; `vendor:publish --tag=commonplace-migrations` required; 2 migrations missing |

@@ -52,9 +52,9 @@ class SuggestedLinksTool extends Tool
             return Response::json($payload);
         } catch (\InvalidArgumentException $e) {
             return Response::error($e->getMessage());
-        } catch (AuthorizationException $e) {
-            return Response::error($e->getMessage());
-        } catch (ModelNotFoundException) {
+        } catch (AuthorizationException|ModelNotFoundException) {
+            // Collapse "inaccessible" and "missing" into the same response
+            // to prevent path enumeration. See docs/mcp-tools.md#suggested-links-tool.
             return Response::error('Note not found.');
         }
     }

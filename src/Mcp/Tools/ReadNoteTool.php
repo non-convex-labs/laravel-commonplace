@@ -36,9 +36,9 @@ class ReadNoteTool extends Tool
                 'tags' => $note->tags->pluck('name')->all(),
                 'updated_at' => $note->updated_at->toIso8601String(),
             ]);
-        } catch (AuthorizationException $e) {
-            return Response::error($e->getMessage());
-        } catch (ModelNotFoundException) {
+        } catch (AuthorizationException|ModelNotFoundException) {
+            // Collapse "inaccessible" and "missing" into the same response
+            // to prevent path enumeration. See docs/mcp-tools.md#read-note-tool.
             return Response::error('Note not found.');
         }
     }

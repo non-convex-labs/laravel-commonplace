@@ -134,9 +134,6 @@ Where a scenario depends on Postgres-only graph queries (`neighborhood-tool`, `s
 
 **Intent.** Path enumeration is not possible. The tool collapses "doesn't exist" and "you can't see it" into one error string.
 
-> [!NOTE]
-> Validation 2026-05-17: the implementation **distinguishes the two cases** — inaccessible returns `"You do not have access to this note."`, missing returns `"Note not found."`. That contradicts the security promise in `docs/mcp-tools.md:138`. Tracked in [#67](https://github.com/non-convex-labs/laravel-commonplace/issues/67).
-
 **Preconditions.** A note Bob owns privately at `private/bob-notes`.
 
 **Steps.**
@@ -306,9 +303,6 @@ No mutation. No version row added.
 ### S-AI-15 — `backlinks-tool` requires target visibility
 
 **Intent.** If the agent can't see the target, the tool returns `Note not found.` — same enumeration defense as `read-note-tool`.
-
-> [!NOTE]
-> Validation 2026-05-17: the implementation returns `[]` (empty list, `isError: false`) for an inaccessible target, and `"Note not found."` for a missing one. Same enumeration leak as S-AI-07. Tracked in [#67](https://github.com/non-convex-labs/laravel-commonplace/issues/67).
 
 **Preconditions.** A private note Bob owns.
 
