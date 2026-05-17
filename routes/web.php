@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 use NonConvexLabs\Commonplace\Http\Controllers\AssetController;
 use NonConvexLabs\Commonplace\Http\Controllers\GraphController;
 use NonConvexLabs\Commonplace\Http\Controllers\NoteController;
+use NonConvexLabs\Commonplace\Http\Controllers\PublicNoteController;
 use NonConvexLabs\Commonplace\Http\Controllers\SearchController;
 
 if (! (bool) config('commonplace.routes.enabled', true)) {
@@ -19,6 +20,25 @@ Route::middleware(['web'])
         Route::get('/assets/commonplace.css', [AssetController::class, 'css'])->name('asset.css');
         Route::get('/assets/commonplace.js', [AssetController::class, 'js'])->name('asset.js');
     });
+
+// Public-read group is registered BEFORE the authenticated group so
+// `/{prefix}/public/foo` matches `commonplace.public.show` instead of
+// being caught by the authenticated `{path}` catch-all (which would
+// 302 the visitor to login).
+if ((bool) config('commonplace.routes.public.enabled', false)) {
+    Route::middleware(config('commonplace.routes.public.middleware', ['web']))
+        ->prefix((string) config('commonplace.routes.prefix', 'commonplace').'/public')
+        ->as('commonplace.public.')
+        ->group(function (): void {
+            Route::get('/raw/{path}', [PublicNoteController::class, 'showRaw'])
+                ->where('path', '.*')
+                ->name('showRaw');
+
+            Route::get('/{path}', [PublicNoteController::class, 'show'])
+                ->where('path', '.*')
+                ->name('show');
+        });
+}
 
 Route::middleware(config('commonplace.routes.middleware', ['web', 'auth']))
     ->prefix((string) config('commonplace.routes.prefix', 'commonplace'))

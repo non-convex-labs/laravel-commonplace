@@ -24,7 +24,28 @@ return [
     'routes' => [
         'enabled' => (bool) env('COMMONPLACE_ROUTES_ENABLED', true),
         'prefix' => env('COMMONPLACE_ROUTES_PREFIX', 'commonplace'),
-        'middleware' => ['web', 'auth'],
+
+        // Middleware stack for the authenticated routes (vault index,
+        // create / edit / delete, search, graph). Override for Sanctum
+        // SPA (cookie + statefulApi) or token-based access:
+        //   COMMONPLACE_ROUTES_MIDDLEWARE=web,auth:sanctum
+        'middleware' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('COMMONPLACE_ROUTES_MIDDLEWARE', 'web,auth')),
+        ))),
+
+        // Public-read route group. When enabled, exposes notes with
+        // `visibility = 'public'` at `{prefix}/public/{path}` without
+        // requiring authentication. The rest of the vault remains
+        // private and 404's to unauthenticated visitors so the listing
+        // of private paths can't be enumerated.
+        'public' => [
+            'enabled' => (bool) env('COMMONPLACE_PUBLIC_ROUTES_ENABLED', false),
+            'middleware' => array_values(array_filter(array_map(
+                'trim',
+                explode(',', (string) env('COMMONPLACE_PUBLIC_ROUTES_MIDDLEWARE', 'web')),
+            ))),
+        ],
     ],
 
     /*
