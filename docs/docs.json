@@ -4,6 +4,7 @@
       "title": "Start here",
       "items": [
         { "title": "Overview", "path": "index.md" },
+        { "title": "Design", "path": "design.md" },
         { "title": "User Model", "path": "user-model.md" },
         { "title": "Embedding Drivers", "path": "embedding-drivers.md" },
         { "title": "Vector Storage", "path": "vector-storage.md" },
