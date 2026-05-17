@@ -35,6 +35,7 @@ class DoctorCommand extends Command
             $this->checkSchema(),
             $this->checkPgvectorExtension($db),
             $this->checkEmbeddingColumn($db),
+            $this->checkEmbeddingDimensionDrift(),
             $this->checkDriverReadiness(),
             $this->checkInPhpCosineCandidates(),
             $this->checkMultiUserVault(),
@@ -291,6 +292,87 @@ class DoctorCommand extends Command
         }
 
         return $this->report(label: 'embedding column type', status: 'ok', detail: $type);
+    }
+
+    /**
+     * Compare the configured provider's dimensions() against the length of an
+     * actual stored vector. Drift here means search is silently wrong
+     * (in_php_cosine skips mismatched rows) or will throw at query time
+     * (pgvector). Sampling the most recent embedded note is enough — if it
+     * drifted, the user's current provider is misaligned with what's stored.
+     *
+     * @return array{label: string, status: string, detail: string, recommendation?: string}
+     */
+    private function checkEmbeddingDimensionDrift(): array
+    {
+        try {
+            $expected = app(EmbeddingProvider::class)->dimensions();
+        } catch (\Throwable) {
+            return $this->report(
+                label: 'Embedding dimension drift',
+                status: 'skip',
+                detail: 'embedding provider not resolvable',
+            );
+        }
+
+        try {
+            if (! Schema::hasTable('commonplace_notes')) {
+                return $this->report(
+                    label: 'Embedding dimension drift',
+                    status: 'skip',
+                    detail: 'commonplace_notes not present',
+                );
+            }
+
+            $sample = Note::query()
+                ->whereNotNull('embedding')
+                ->orderByDesc('id')
+                ->first(['id', 'embedding']);
+        } catch (\Throwable $e) {
+            return $this->report(
+                label: 'Embedding dimension drift',
+                status: 'warn',
+                detail: 'could not sample commonplace_notes: '.$e->getMessage(),
+            );
+        }
+
+        if ($sample === null) {
+            return $this->report(
+                label: 'Embedding dimension drift',
+                status: 'skip',
+                detail: 'no stored embeddings yet',
+            );
+        }
+
+        $vector = $sample->embedding;
+
+        if (! is_array($vector)) {
+            return $this->report(
+                label: 'Embedding dimension drift',
+                status: 'warn',
+                detail: "note #{$sample->id} embedding could not be parsed",
+            );
+        }
+
+        $stored = count($vector);
+
+        if ($stored !== $expected) {
+            return $this->report(
+                label: 'Embedding dimension drift',
+                status: 'fail',
+                detail: "stored {$stored} dim vs provider {$expected} dim",
+                recommendation: "Embedding dimensions drifted: a stored embedding (note #{$sample->id}) has "
+                    ."{$stored} dimensions but the configured provider produces {$expected}. "
+                    .'Searches will return wrong results (or pgvector will error at query time). '
+                    .'Re-embed your notes with `php artisan commonplace:reindex`.',
+            );
+        }
+
+        return $this->report(
+            label: 'Embedding dimension drift',
+            status: 'ok',
+            detail: "stored and provider both {$expected} dim",
+        );
     }
 
     /**

@@ -6,8 +6,10 @@ namespace NonConvexLabs\Commonplace\Tests\Feature\Console;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
+use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
 use NonConvexLabs\Commonplace\Models\Note;
 use NonConvexLabs\Commonplace\Tests\Fixtures\InteractsWithCommonplaceDatabase;
+use NonConvexLabs\Commonplace\Tests\Fixtures\RecordingEmbeddingProvider;
 use NonConvexLabs\Commonplace\Tests\Fixtures\User;
 use NonConvexLabs\Commonplace\Tests\TestCase;
 
@@ -169,5 +171,44 @@ class DoctorCommandTest extends TestCase
         $this->artisan('commonplace:doctor')
             ->assertExitCode(0)
             ->expectsOutputToContain('not applicable (driver is null)');
+    }
+
+    public function test_dimension_drift_check_skips_when_no_embeddings_stored(): void
+    {
+        // Fresh install: table is migrated but no notes have been indexed yet.
+        // The check must be a no-op — false-positives here scare users off
+        // empty databases.
+        $this->artisan('commonplace:doctor', ['--exit-code' => true])
+            ->assertExitCode(0)
+            ->expectsOutputToContain('Embedding dimension drift: no stored embeddings yet');
+    }
+
+    public function test_dimension_drift_check_passes_when_provider_and_stored_match(): void
+    {
+        $this->app->instance(EmbeddingProvider::class, new RecordingEmbeddingProvider);
+
+        $user = User::factory()->create();
+        Note::factory()->withEmbedding([0.1, 0.2, 0.3])->create(['user_id' => $user->id]);
+
+        $this->artisan('commonplace:doctor', ['--exit-code' => true])
+            ->assertExitCode(0)
+            ->expectsOutputToContain('Embedding dimension drift: stored and provider both 3 dim');
+    }
+
+    public function test_dimension_drift_check_fails_when_stored_vector_length_disagrees_with_provider(): void
+    {
+        // RecordingEmbeddingProvider reports 3 dimensions; store a 5-dim vector
+        // to simulate the "switched provider/model after indexing" foot-gun.
+        $this->app->instance(EmbeddingProvider::class, new RecordingEmbeddingProvider);
+
+        $user = User::factory()->create();
+        Note::factory()
+            ->withEmbedding([0.1, 0.2, 0.3, 0.4, 0.5])
+            ->create(['user_id' => $user->id]);
+
+        $this->artisan('commonplace:doctor', ['--exit-code' => true])
+            ->assertExitCode(1)
+            ->expectsOutputToContain('stored 5 dim vs provider 3 dim')
+            ->expectsOutputToContain('php artisan commonplace:reindex');
     }
 }
