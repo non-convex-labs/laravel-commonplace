@@ -1,7 +1,8 @@
 # CI/CD & Supply Chain Security for Laravel Packages
 
-A practical reference for setting up GitHub Actions on a Laravel 13 package
-and defending it against the 2024–2026 wave of supply-chain attacks.
+I put this together as a working reference for GitHub Actions on a Laravel 13
+package, and for keeping it safe from the 2024-2026 wave of supply-chain
+attacks.
 
 Scope: Laravel 13 package (PHP 8.3+), GitHub-hosted, Composer-distributed.
 
@@ -9,8 +10,9 @@ Scope: Laravel 13 package (PHP 8.3+), GitHub-hosted, Composer-distributed.
 
 ## 1. The Minimum Viable CI Surface
 
-A serious Laravel package ships with **four workflows**, matching what
-`spatie/package-skeleton-laravel` and most well-maintained packages use:
+A serious Laravel package ships with **four workflows**. This is what
+`spatie/package-skeleton-laravel` uses, and most well-maintained packages
+follow the same shape:
 
 | Workflow | Purpose | When it runs |
 |---|---|---|
@@ -19,10 +21,11 @@ A serious Laravel package ships with **four workflows**, matching what
 | `fix-php-code-style-issues.yml` | Auto-format with Pint, commit fix | push |
 | `dependabot-auto-merge.yml` | Auto-merge safe Dependabot PRs | dependabot PRs |
 
-Plus a `.github/dependabot.yml` config to actually generate the update PRs.
+You also need a `.github/dependabot.yml` config to actually generate the
+update PRs.
 
-This is the floor. Coverage uploads, release-drafter, security scanners,
-and changelog automation are nice-to-haves on top.
+That's the floor. Coverage uploads, release-drafter, security scanners, and
+changelog automation are nice-to-haves on top.
 
 ---
 
@@ -35,7 +38,7 @@ For a Laravel package, you almost always want to sweep three dimensions:
 - **PHP version** — every minor your `composer.json` says you support.
   For Laravel 13: `8.3`, `8.4`, `8.5`.
 - **Laravel version** — every minor your package supports. Laravel 13.x is
-  typical floor; add `12.*` if you want backward support.
+  the typical floor. Add `12.*` if you want backward support.
 - **Composer stability** — `prefer-lowest` and `prefer-stable`. This catches
   the classic "works on my machine, breaks on a clean install" bug where
   your code accidentally relies on a feature added in a later patch of a
@@ -43,9 +46,9 @@ For a Laravel package, you almost always want to sweep three dimensions:
 
 ### Pair Laravel ↔ Testbench via `include`
 
-Orchestra Testbench tracks Laravel one-for-one. You can't just sweep
-Laravel versions independently — each Laravel major needs the matching
-Testbench major. Use `matrix.include` to bind them:
+Orchestra Testbench tracks Laravel one-for-one. You can't just sweep Laravel
+versions independently. Each Laravel major needs the matching Testbench
+major. Use `matrix.include` to bind them:
 
 ```yaml
 matrix:
@@ -68,16 +71,16 @@ composer update --${{ matrix.stability }} --prefer-dist --no-interaction
 
 ### OS matrix
 
-Run on `ubuntu-latest` always. Add `windows-latest` if your package touches
-the filesystem, paths, or processes — Spatie's skeleton runs both. Skip
+Always run on `ubuntu-latest`. Add `windows-latest` if your package touches
+the filesystem, paths, or processes. Spatie's skeleton runs both. I'd skip
 macOS unless you have a specific reason; it doubles cost for little extra
 signal.
 
 ### `fail-fast`
 
 Set `fail-fast: true` so a single failure cancels the rest of the matrix
-quickly. Cheap; the only reason to flip it is when you specifically want to
-see which combos fail together.
+quickly. It's cheap. The only reason to flip it is when you specifically
+want to see which combos fail together.
 
 ### `concurrency` cancellation
 
@@ -87,14 +90,15 @@ concurrency:
   cancel-in-progress: true
 ```
 
-Cancels in-flight runs when you push a new commit to the same branch. Saves
-CI minutes and stops you from waiting on results that no longer matter.
+This cancels in-flight runs when you push a new commit to the same branch.
+Saves CI minutes and stops you from waiting on results that no longer
+matter.
 
 ---
 
 ## 3. The Reference `run-tests.yml`
 
-Below is the current Spatie package skeleton's workflow — treat it as a
+Below is the current Spatie package skeleton's workflow. Treat it as a
 known-good starting point. PHP 8.5 / Laravel 13 / Testbench 11.
 
 ```yaml
@@ -169,7 +173,7 @@ jobs:
 
 ### Things worth copying from this
 
-- **Path filters on triggers** — workflow only runs when something
+- **Path filters on triggers** — the workflow only runs when something
   test-relevant changes. Saves CI minutes.
 - **`timeout-minutes: 5`** on every job — a runaway job doesn't burn an
   hour of free-tier budget.
@@ -203,15 +207,16 @@ jobs:
           commit_message: Fix styling
 ```
 
-This is "lazy" — it fixes style and force-pushes a commit. Two real concerns:
+This one is "lazy" — it fixes style and force-pushes a commit. Two real
+concerns:
 
 1. **It writes back to the branch.** That's why `permissions: contents:
    write` is scoped to this single workflow, not the whole repo.
 2. **It can race with humans pushing.** Acceptable on push to feature
    branches; do not run this on `main` after a merge.
 
-If you'd rather **block** rather than auto-fix, swap to `pint --test` in
-the test workflow and let the CI fail.
+If you'd rather **block** instead of auto-fix, swap to `pint --test` in the
+test workflow and let CI fail.
 
 ### PHPStan
 
@@ -254,12 +259,12 @@ updates:
     cooldown: { default-days: 1 }
 ```
 
-Note the **`cooldown: default-days: 1`** — a 24h delay between a package
-release and Dependabot opening a PR for it. This is your first line of
-defence against publish-and-snipe attacks (think Shai-Hulud, see §5):
-malicious versions are usually yanked within hours of detection. A
-one-day cooldown lets the community catch the bad versions before you
-auto-merge them.
+Pay attention to **`cooldown: default-days: 1`**. That's a 24h delay between
+a package release and Dependabot opening a PR for it. It's your first line
+of defence against publish-and-snipe attacks (think Shai-Hulud, see §5).
+Malicious versions usually get yanked within hours of detection. A one-day
+cooldown lets the community catch the bad versions before you auto-merge
+them.
 
 ```yaml
 # .github/workflows/dependabot-auto-merge.yml
@@ -285,9 +290,9 @@ jobs:
         env: { PR_URL: ${{ github.event.pull_request.html_url }}, GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} }
 ```
 
-Only auto-merges **minor and patch** updates — never major bumps. And only
-after `--auto` flag conditions are met (status checks passing, branch
-up-to-date), so the test matrix must go green first.
+This only auto-merges **minor and patch** updates. Never major bumps. And
+only after `--auto` flag conditions are met (status checks passing, branch
+up-to-date), so the test matrix has to go green first.
 
 ---
 
@@ -317,19 +322,19 @@ up-to-date), so the test matrix must go green first.
 
 ## 5. Supply Chain Attacks 2024–2026 — What They Teach Us
 
-Five incidents that should shape your CI/CD posture. None are hypothetical;
-all are post-incident reports.
+Five incidents that should shape your CI/CD posture. None are hypothetical.
+All are post-incident reports.
 
 ### XZ Utils backdoor — CVE-2024-3094 (March 2024)
 
 A maintainer identity ("Jia Tan") spent **2+ years** building trust on the
-`xz-utils` project, eventually becoming co-maintainer. They shipped a
+`xz-utils` project and eventually became co-maintainer. They shipped a
 backdoor in v5.6.0 via a malicious M4 macro in the build system that
-injected obfuscated object code into `liblzma`. Discovered by Andres
-Freund noticing a 500ms benchmark regression on SSH login — pure luck.
+injected obfuscated object code into `liblzma`. Andres Freund discovered
+it by noticing a 500ms benchmark regression on SSH login. Pure luck.
 
 **Lessons:**
-- SBOMs, SLSA, Sigstore would all have shown "Jia Tan signed it"
+- SBOMs, SLSA, and Sigstore would all have shown "Jia Tan signed it"
   cleanly. They don't solve **trust** problems, only **artifact** problems.
 - Maintainer burnout is a security risk. A lone overworked maintainer is
   a target for a "helpful" newcomer offering to share the load.
@@ -341,10 +346,10 @@ Freund noticing a 500ms benchmark regression on SSH login — pure luck.
 
 ### Polyfill.io (June 2024)
 
-A widely-used CDN-hosted JS shim (`cdn.polyfill.io`) on ~100,000 sites
-was sold in Feb 2024 to a Chinese company called Funnull. By June, they
-were serving malware to mobile users. Cloudflare and Fastly auto-rewrote
-requests to safe mirrors — that's the only reason damage was limited.
+A widely-used CDN-hosted JS shim (`cdn.polyfill.io`) on ~100,000 sites was
+sold in Feb 2024 to a Chinese company called Funnull. By June they were
+serving malware to mobile users. Cloudflare and Fastly auto-rewrote
+requests to safe mirrors. That's the only reason damage was limited.
 
 **Lessons:**
 - A `<script src="">` to a third-party domain is a **permanent trust
@@ -369,8 +374,8 @@ requests to safe mirrors — that's the only reason damage was limited.
 ### Trivy-action force-push (March 2026)
 
 Attackers compromised **75 of 76** version tags on `trivy-action` via
-force-push, exfiltrating secrets from every pipeline that ran a Trivy
-scan. Stolen credentials cascaded into PyPI compromises, including a
+force-push and exfiltrated secrets from every pipeline that ran a Trivy
+scan. The stolen credentials cascaded into PyPI compromises, including a
 backdoor in `LiteLLM`.
 
 **Lessons:**
@@ -386,10 +391,11 @@ backdoor in `LiteLLM`.
 
 ## 6. Composer / Packagist Specifics
 
-PHP has its own supply-chain story, increasingly hardened over 2024–2025:
+PHP has its own supply-chain story, and it's been hardening steadily over
+2024-2025:
 
 ### `composer audit`
-- Run as a CI gate. Checks installed packages against the Packagist
+- Run it as a CI gate. It checks installed packages against the Packagist
   Security Advisory API.
 - Add a job:
   ```yaml
@@ -401,18 +407,18 @@ PHP has its own supply-chain story, increasingly hardened over 2024–2025:
 ### Composer 2.9 automatic blocking (Nov 2025)
 - Composer 2.9 **automatically blocks updates to packages with known
   security advisories by default**.
-- Ensure CI uses Composer 2.9+ — older versions will happily install
+- Make sure CI uses Composer 2.9+. Older versions will happily install
   vulnerable packages.
 
 ### Packagist Transparency Log (in progress)
-- Funded by the Sovereign Tech Agency; will make security-relevant events
+- Funded by the Sovereign Tech Agency. It'll make security-relevant events
   on Packagist publicly auditable (similar to Certificate Transparency).
-- Not actionable today, but worth tracking — it'll be the first
+- Not actionable today, but worth tracking. It'll be the first
   cryptographically auditable supply-chain log in the PHP ecosystem.
 
 ### `composer install --no-scripts` in CI
 - Mirror the npm `--ignore-scripts` recommendation. Most package
-  `post-install-cmd` hooks aren't needed in CI test runs; opting out
+  `post-install-cmd` hooks aren't needed in CI test runs, and opting out
   shrinks your attack surface.
 - Only re-enable for steps that genuinely need them (e.g. building
   Filament assets, publishing migrations).
@@ -421,15 +427,15 @@ PHP has its own supply-chain story, increasingly hardened over 2024–2025:
 - For an **application**: commit `composer.lock`, install with
   `composer install` (not `update`) in CI/prod. Reproducible builds.
 - For a **package**: do **not** commit `composer.lock`. You want CI to
-  resolve afresh against your declared constraints (that's exactly what
+  resolve afresh against your declared constraints. That's exactly what
   the matrix `composer update --prefer-lowest/--prefer-stable` step
-  tests).
+  tests.
 
 ### Signature / provenance (the gap)
-- Composer doesn't yet have npm-style package signatures. Packagist
+- Composer doesn't yet have npm-style package signatures. The Packagist
   Transparency Log is the planned mitigation.
 - For now: trust + Dependabot cooldown + `composer audit` is the best
-  available combination.
+  combination available.
 
 ---
 

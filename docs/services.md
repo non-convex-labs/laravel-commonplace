@@ -1,6 +1,6 @@
 # Services
 
-The `Commonplace` service is the programmatic PHP API for the package. Every controller, MCP tool, and Livewire component routes through it — when you want to create, query, or graph notes from your own code, this is the entry point.
+The `Commonplace` service is the PHP API for this package. Every controller, MCP tool, and Livewire component routes through it. If you want to create, query, or graph notes from your own code, start here.
 
 **Source files:**
 
@@ -15,9 +15,9 @@ The `Commonplace` service is the programmatic PHP API for the package. Every con
 
 ## Overview
 
-`Commonplace` owns the write path for notes (`createNote`, `updateNote`, `editNote`, `deleteNote`, `moveNote`) and the read/query path (`readNote`, `listNotes`, `searchNotes`, `semanticSearch`, plus graph queries). Every write method takes an `Authenticatable` and routes through an internal `checkAccess()` that honors visibility, shares, and ownership.
+`Commonplace` owns the write path (`createNote`, `updateNote`, `editNote`, `deleteNote`, `moveNote`) and the read/query path (`readNote`, `listNotes`, `searchNotes`, `semanticSearch`, plus the graph queries). Every write method takes an `Authenticatable` and runs it through an internal `checkAccess()` that honors visibility, shares, and ownership.
 
-The service is registered as a singleton in [`CommonplaceServiceProvider::packageRegistered()`](../src/CommonplaceServiceProvider.php) and aliased to the container key `commonplace`. You can reach it three ways:
+The service is registered as a singleton in [`CommonplaceServiceProvider::packageRegistered()`](../src/CommonplaceServiceProvider.php) and aliased to the container key `commonplace`. You can reach it three ways.
 
 ```php
 // 1. Facade (most concise)
@@ -46,13 +46,13 @@ $commonplace = app('commonplace');
 ```
 
 > [!NOTE]
-> Every method that touches a single note throws `Illuminate\Database\Eloquent\ModelNotFoundException` if the path does not exist, and `Illuminate\Auth\Access\AuthorizationException` if the user lacks the required permission. See [`auth.md`](./auth.md) for the access model.
+> Every method that touches a single note throws `Illuminate\Database\Eloquent\ModelNotFoundException` if the path doesn't exist, and `Illuminate\Auth\Access\AuthorizationException` if the user lacks the required permission. See [`auth.md`](./auth.md) for the access model.
 
 The eight HTTP endpoints in [`http-api.md`](./http-api.md) and every MCP tool in [`mcp-tools.md`](./mcp-tools.md) are thin wrappers over the methods below.
 
 ## Note CRUD
 
-The five write methods that own the note lifecycle. All accept paths in any slash style — `\\` is normalized to `/` — and accept `\r\n` / `\r` line endings (normalized to `\n` before storage).
+These five write methods own the note lifecycle. They accept paths in any slash style (`\\` is normalized to `/`) and accept `\r\n` / `\r` line endings (normalized to `\n` before storage).
 
 | Method | Source | Returns |
 |---|---|---|
@@ -64,7 +64,7 @@ The five write methods that own the note lifecycle. All accept paths in any slas
 
 ### `createNote`
 
-Creates a new note. YAML frontmatter in `$content` (recognized keys: `title`, `visibility`, `tags`) overrides the explicit arguments — explicit values are the fallback.
+Creates a new note. YAML frontmatter in `$content` (recognized keys: `title`, `visibility`, `tags`) overrides the explicit arguments. The explicit values are just the fallback.
 
 ```php
 public function createNote(
@@ -86,7 +86,7 @@ $note = Commonplace::createNote(
 );
 ```
 
-The note's `content_hash` (sha256) is set, `indexed_at` is left null (the reindex queue picks it up), and wikilinks are extracted and persisted to `commonplace_links` via the internal `syncWikilinks()` step.
+The note's `content_hash` (sha256) is set and `indexed_at` is left null so the reindex queue picks it up. Wikilinks are extracted and persisted to `commonplace_links` via the internal `syncWikilinks()` step.
 
 ### `readNote`
 
@@ -114,7 +114,7 @@ Accepted keys in `$data`:
 | Key | Effect |
 |---|---|
 | `content` | Replaces content. If the hash changes, a `NoteVersion` is written and `indexed_at` is cleared so the next reindex picks it up. Wikilinks are re-synced. Frontmatter overrides separately-passed `visibility` / `tags`. |
-| `new_path` | Renames the note. Delegates to `moveNote` ([Commonplace.php:210-212](../src/Services/Commonplace.php#L210)), so referencing `[[wikilinks]]` are rewritten via the same async job — owner-level check applies. |
+| `new_path` | Renames the note. Delegates to `moveNote` ([Commonplace.php:210-212](../src/Services/Commonplace.php#L210)), so referencing `[[wikilinks]]` get rewritten via the same async job. Owner-level check applies. |
 | `visibility` | Sets `private` / `public`. Ignored if `content` frontmatter sets `visibility` (frontmatter wins). |
 | `tags` | Replaces the tag set. Ignored if `content` frontmatter sets `tags`. |
 
@@ -131,7 +131,7 @@ $note = Commonplace::updateNote(
 
 ### `editNote`
 
-A surgical `str_replace` over a note's content. Wraps `updateNote`, so the same versioning + reindex behavior applies.
+A surgical `str_replace` over a note's content. It wraps `updateNote`, so the same versioning + reindex behavior applies.
 
 ```php
 public function editNote(
@@ -157,7 +157,7 @@ Commonplace::editNote(
 
 ### `deleteNote`
 
-Soft-final delete. Requires owner — shares (even with `write`) cannot delete. Writes one last `NoteVersion` before removing the row, so `getHistory()` keeps working after deletion.
+Soft-final delete. Requires owner. Shares can't delete, even with `write`. Writes one last `NoteVersion` before removing the row, so `getHistory()` keeps working after deletion.
 
 ```php
 public function deleteNote(string $path, Authenticatable $user): void
@@ -193,7 +193,7 @@ $recent = Commonplace::listNotes(
 );
 ```
 
-Source: [Commonplace.php:281](../src/Services/Commonplace.php#L281). The folder filter uses the `inFolder` scope; the tag filter uses `withTag`.
+Source: [Commonplace.php:281](../src/Services/Commonplace.php#L281). The folder filter uses the `inFolder` scope and the tag filter uses `withTag`.
 
 ### `searchNotes`
 
@@ -201,7 +201,7 @@ Source: [Commonplace.php:281](../src/Services/Commonplace.php#L281). The folder 
 public function searchNotes(string $query, Authenticatable $user): Collection
 ```
 
-Lexical search across title + content using `ILIKE` on PostgreSQL, `LIKE` elsewhere. Title matches rank above content matches; results are tie-broken by `updated_at DESC` and capped at 20. Queries shorter than 2 characters return an empty collection.
+Lexical search across title + content using `ILIKE` on PostgreSQL and `LIKE` elsewhere. Title matches rank above content matches. Results are tie-broken by `updated_at DESC` and capped at 20. Queries shorter than 2 characters return an empty collection.
 
 ```php
 $results = Commonplace::searchNotes('vault', auth()->user());
@@ -271,7 +271,7 @@ The wikilink graph is built from `commonplace_links` rows, populated automatical
 | `getSuggestedLinks` | [Commonplace.php:593](../src/Services/Commonplace.php#L593) | `array` of `{path, title, distance}` |
 
 > [!WARNING]
-> `getNeighborhood`, `getShortestPath`, and `getHubNotes` are implemented with PostgreSQL-specific recursive CTEs and `ARRAY[]` syntax. They do not run on MySQL or SQLite.
+> `getNeighborhood`, `getShortestPath`, and `getHubNotes` are implemented with PostgreSQL-specific recursive CTEs and `ARRAY[]` syntax. They won't run on MySQL or SQLite.
 
 ### `getBacklinks`
 
@@ -291,7 +291,7 @@ $backlinks = Commonplace::getBacklinks('references/clean-architecture', auth()->
 public function moveNote(string $fromPath, string $toPath, Authenticatable $user): Note
 ```
 
-Owner-only. Throws `InvalidArgumentException` if a note already exists at `$toPath`. The path change runs inside a `DB::transaction`; on commit, [`UpdateWikilinksJob`](../src/Jobs/UpdateWikilinksJob.php) is dispatched ([Commonplace.php:402-410](../src/Services/Commonplace.php#L402)) to rewrite every referencing `[[wikilink]]` — full path, alias form, and trailing-segment all handled. Async by default; set `commonplace.wikilinks.rewrite_sync = true` (env `COMMONPLACE_WIKILINKS_REWRITE_SYNC`) to dispatch via `dispatchSync()` for atomicity in tests or queue-less consumers. If the queue worker is down and a dispatch is lost, [`commonplace:relink`](commands.md#commonplacerelink) re-resolves the orphaned link rows.
+Owner-only. Throws `InvalidArgumentException` if a note already exists at `$toPath`. The path change runs inside a `DB::transaction`. On commit, [`UpdateWikilinksJob`](../src/Jobs/UpdateWikilinksJob.php) is dispatched ([Commonplace.php:402-410](../src/Services/Commonplace.php#L402)) to rewrite every referencing `[[wikilink]]`. Full path, alias form, and trailing-segment are all handled. Async by default. Set `commonplace.wikilinks.rewrite_sync = true` (env `COMMONPLACE_WIKILINKS_REWRITE_SYNC`) to dispatch via `dispatchSync()` for atomicity in tests or queue-less consumers. If the queue worker is down and a dispatch is lost, [`commonplace:relink`](commands.md#commonplacerelink) re-resolves the orphaned link rows.
 
 ```php
 Commonplace::moveNote('drafts/idea', 'projects/idea', auth()->user());
@@ -303,7 +303,7 @@ Commonplace::moveNote('drafts/idea', 'projects/idea', auth()->user());
 public function getNeighborhood(string $path, int $maxHops, Authenticatable $user): array
 ```
 
-BFS over the wikilink graph (undirected) from `$path` out to `$maxHops` hops. Each entry has `path`, `title`, `depth` (1..N), and `tags`. The starting note is excluded; only notes the user can see are included.
+BFS over the wikilink graph (undirected) from `$path` out to `$maxHops` hops. Each entry has `path`, `title`, `depth` (1..N), and `tags`. The starting note is excluded. Only notes the user can see are included.
 
 ```php
 $neighborhood = Commonplace::getNeighborhood('topics/laravel', maxHops: 2, user: auth()->user());
@@ -336,7 +336,7 @@ $path = Commonplace::getShortestPath(
 public function getHubNotes(Authenticatable $user, int $limit = 20): array
 ```
 
-The user's own notes ranked by `outgoing_links + incoming_links`. Useful for identifying central topics in a personal vault.
+The user's own notes ranked by `outgoing_links + incoming_links`. Useful for finding central topics in a personal vault.
 
 ```php
 $hubs = Commonplace::getHubNotes(auth()->user(), limit: 10);
@@ -365,7 +365,7 @@ public function getSuggestedLinks(
 ): array
 ```
 
-Vector similarity from the note's embedding to every other accessible note, with already-linked notes (incoming or outgoing) and the source note itself excluded. Returns `[]` when the vector driver is disabled or the note has no stored embedding yet.
+Vector similarity from the note's embedding to every other accessible note. Already-linked notes (incoming or outgoing) and the source note itself are excluded. Returns `[]` when the vector driver is disabled or the note has no stored embedding yet.
 
 ```php
 $suggestions = Commonplace::getSuggestedLinks(
@@ -386,7 +386,7 @@ $suggestions = Commonplace::getSuggestedLinks(
 public function getHistory(string $path, Authenticatable $user): Collection
 ```
 
-Returns the note's version history (newest first), with the `author` relationship eager-loaded on each `NoteVersion`. Works for deleted notes too — it falls back to looking up `note_versions` by `note_path` when no live note exists.
+Returns the note's version history (newest first), with the `author` relationship eager-loaded on each `NoteVersion`. Works for deleted notes too. It falls back to looking up `note_versions` by `note_path` when no live note exists.
 
 ```php
 $versions = Commonplace::getHistory('projects/vault-cli', auth()->user());
@@ -400,7 +400,7 @@ Source: [Commonplace.php:416](../src/Services/Commonplace.php#L416). Versions ar
 
 ## Markdown extension hooks
 
-Three methods let your application's service provider register CommonMark extensions without forking the package. The renderer builds its converter once on first use and freezes the extender registry — register from `boot()`, not per request.
+Three methods let your application's service provider register CommonMark extensions without forking the package. The renderer builds its converter once on first use and freezes the extender registry. Register from `boot()`, not per request.
 
 | Method | Source | Purpose |
 |---|---|---|
@@ -418,11 +418,11 @@ Commonplace::extendMarkdown(function (Environment $env) {
 });
 ```
 
-Calling `extendMarkdown()` after the renderer has been built throws `LogicException` — see the rationale in the method's doc block. For the full markdown pipeline, see [`markdown-rendering.md`](./markdown-rendering.md).
+Calling `extendMarkdown()` after the renderer has been built throws `LogicException`. See the rationale in the method's doc block. For the full markdown pipeline, see [`markdown-rendering.md`](./markdown-rendering.md).
 
 ## Related services
 
-These five services support `Commonplace` but are independently useful — resolve them from the container when you need just one of their capabilities.
+These five services support `Commonplace` but they're independently useful. Resolve them from the container when you need just one of their capabilities.
 
 ### `MarkdownRenderer`
 
@@ -446,18 +446,18 @@ $links = $parser->extractLinks($content);       // [['target' => 'design-doc', '
 $note  = $parser->resolveTarget('design-doc');  // ?Note
 ```
 
-Source: [`src/Services/WikilinkParser.php`](../src/Services/WikilinkParser.php). Rebind `WikilinkResolver::class` in your own provider to point wikilinks at different models or external URLs — see [`CommonplaceServiceProvider.php:87`](../src/CommonplaceServiceProvider.php#L87).
+Source: [`src/Services/WikilinkParser.php`](../src/Services/WikilinkParser.php). Rebind `WikilinkResolver::class` in your own provider to point wikilinks at different models or external URLs. See [`CommonplaceServiceProvider.php:87`](../src/CommonplaceServiceProvider.php#L87).
 
 ### `FrontmatterParser`
 
-Parses YAML frontmatter from a note. Only three keys are recognized: `title`, `visibility`, `tags` — everything else is ignored. Returns `['meta' => [...], 'body' => string]`. Malformed YAML degrades gracefully to `['meta' => [], 'body' => $original]`.
+Parses YAML frontmatter from a note. Only three keys are recognized: `title`, `visibility`, `tags`. Everything else is ignored. Returns `['meta' => [...], 'body' => string]`. Malformed YAML degrades gracefully to `['meta' => [], 'body' => $original]`.
 
 ```php
 $parser = app(\NonConvexLabs\Commonplace\Services\FrontmatterParser::class);
 ['meta' => $meta, 'body' => $body] = $parser->parse($note->content);
 ```
 
-Source: [`src/Services/FrontmatterParser.php`](../src/Services/FrontmatterParser.php). The `Commonplace` service uses this internally — its results override the explicit arguments passed to `createNote`/`updateNote`.
+Source: [`src/Services/FrontmatterParser.php`](../src/Services/FrontmatterParser.php). The `Commonplace` service uses this internally. The parser's results override the explicit arguments passed to `createNote`/`updateNote`.
 
 ### `JournalCalendar`
 
@@ -473,7 +473,7 @@ Source: [`src/Services/JournalCalendar.php`](../src/Services/JournalCalendar.php
 
 ### `NoteBrowser`
 
-Folder navigation primitive used by the note browser UI. Given a folder, returns the immediate child notes plus a `name => count` map of immediate subfolders.
+Folder navigation primitive used by the note browser UI. Given a folder, it returns the immediate child notes plus a `name => count` map of immediate subfolders.
 
 ```php
 $browser = app(\NonConvexLabs\Commonplace\Services\NoteBrowser::class);

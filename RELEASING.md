@@ -1,6 +1,6 @@
 # Releasing
 
-This package follows semantic versioning. Releases are git tags on `main`;
+This package follows semantic versioning. Releases are git tags on `main`.
 Packagist picks them up automatically via the GitHub webhook.
 
 ## Pre-release checklist
@@ -17,9 +17,10 @@ Packagist picks them up automatically via the GitHub webhook.
     vendor/bin/phpstan analyse
     ```
 
-3. **Live-API smoke test for embedding drivers.** See below — required for
-   any release that touches `src/Drivers/Embedding/**`, `src/Contracts/EmbeddingProvider.php`,
-   or any driver wiring in `CommonplaceServiceProvider`.
+3. **Live-API smoke test for embedding drivers.** See below. You'll need to
+   run this for any release that touches `src/Drivers/Embedding/**`,
+   `src/Contracts/EmbeddingProvider.php`, or any driver wiring in
+   `CommonplaceServiceProvider`.
 
 4. **CHANGELOG / release notes drafted.** Cover behavior changes, new config
    keys, and any required migrations or reindex steps.
@@ -27,9 +28,9 @@ Packagist picks them up automatically via the GitHub webhook.
 ## Live-API smoke test
 
 The unit tests for every embedding driver use `Http::fake()` (Voyage, OpenAI,
-Cohere) or `Aws\MockHandler` (Bedrock). Payload shape, authentication, and
-response ordering are inferred from each provider's documentation — there is
-no CI step that exercises a real API.
+Cohere) or `Aws\MockHandler` (Bedrock). I inferred payload shape,
+authentication, and response ordering from each provider's documentation.
+There's no CI step that hits a real API.
 
 Before tagging a release, run the smoke test once per driver you have
 credentials for. A failed smoke test blocks the release.
@@ -37,19 +38,19 @@ credentials for. A failed smoke test blocks the release.
 ### Running the smoke test (CI — preferred)
 
 GitHub Actions hosts the canonical smoke run. The `smoke-tests` workflow is
-manual-dispatch only and runs in the `release-smoke` environment, which
-requires reviewer approval and is restricted to the `main` branch and `v*`
-tags.
+manual-dispatch only and runs in the `release-smoke` environment. That
+environment requires reviewer approval and is restricted to the `main`
+branch and `v*` tags.
 
 1. Go to **Actions → smoke-tests → Run workflow**.
 2. Pick the driver to exercise (`all`, or just one). Submit.
 3. Approve the pending deployment when prompted.
-4. Watch the run; a green `smoke` job means the drivers are healthy.
+4. Watch the run. A green `smoke` job means the drivers are healthy.
 
 The workflow expects the following entries in the `release-smoke` environment
 (Settings → Environments → release-smoke):
 
-**Secrets** — one per driver you want to exercise; tests self-skip when the
+**Secrets** — one per driver you want to exercise. Tests self-skip when the
 matching key is absent.
 
 | Name | Notes |
@@ -62,16 +63,16 @@ matching key is absent.
 
 **Variables** — none required. The CI workflow uses the package defaults
 from `config/commonplace.php` (e.g. `text-embedding-3-small` for OpenAI,
-`us-east-1` for Bedrock). To override a model or dimension in CI, edit
-`.github/workflows/smoke-tests.yml` directly; passing empty strings through
-`vars.X` is unsafe because Laravel's `env()` returns the empty value rather
-than the default.
+`us-east-1` for Bedrock). If you need to override a model or dimension in
+CI, edit `.github/workflows/smoke-tests.yml` directly. Passing empty strings
+through `vars.X` is unsafe because Laravel's `env()` returns the empty value
+instead of the default.
 
 ### Running the smoke test (locally)
 
-Useful when iterating on a driver change before pushing. Copy the template,
-fill in the keys for the driver(s) you care about, source it, and run
-phpunit:
+This is useful when you're iterating on a driver change before pushing.
+Copy the template, fill in the keys for the driver(s) you care about,
+source it, and run phpunit:
 
 ```bash
 cp .env.smoke.example .env.smoke
@@ -107,5 +108,5 @@ git tag -s v0.x.y -m "v0.x.y"
 git push origin v0.x.y
 ```
 
-Packagist updates within a minute or two; verify the new version is listed
+Packagist updates within a minute or two. Verify the new version is listed
 at https://packagist.org/packages/non-convex-labs/laravel-commonplace.

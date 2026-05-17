@@ -5,9 +5,11 @@ How to restyle `laravel-commonplace` without forking the layout.
 The package ships a self-contained Blade layout (no `@extends('layouts.app')`)
 and a CSS file that uses only `--commonplace-*` custom properties. The
 default theme handles light/dark via `prefers-color-scheme`, so you don't
-need to wire up a toggle on the consumer side. If you want to go further,
-you can publish the views, publish the CSS, or inject your own nav into
-the existing layout. The sections below cover each path.
+have to wire up a toggle on your side.
+
+You've got three paths from here. You can publish the views, publish the
+CSS, or inject your own nav into the existing layout. The sections below
+walk through each one.
 
 ---
 
@@ -17,9 +19,9 @@ the existing layout. The sections below cover each path.
 php artisan vendor:publish --tag=commonplace-views
 ```
 
-Publishes to `resources/views/vendor/commonplace/`. Edits there take
-precedence over the package's bundled views. Reach for this when you
-need to restructure or rebrand the markup itself.
+This publishes to `resources/views/vendor/commonplace/`. Edits there
+win over the package's bundled views. Reach for this when you need to
+restructure or rebrand the markup itself.
 
 ---
 
@@ -29,9 +31,9 @@ need to restructure or rebrand the markup itself.
 php artisan vendor:publish --tag=commonplace-css
 ```
 
-Publishes to `resources/css/commonplace/commonplace.css`. Override any
-of the `--commonplace-*` custom properties to retheme without touching
-the layout.
+This publishes to `resources/css/commonplace/commonplace.css`. Override
+any of the `--commonplace-*` custom properties to retheme without
+touching the layout.
 
 Here's a stark light/dark with a brand accent color:
 
@@ -58,8 +60,8 @@ Here's a stark light/dark with a brand accent color:
 ## Injecting your own nav
 
 The default layout exposes a `commonplace.nav` section. Define it in
-any view that extends `commonplace::layouts.app` to replace the
-package's topbar with your own header:
+any view that extends `commonplace::layouts.app` and your header will
+replace the package's topbar:
 
 ```blade
 @extends('commonplace::layouts.app')
@@ -73,4 +75,4 @@ package's topbar with your own header:
 @endsection
 ```
 
-Leave the section unset to keep the default Commonplace topbar.
+Leave the section unset and you'll keep the default Commonplace topbar.

@@ -1,10 +1,10 @@
 # Markdown rendering
 
-Notes are rendered through a configurable [league/commonmark](https://commonmark.thephpleague.com/) pipeline plus a boot-time hook for anything that needs the live `Environment`.
+Notes render through a configurable [league/commonmark](https://commonmark.thephpleague.com/) pipeline. There's also a boot-time hook for anything that needs the live `Environment`.
 
 ## Basic usage
 
-Add a CommonMark extension by appending its class string to `commonplace.markdown.extensions`:
+To add a CommonMark extension, append its class string to `commonplace.markdown.extensions`:
 
 ```php
 // config/commonplace.php
@@ -27,7 +27,7 @@ The defaults above give you tables, autolinks, strikethrough, task lists, footno
 
 ## Order and precedence
 
-CommonMark applies extensions in array order; later entries can override earlier ones, so put narrower or more specific extensions at the end of the list. Runtime extenders registered via `Commonplace::extendMarkdown()` run after the config list, so they always win on conflicts.
+CommonMark applies extensions in array order. Later entries can override earlier ones, so put narrower or more specific extensions at the end of the list. Runtime extenders registered via `Commonplace::extendMarkdown()` run after the config list, so they always win on conflicts.
 
 ## Parameterised extensions
 
@@ -41,11 +41,11 @@ Entries that need constructor args go in as already-constructed instances instea
 ],
 ```
 
-Class-string entries are resolved through Laravel's container, so anything you can bind is fair game.
+Class-string entries resolve through Laravel's container, so anything you can bind is fair game.
 
 ## Runtime extension hook
 
-Register a callback when you need the live `Environment` — for custom inline parsers, renderers, or event listeners:
+Register a callback when you need the live `Environment`. This covers custom inline parsers, renderers, or event listeners:
 
 ```php
 use Illuminate\Support\ServiceProvider;
@@ -64,11 +64,11 @@ class AppServiceProvider extends ServiceProvider
 ```
 
 > [!WARNING]
-> Call `extendMarkdown()` from a service provider's `boot()` only. Calling it per-request under Octane or queue workers accumulates callbacks across requests and leaks memory. The registry freezes the first time the converter is built; later calls throw `LogicException`.
+> Call `extendMarkdown()` from a service provider's `boot()` only. Calling it per-request under Octane or queue workers accumulates callbacks across requests and leaks memory. The registry freezes the first time the converter is built. Later calls throw `LogicException`.
 
 ## Swapping the wikilink resolver
 
-`[[wikilink]]` syntax is implemented as a CommonMark extension that delegates target lookup to a swappable [`WikilinkResolver`](../src/Contracts/WikilinkResolver.php). The default ([`Services\WikilinkParser`](../src/Services/WikilinkParser.php)) resolves against the [`Note` model](user-model.md). Bind your own to point links at a different model or external URL:
+The `[[wikilink]]` syntax is a CommonMark extension that delegates target lookup to a swappable [`WikilinkResolver`](../src/Contracts/WikilinkResolver.php). The default ([`Services\WikilinkParser`](../src/Services/WikilinkParser.php)) resolves against the [`Note` model](user-model.md). You can bind your own to point links at a different model or external URL:
 
 ```php
 use NonConvexLabs\Commonplace\Contracts\WikilinkResolver;
@@ -89,11 +89,11 @@ class WikiResolver implements WikilinkResolver
 $this->app->bind(WikilinkResolver::class, WikiResolver::class);
 ```
 
-Returning `null` produces a broken-link `<a class="vault-link vault-link-broken">` whose `href` falls back to `commonplace.routes.prefix` joined to the raw target. Style the two classes from your theme — see [Theming](theming.md).
+Returning `null` produces a broken-link `<a class="vault-link vault-link-broken">` whose `href` falls back to `commonplace.routes.prefix` joined to the raw target. Style the two classes from your theme. See [Theming](theming.md).
 
 ## XSS hardening
 
 > [!WARNING]
 > Removing `DisallowedRawHtmlExtension` is an XSS regression. Without it, raw `<script>` tags pass through to the output. Keep it unless you have your own sanitizer downstream.
 
-The Environment is also configured with `html_input => 'allow'` and `allow_unsafe_links => false`, so `javascript:` URLs in user content are dropped at render time.
+The Environment is also configured with `html_input => 'allow'` and `allow_unsafe_links => false`, so `javascript:` URLs in user content get dropped at render time.

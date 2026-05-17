@@ -2,15 +2,15 @@
 
 Pluggable destinations, one bundle, fan-out delivery.
 
-Commonplace ships a backup job that snapshots your vault and pushes it to one
-or more destinations. The destinations are pluggable behind a single contract,
-so you can ship to GitHub, a Laravel filesystem disk, or your own custom
-target (S3, GCS, whatever) by listing it in an env var. Each run builds one
+Commonplace ships a backup job that snapshots your vault and pushes it to
+one or more destinations. I built the destinations behind a single contract,
+so you can ship to GitHub, a Laravel filesystem disk, or your own target
+(S3, GCS, whatever) by listing it in an env var. Each run builds one
 `BackupBundle` and delivers it to every destination in order.
 
 ## Configuration
 
-Configure one or more destinations via `COMMONPLACE_BACKUP_DESTINATIONS`
+You configure destinations via `COMMONPLACE_BACKUP_DESTINATIONS`
 (comma-separated):
 
 ```dotenv
@@ -26,13 +26,13 @@ COMMONPLACE_BACKUP_FS_LOCAL_PATH=vault-backups
 ```
 
 Schedule `\NonConvexLabs\Commonplace\Jobs\BackupVault::dispatch()` from your
-app's scheduler. The job builds a single `BackupBundle` and pushes it
-sequentially to every destination. If one fails, subsequent destinations are
-skipped and the job retries (5 tries, 30s/120s/300s backoff).
+app's scheduler. The job builds one `BackupBundle` and pushes it to every
+destination in order. If one fails, the rest are skipped and the job
+retries (5 tries, 30s/120s/300s backoff).
 
 ## Bundle format (schema v1.0)
 
-Each destination receives the same payload:
+Every destination gets the same payload:
 
 - One markdown file per note at the note's `path` (`.md` appended if missing).
 - A `manifest.json` at the bundle root:
@@ -51,8 +51,8 @@ Each destination receives the same payload:
 
 ## Custom destinations
 
-Implement `NonConvexLabs\Commonplace\Contracts\BackupDestination` and bind it
-in your service provider:
+Implement `NonConvexLabs\Commonplace\Contracts\BackupDestination` and bind
+it in your service provider:
 
 ```php
 use NonConvexLabs\Commonplace\Backup\BackupBundle;
@@ -75,6 +75,6 @@ Then list it in `COMMONPLACE_BACKUP_DESTINATIONS=github,gcs-snapshot`.
 
 ## Legacy job
 
-The legacy `BackupToGitHub` job is preserved for back-compat. It dispatches the
-GitHub destination directly without consulting the `destinations` list. Prefer
+The legacy `BackupToGitHub` job is kept around for back-compat. It dispatches
+the GitHub destination directly and ignores the `destinations` list. Use
 `BackupVault` for new code.

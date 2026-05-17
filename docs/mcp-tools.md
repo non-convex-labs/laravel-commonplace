@@ -1,6 +1,6 @@
 # MCP tools
 
-The package ships an MCP (Model Context Protocol) server so Claude Code — or any MCP-compatible client — can read and write your commonplace book through structured tool calls.
+The package ships an MCP (Model Context Protocol) server. Claude Code, or any MCP-compatible client, can read and write your commonplace book through structured tool calls.
 
 **Source files:**
 
@@ -25,15 +25,15 @@ The package ships an MCP (Model Context Protocol) server so Claude Code — or a
 
 ## Overview
 
-[MCP](https://modelcontextprotocol.io) is a JSON-RPC protocol that lets a model invoke server-defined tools, read server-defined resources, and follow server-defined prompts. This package ships an MCP server (`commonplace`, version `0.1.0`, see [`CommonplaceMcpServer.php:28`](../src/Mcp/CommonplaceMcpServer.php#L28)) that exposes sixteen tools covering note CRUD, search (substring and semantic), wikilink graph traversal, and version history.
+[MCP](https://modelcontextprotocol.io) is a JSON-RPC protocol. It lets a model invoke server-defined tools, read server-defined resources, and follow server-defined prompts. This package ships an MCP server (`commonplace`, version `0.1.0`, see [`CommonplaceMcpServer.php:28`](../src/Mcp/CommonplaceMcpServer.php#L28)) that exposes sixteen tools. They cover note CRUD, search (substring and semantic), wikilink graph traversal, and version history.
 
-The server is implemented on top of `laravel/mcp` and runs over HTTP streamable transport. It mounts at a configurable route prefix (default `mcp/commonplace`) and authenticates the same way the rest of your Laravel app does — every tool resolves `$request->user()` and delegates to the [`Commonplace`](../src/Services/Commonplace.php) service, which enforces the [`Note::accessibleBy()`](../src/Models/Note.php#L128) visibility scope on every read and an ownership / share-permission check on every write.
+The server is built on `laravel/mcp` and runs over HTTP streamable transport. It mounts at a configurable route prefix (default `mcp/commonplace`) and authenticates the same way the rest of your Laravel app does. Every tool resolves `$request->user()` and delegates to the [`Commonplace`](../src/Services/Commonplace.php) service. That service enforces the [`Note::accessibleBy()`](../src/Models/Note.php#L128) visibility scope on every read and an ownership / share-permission check on every write.
 
 The server's `#[Instructions]` attribute ([`CommonplaceMcpServer.php:30-52`](../src/Mcp/CommonplaceMcpServer.php#L30)) ships a short system prompt to clients describing paths, wikilinks, tags, visibility, and the recommended workflow. Notable hints it gives the model: read a `commonplace-guide` note first, prefer `semantic-search-tool` over `search-tool`, prefer `edit-note-tool` over rewrites, prefer `move-tool` over delete + recreate.
 
 ## Setup
 
-MCP is **off by default**. Enable it via env or the published config:
+MCP is **off by default**. Turn it on via env or the published config:
 
 ```dotenv
 COMMONPLACE_MCP_ENABLED=true
@@ -50,7 +50,7 @@ Config keys live under `commonplace.mcp` in [`config/commonplace.php`](../config
 ],
 ```
 
-When enabled, the service provider loads [`routes/mcp.php`](../routes/mcp.php), which registers an `Mcp::web()` endpoint at the configured prefix inside a `Route::middleware(config('commonplace.mcp.middleware'))->group(...)` wrapper. The middleware applies to every route the MCP registrar adds — the JSON-RPC `POST`, the `405 Allow: POST` `GET`/`DELETE` stubs, and any route the registrar grows in future. The default is `auth:sanctum` so the dominant MCP client class (Claude Desktop, Cursor, remote bridges) can present a Bearer token from a non-browser context; see [auth.md → MCP](auth.md#mcp) for browser-SPA, Passport, and OAuth-DCR overrides.
+When enabled, the service provider loads [`routes/mcp.php`](../routes/mcp.php). That file registers an `Mcp::web()` endpoint at the configured prefix inside a `Route::middleware(config('commonplace.mcp.middleware'))->group(...)` wrapper. The middleware applies to every route the MCP registrar adds: the JSON-RPC `POST`, the `405 Allow: POST` `GET`/`DELETE` stubs, and any route the registrar grows in future. The default is `auth:sanctum` so the dominant MCP client class (Claude Desktop, Cursor, remote bridges) can present a Bearer token from a non-browser context. See [auth.md → MCP](auth.md#mcp) for browser-SPA, Passport, and OAuth-DCR overrides.
 
 Register the server with Claude Code:
 
@@ -58,11 +58,11 @@ Register the server with Claude Code:
 claude mcp add commonplace --transport http https://your-app.test/mcp/commonplace
 ```
 
-Replace the URL with your deployed endpoint. The client will then list all sixteen tools below.
+Swap the URL for your deployed endpoint. The client will then list all sixteen tools below.
 
 ## Tools matrix
 
-All tools require an authenticated user. Read-only tools never mutate state; destructive tools are flagged for clients that respect MCP annotations.
+All tools require an authenticated user. Read-only tools never mutate state. Destructive tools are flagged for clients that respect MCP annotations.
 
 | Tool name | Purpose | Annotation |
 |---|---|---|
@@ -83,7 +83,7 @@ All tools require an authenticated user. Read-only tools never mutate state; des
 | `orphan-notes-tool` | Notes with no inbound or outbound wikilinks. | `IsReadOnly` |
 | `suggested-links-tool` | Embedding-similar notes not yet linked. | `IsReadOnly` |
 
-Every tool wraps a corresponding method on the [`Commonplace`](../src/Services/Commonplace.php) service (see [`services.md`](./services.md) for the underlying API), so the HTTP routes documented in [`http-api.md`](./http-api.md) and the MCP tools share identical authorization and side-effect semantics.
+Every tool wraps a corresponding method on the [`Commonplace`](../src/Services/Commonplace.php) service (see [`services.md`](./services.md) for the underlying API). The HTTP routes documented in [`http-api.md`](./http-api.md) and the MCP tools share identical authorization and side-effect semantics.
 
 ## create-note-tool
 
@@ -110,7 +110,7 @@ Create a new markdown note at a virtual path.
 }
 ```
 
-Owner is set to the authenticated user. Errors with `AuthorizationException` if the caller cannot write at that path.
+Owner is set to the authenticated user. Errors with `AuthorizationException` if the caller can't write at that path.
 
 ## read-note-tool
 
@@ -135,7 +135,7 @@ Read a note's full content by path.
 }
 ```
 
-Visibility: the note must be owned by the caller, shared with them, or have `visibility = 'public'`. Otherwise the tool returns `Note not found.` ([`ReadNoteTool.php:42`](../src/Mcp/Tools/ReadNoteTool.php#L42)) — the package deliberately does not distinguish "doesn't exist" from "you can't see it" to prevent path enumeration.
+Visibility: the note must be owned by the caller, shared with them, or have `visibility = 'public'`. Otherwise the tool returns `Note not found.` ([`ReadNoteTool.php:42`](../src/Mcp/Tools/ReadNoteTool.php#L42)). The package deliberately does not distinguish "doesn't exist" from "you can't see it" to prevent path enumeration.
 
 ## update-note-tool
 
@@ -153,7 +153,7 @@ Replace fields on an existing note. Only fields you provide are touched; omitted
 
 **Output:** same shape as `read-note-tool`.
 
-Each update produces a new entry in the note's version history. Use `edit-note-tool` when you only need to change a small region — it costs less context and reduces the chance of clobbering recent edits.
+Each update produces a new entry in the note's version history. Use `edit-note-tool` when you only need to change a small region. It costs less context and reduces the chance of clobbering recent edits.
 
 ## edit-note-tool
 
@@ -170,7 +170,7 @@ Find-and-replace a single substring inside a note ([`EditNoteTool.php`](../src/M
 
 **Output:** same shape as `read-note-tool`.
 
-If `old_string` appears more than once and `replace_all` is `false`, the tool returns an error **with the full current note content appended** ([`EditNoteTool.php:49-62`](../src/Mcp/Tools/EditNoteTool.php#L49)) so the calling model can re-plan the edit without an extra `read-note-tool` round trip:
+If `old_string` appears more than once and `replace_all` is `false`, the tool returns an error **with the full current note content appended** ([`EditNoteTool.php:49-62`](../src/Mcp/Tools/EditNoteTool.php#L49)). The calling model can then re-plan the edit without an extra `read-note-tool` round trip:
 
 ```
 old_string appears 2 times in the note.
@@ -189,13 +189,13 @@ Permanently remove a note. Marked `#[IsDestructive(true)]` ([`DeleteNoteTool.php
 |---|---|---|---|
 | `path` | string | yes | Virtual path of the note. |
 
-**Output:** a text message — `Note deleted: {path}`.
+**Output:** a text message, `Note deleted: {path}`.
 
 Version snapshots are retained after deletion (see the [`NoteVersion` section in model-relationships.md](./model-relationships.md#noteversion)) and remain queryable via `history-tool` against the original path. Prefer `move-tool` if the content should stay reachable.
 
 ## list-tool
 
-List notes the caller can see, with optional filters. Returns metadata only — call `read-note-tool` for content.
+List notes the caller can see, with optional filters. Returns metadata only. Call `read-note-tool` for content.
 
 **Input:**
 
@@ -304,7 +304,7 @@ List notes that wikilink to a target via `[[path]]`.
 ]
 ```
 
-Only backlinks from notes the caller can see are returned — the result set is intersected with `Note::accessibleBy($user)` ([`Commonplace.php:357`](../src/Services/Commonplace.php#L357)). The target note itself must also be visible to the caller or the tool returns `Note not found.`.
+Only backlinks from notes the caller can see are returned. The result set is intersected with `Note::accessibleBy($user)` ([`Commonplace.php:357`](../src/Services/Commonplace.php#L357)). The target note itself must also be visible to the caller or the tool returns `Note not found.`.
 
 ## move-tool
 
@@ -323,7 +323,7 @@ Wikilink rewriting runs asynchronously via `UpdateWikilinksJob` ([`src/Jobs/Upda
 
 If the queue worker is down, `commonplace:doctor` flags orphaned link rows above a configurable threshold and recommends `commonplace:relink` to re-resolve them. See [commands.md](commands.md). Errors surface as `InvalidArgumentException` (collision, invalid path) or `AuthorizationException` (caller doesn't own the source).
 
-The same rewrite covers the `new_path` parameter on `update-note-tool` — `Commonplace::updateNote` delegates the path mutation to `moveNote` so both entry points dispatch the same job.
+The same rewrite covers the `new_path` parameter on `update-note-tool`. `Commonplace::updateNote` delegates the path mutation to `moveNote` so both entry points dispatch the same job.
 
 Anchor-suffixed wikilinks (`[[a/b#heading]]`) and wikilinks inside fenced code blocks are pre-existing limitations of `WikilinkParser::resolveTarget` / `extractLinks` and are **not** rewritten by the move job.
 
@@ -372,7 +372,7 @@ Breadth-first traversal of the wikilink graph starting from a note, treating lin
 ]
 ```
 
-The recursive CTE that powers this is PostgreSQL-only — the test suite explicitly skips it on other databases ([`CommonplaceMcpServerTest.php:386-389`](../tests/Feature/Mcp/CommonplaceMcpServerTest.php#L386)).
+The recursive CTE that powers this is PostgreSQL-only. The test suite explicitly skips it on other databases ([`CommonplaceMcpServerTest.php:386-389`](../tests/Feature/Mcp/CommonplaceMcpServerTest.php#L386)).
 
 > [!NOTE]
 > Requires PostgreSQL. The CTE uses `ARRAY` and `ANY` operators that aren't portable to SQLite or MySQL.
@@ -433,11 +433,11 @@ Rank your most-linked notes by total inbound + outbound wikilinks.
 ]
 ```
 
-Scoped to **your own notes only** (`vn.user_id = ?` in the underlying query, [`Commonplace.php:534`](../src/Services/Commonplace.php#L534)) — hub-ness is a property of your personal vault, not the shared graph. PostgreSQL-only.
+Scoped to **your own notes only** (`vn.user_id = ?` in the underlying query, [`Commonplace.php:534`](../src/Services/Commonplace.php#L534)). Hub-ness is a property of your personal vault, not the shared graph. PostgreSQL-only.
 
 ## orphan-notes-tool
 
-List notes with no inbound and no outbound wikilinks — candidates for connection.
+List notes with no inbound and no outbound wikilinks. These are candidates for connection.
 
 **Input:** none.
 
@@ -480,7 +480,7 @@ For a given note, return semantically similar notes that aren't already linked t
 
 If the vector driver emits warnings, they appear in a top-level `warnings` array (same shape as `semantic-search-tool`).
 
-Note the **default scope is `mine`**, not `accessible` — this is deliberate ([`SuggestedLinksTool.php:32`](../src/Mcp/Tools/SuggestedLinksTool.php#L32) and `SuggestedLinksTool.php:69`). Suggesting a link to a public note owned by someone else would create a wikilink the model couldn't reliably resolve later if visibility changed. Pass `scope: "accessible"` if you want cross-user suggestions anyway. Requires a working embedding driver and vector backend — returns `[]` when vectors are disabled ([`Commonplace.php:566`](../src/Services/Commonplace.php#L566)).
+The **default scope is `mine`**, not `accessible`. This is deliberate ([`SuggestedLinksTool.php:32`](../src/Mcp/Tools/SuggestedLinksTool.php#L32) and `SuggestedLinksTool.php:69`). Suggesting a link to a public note owned by someone else would create a wikilink the model couldn't reliably resolve later if visibility changed. Pass `scope: "accessible"` if you want cross-user suggestions anyway. Requires a working embedding driver and vector backend. Returns `[]` when vectors are disabled ([`Commonplace.php:566`](../src/Services/Commonplace.php#L566)).
 
 ## Visibility model
 
@@ -494,10 +494,10 @@ Every tool resolves the caller via Laravel's standard `$request->user()` (config
 
 Two tools narrow further:
 
-- **`hub-notes-tool`** is scoped to `user_id = caller.id` directly in SQL — public / shared notes you can read do **not** count toward hub ranking.
+- **`hub-notes-tool`** is scoped to `user_id = caller.id` directly in SQL. Public / shared notes you can read do **not** count toward hub ranking.
 - **`semantic-search-tool` and `suggested-links-tool`** take an explicit `scope` parameter (the [`SemanticSearchScope`](../src/Enums/SemanticSearchScope.php) enum: `mine`, `public`, `accessible`) that overrides the default scope per call.
 
-Missing notes and inaccessible notes both surface as `Note not found.` ([`ReadNoteTool.php:42`](../src/Mcp/Tools/ReadNoteTool.php#L42)) — by design, to prevent enumerating paths the caller cannot see. Write failures use the more specific message `You do not have access to this note.` ([`CommonplaceMcpServerTest.php:230`](../tests/Feature/Mcp/CommonplaceMcpServerTest.php#L230)) since the caller has already proven they know the path.
+Missing notes and inaccessible notes both surface as `Note not found.` ([`ReadNoteTool.php:42`](../src/Mcp/Tools/ReadNoteTool.php#L42)). This is by design, to prevent enumerating paths the caller cannot see. Write failures use the more specific message `You do not have access to this note.` ([`CommonplaceMcpServerTest.php:230`](../tests/Feature/Mcp/CommonplaceMcpServerTest.php#L230)) since the caller has already proven they know the path.
 
 ## Related pages
 
