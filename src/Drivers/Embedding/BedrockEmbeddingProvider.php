@@ -12,6 +12,11 @@ class BedrockEmbeddingProvider implements EmbeddingProvider
 {
     private ?BedrockRuntimeClient $client = null;
 
+    public function embedQuery(string $text): array
+    {
+        return $this->embed($text);
+    }
+
     public function embed(string $text): array
     {
         return $this->invokeOne($text);

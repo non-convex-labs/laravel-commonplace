@@ -20,7 +20,14 @@ class CohereEmbeddingProvider implements EmbeddingProvider
 
     public function embed(string $text): array
     {
-        $vectors = $this->request([$text]);
+        $vectors = $this->request([$text], $this->indexInputType());
+
+        return $vectors[0];
+    }
+
+    public function embedQuery(string $text): array
+    {
+        $vectors = $this->request([$text], $this->queryInputType());
 
         return $vectors[0];
     }
@@ -34,7 +41,7 @@ class CohereEmbeddingProvider implements EmbeddingProvider
         $embeddings = [];
 
         foreach (array_chunk($texts, self::BATCH_SIZE) as $chunk) {
-            foreach ($this->request($chunk) as $vector) {
+            foreach ($this->request($chunk, $this->indexInputType()) as $vector) {
                 $embeddings[] = $vector;
             }
         }
@@ -51,12 +58,12 @@ class CohereEmbeddingProvider implements EmbeddingProvider
      * @param  array<int, string>  $texts
      * @return array<int, array<int, float>>
      */
-    private function request(array $texts): array
+    private function request(array $texts, string $inputType): array
     {
         $payload = [
             'texts' => array_values($texts),
             'model' => $this->model(),
-            'input_type' => $this->inputType(),
+            'input_type' => $inputType,
             'embedding_types' => ['float'],
         ];
 
@@ -97,8 +104,13 @@ class CohereEmbeddingProvider implements EmbeddingProvider
         return (string) config('commonplace.embedding.cohere.model', 'embed-english-v3.0');
     }
 
-    private function inputType(): string
+    private function indexInputType(): string
     {
-        return (string) config('commonplace.embedding.cohere.input_type', 'search_document');
+        return (string) config('commonplace.embedding.cohere.index_input_type', 'search_document');
+    }
+
+    private function queryInputType(): string
+    {
+        return (string) config('commonplace.embedding.cohere.query_input_type', 'search_query');
     }
 }

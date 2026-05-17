@@ -36,6 +36,11 @@ class SemanticSearchScopeTest extends TestCase
                 return [1.0, 0.0];
             }
 
+            public function embedQuery(string $text): array
+            {
+                return $this->embed($text);
+            }
+
             public function embedBatch(array $texts): array
             {
                 return array_map(fn () => $this->embed(''), $texts);

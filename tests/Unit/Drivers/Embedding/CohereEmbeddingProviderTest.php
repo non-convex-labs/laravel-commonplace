@@ -27,7 +27,8 @@ class CohereEmbeddingProviderTest extends TestCase
         config()->set('commonplace.embedding.cohere.api_key', $this->apiKey);
         config()->set('commonplace.embedding.cohere.model', $this->model);
         config()->set('commonplace.embedding.cohere.dimensions', 1024);
-        config()->set('commonplace.embedding.cohere.input_type', 'search_document');
+        config()->set('commonplace.embedding.cohere.index_input_type', 'search_document');
+        config()->set('commonplace.embedding.cohere.query_input_type', 'search_query');
 
         $this->provider = new CohereEmbeddingProvider($this->app->make(HttpClient::class));
     }
@@ -74,10 +75,10 @@ class CohereEmbeddingProviderTest extends TestCase
         });
     }
 
-    public function test_embed_uses_configured_model_and_input_type(): void
+    public function test_embed_uses_configured_model_and_index_input_type(): void
     {
         config()->set('commonplace.embedding.cohere.model', 'embed-multilingual-v3.0');
-        config()->set('commonplace.embedding.cohere.input_type', 'search_query');
+        config()->set('commonplace.embedding.cohere.index_input_type', 'classification');
 
         Http::fake([
             self::COHERE_URL => Http::response([
@@ -89,8 +90,56 @@ class CohereEmbeddingProviderTest extends TestCase
 
         Http::assertSent(function ($request) {
             return $request->data()['model'] === 'embed-multilingual-v3.0'
+                && $request->data()['input_type'] === 'classification';
+        });
+    }
+
+    public function test_embed_query_sends_query_input_type(): void
+    {
+        Http::fake([
+            self::COHERE_URL => Http::response([
+                'embeddings' => ['float' => [[0.5]]],
+            ], 200),
+        ]);
+
+        $this->provider->embedQuery('how do indexes work');
+
+        Http::assertSentCount(1);
+        Http::assertSent(function ($request) {
+            return $request->data()['texts'] === ['how do indexes work']
                 && $request->data()['input_type'] === 'search_query';
         });
+    }
+
+    public function test_embed_query_honours_configured_query_input_type(): void
+    {
+        config()->set('commonplace.embedding.cohere.query_input_type', 'clustering');
+
+        Http::fake([
+            self::COHERE_URL => Http::response([
+                'embeddings' => ['float' => [[0.5]]],
+            ], 200),
+        ]);
+
+        $this->provider->embedQuery('hi');
+
+        Http::assertSent(fn ($request) => $request->data()['input_type'] === 'clustering');
+    }
+
+    public function test_embed_batch_uses_index_input_type(): void
+    {
+        config()->set('commonplace.embedding.cohere.index_input_type', 'search_document');
+        config()->set('commonplace.embedding.cohere.query_input_type', 'search_query');
+
+        Http::fake([
+            self::COHERE_URL => Http::response([
+                'embeddings' => ['float' => [[0.1], [0.2]]],
+            ], 200),
+        ]);
+
+        $this->provider->embedBatch(['a', 'b']);
+
+        Http::assertSent(fn ($request) => $request->data()['input_type'] === 'search_document');
     }
 
     public function test_embed_throws_when_api_key_is_missing(): void

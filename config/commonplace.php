@@ -59,7 +59,11 @@ return [
             'api_key' => env('COHERE_API_KEY'),
             'model' => env('COHERE_EMBEDDING_MODEL', 'embed-english-v3.0'),
             'dimensions' => (int) env('COHERE_EMBEDDING_DIMENSIONS', 1024),
-            'input_type' => env('COHERE_EMBEDDING_INPUT_TYPE', 'search_document'),
+            // Cohere v3 distinguishes indexing from querying via input_type.
+            // Using `search_document` for both measurably degrades retrieval
+            // quality; keep these defaults unless you know what you're doing.
+            'index_input_type' => env('COHERE_EMBEDDING_INDEX_INPUT_TYPE', 'search_document'),
+            'query_input_type' => env('COHERE_EMBEDDING_QUERY_INPUT_TYPE', 'search_query'),
         ],
 
         'bedrock' => [

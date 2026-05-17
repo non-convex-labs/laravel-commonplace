@@ -80,7 +80,16 @@ COMMONPLACE_EMBEDDING_DRIVER=cohere
 COHERE_API_KEY=...
 COHERE_EMBEDDING_MODEL=embed-english-v3.0
 COHERE_EMBEDDING_DIMENSIONS=1024
-COHERE_EMBEDDING_INPUT_TYPE=search_document
+```
+
+Cohere v3 distinguishes indexing from querying via `input_type`. The
+driver uses two separate values and defaults to the recommended pair:
+`search_document` when indexing notes and `search_query` when a user
+searches. Only override these if you know what you're doing:
+
+```dotenv
+COHERE_EMBEDDING_INDEX_INPUT_TYPE=search_document
+COHERE_EMBEDDING_QUERY_INPUT_TYPE=search_query
 ```
 
 For multilingual content:
