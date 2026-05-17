@@ -52,4 +52,17 @@ interface VectorSearchDriver
      * a neutral nullable longText so swapping drivers later is possible.
      */
     public function defineColumn(Blueprint $table, string $column = 'embedding'): void;
+
+    /**
+     * Structured, machine-readable warnings produced by the most recent call
+     * to {@see search()}. Each entry has the shape
+     * `['code' => string, 'message' => string, 'context' => array]`.
+     * Drivers that never produce warnings return an empty array.
+     *
+     * Reset at the start of every search() call so callers see only the
+     * warnings from the immediately preceding invocation.
+     *
+     * @return array<int, array{code: string, message: string, context: array<string, mixed>}>
+     */
+    public function lastWarnings(): array;
 }

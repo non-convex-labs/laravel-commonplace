@@ -35,6 +35,7 @@ class Note extends Model
 
     protected $hidden = [
         'embedding',
+        'embedding_dimensions',
     ];
 
     protected function casts(): array

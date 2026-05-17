@@ -35,4 +35,9 @@ class NullDriver implements VectorSearchDriver
     {
         $table->longText($column)->nullable();
     }
+
+    public function lastWarnings(): array
+    {
+        return [];
+    }
 }

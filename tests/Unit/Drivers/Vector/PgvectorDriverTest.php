@@ -30,6 +30,17 @@ class PgvectorDriverTest extends TestCase
         $this->assertNull($driver->parse(null));
         $this->assertNull($driver->parse(''));
         $this->assertNull($driver->parse('[]'));
+        $this->assertNull($driver->parse('   '));
+        $this->assertNull($driver->parse([]));
+    }
+
+    public function test_last_warnings_is_always_empty(): void
+    {
+        // pgvector pushes filtering to the database; it has no in-PHP cap
+        // or stale-row skip path that could surface a warning.
+        $driver = $this->app->make(PgvectorDriver::class);
+
+        $this->assertSame([], $driver->lastWarnings());
     }
 
     public function test_parse_accepts_array_input(): void

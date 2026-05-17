@@ -25,9 +25,15 @@ class PgvectorDriver implements VectorSearchDriver
     {
         $this->ensureReady();
 
+        // embedding_dimensions is redundant for pgvector's vector(N) typed
+        // column, but we write it anyway so the per-row dimension sentinel is
+        // consistent across drivers and survives re-migrations to a different N.
         $this->db->table('commonplace_notes')
             ->where('id', $noteId)
-            ->update(['embedding' => $this->formatVector($vector)]);
+            ->update([
+                'embedding' => $this->formatVector($vector),
+                'embedding_dimensions' => count($vector),
+            ]);
     }
 
     public function search(Builder $baseQuery, array $vector, int $limit): Collection
@@ -44,30 +50,51 @@ class PgvectorDriver implements VectorSearchDriver
 
     public function parse(mixed $stored): ?array
     {
-        if ($stored === null || $stored === '') {
+        if ($stored === null) {
             return null;
         }
 
         if (is_array($stored)) {
-            return array_map(static fn ($v) => (float) $v, $stored);
+            return $stored === [] ? null : array_map(static fn ($v) => (float) $v, $stored);
         }
 
         if (! is_string($stored)) {
             return null;
         }
 
+        // Strip outer brackets plus all whitespace; "[]" and "   " and ""
+        // collapse to the empty string and signal "no usable vector".
         $trimmed = trim($stored, "[] \t\n\r\0\x0B");
 
         if ($trimmed === '') {
             return null;
         }
 
-        return array_map(static fn (string $v) => (float) $v, explode(',', $trimmed));
+        $parts = array_map('trim', explode(',', $trimmed));
+
+        // Reject malformed input ("garbage", "1,abc") rather than coercing
+        // each token to 0.0 — silent zero-fills would poison cosine search.
+        // Mirrors InPhpCosineDriver::parse which returns null on bad JSON.
+        foreach ($parts as $part) {
+            if (! is_numeric($part)) {
+                return null;
+            }
+        }
+
+        return array_map(static fn (string $v) => (float) $v, $parts);
     }
 
     public function isEnabled(): bool
     {
         return true;
+    }
+
+    public function lastWarnings(): array
+    {
+        // pgvector pushes filtering/sorting down to the database — there is
+        // no in-PHP candidate cap or dimension-mismatch path that could
+        // surface a partial result. Always empty.
+        return [];
     }
 
     public function defineColumn(Blueprint $table, string $column = 'embedding'): void

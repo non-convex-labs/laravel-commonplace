@@ -36,13 +36,23 @@ class SemanticSearchTool extends Tool
                 scope: $scope,
             );
 
-            return Response::json($results->map(fn ($note) => [
-                'path' => $note->path,
-                'title' => $note->title,
-                'excerpt' => mb_substr($note->content, 0, 200),
-                'distance' => $note->distance ?? null,
-                'updated_at' => $note->updated_at->toIso8601String(),
-            ])->all());
+            $payload = [
+                'results' => $results->map(fn ($note) => [
+                    'path' => $note->path,
+                    'title' => $note->title,
+                    'excerpt' => mb_substr($note->content, 0, 200),
+                    'distance' => $note->distance ?? null,
+                    'updated_at' => $note->updated_at->toIso8601String(),
+                ])->all(),
+            ];
+
+            $warnings = $this->commonplace->lastSearchWarnings();
+
+            if ($warnings !== []) {
+                $payload['warnings'] = $warnings;
+            }
+
+            return Response::json($payload);
         } catch (\InvalidArgumentException $e) {
             return Response::error($e->getMessage());
         } catch (\RuntimeException $e) {

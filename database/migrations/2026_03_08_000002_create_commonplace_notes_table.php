@@ -20,6 +20,11 @@ return new class extends Migration
             $table->timestamp('indexed_at')->nullable();
             $table->foreignIdFor(config('commonplace.user_model'))->constrained()->cascadeOnDelete();
             $table->longText('embedding')->nullable();
+            // Per-row dimensions sentinel: lets the driver detect stale rows from
+            // a previous embedding provider/model (different N) and skip them
+            // rather than crashing. Written by the active VectorSearchDriver's
+            // store() on every embedding write.
+            $table->unsignedInteger('embedding_dimensions')->nullable();
             $table->timestamps();
         });
     }

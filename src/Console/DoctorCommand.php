@@ -354,8 +354,9 @@ class DoctorCommand extends Command
         };
 
         $recommendation = match ($status) {
-            'fail' => 'Indexed candidate count exceeds hard cap — semantic search will throw. '
-                .'Switch to pgvector or narrow search scope (e.g. scope=mine).',
+            'fail' => 'Indexed candidate count exceeds hard cap — semantic search will silently '
+                .'fall back to the most-recently-updated slice and surface a "hard_cap_truncated" warning. '
+                .'Switch to pgvector or narrow search scope (e.g. scope=mine) to see all candidates.',
             'warn' => 'Indexed candidate count exceeds soft cap — searches will log warnings. '
                 .'Consider switching to pgvector for better scaling.',
             default => null,

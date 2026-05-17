@@ -41,7 +41,15 @@ class SuggestedLinksTool extends Tool
                 scope: $scope,
             );
 
-            return Response::json($results);
+            $payload = ['suggestions' => $results];
+
+            $warnings = $this->commonplace->lastSearchWarnings();
+
+            if ($warnings !== []) {
+                $payload['warnings'] = $warnings;
+            }
+
+            return Response::json($payload);
         } catch (\InvalidArgumentException $e) {
             return Response::error($e->getMessage());
         } catch (AuthorizationException $e) {

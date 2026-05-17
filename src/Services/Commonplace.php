@@ -271,6 +271,19 @@ class Commonplace
         );
     }
 
+    /**
+     * Warnings (cap truncation, dimension mismatches, etc.) emitted by the
+     * driver during the immediately preceding semanticSearch() or
+     * getSuggestedLinks() call. Empty for drivers that never warn (pgvector,
+     * null).
+     *
+     * @return array<int, array{code: string, message: string, context: array<string, mixed>}>
+     */
+    public function lastSearchWarnings(): array
+    {
+        return $this->vectorDriver->lastWarnings();
+    }
+
     public function getBacklinks(string $path, Authenticatable $user): Collection
     {
         $path = $this->normalizePath($path);

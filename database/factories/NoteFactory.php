@@ -41,7 +41,8 @@ class NoteFactory extends Factory
     /**
      * Persist an embedding via the active VectorSearchDriver after the note is
      * created. Pass an explicit vector for deterministic ranking tests; otherwise
-     * defaults to a small uniform vector.
+     * defaults to a small uniform vector. The driver's store() writes both the
+     * embedding bytes and the per-row embedding_dimensions sentinel.
      *
      * @param  array<int, float>|null  $vector
      */
