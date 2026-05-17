@@ -7,8 +7,9 @@ namespace NonConvexLabs\Commonplace\Tests\Fixtures;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use NonConvexLabs\Commonplace\Concerns\HasCommonplaceNotes;
+use NonConvexLabs\Commonplace\Contracts\CommonplaceUser;
 
-class User extends Authenticatable
+class User extends Authenticatable implements CommonplaceUser
 {
     use HasCommonplaceNotes;
     use HasFactory;
