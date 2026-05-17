@@ -186,14 +186,40 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | GitHub backup
+    | Vault backup
     |--------------------------------------------------------------------------
+    | `destinations` is the fan-out list consumed by the BackupVault job.
+    | Each entry is either:
+    |   - `github` — pushes one commit to the configured GitHub repo.
+    |   - `filesystem.{name}` — writes a manifest + per-note .md files to
+    |     a Laravel disk. Define each `{name}` under `filesystem` below.
+    |   - any container binding key — bind your own BackupDestination in
+    |     a service provider and put its alias / class here.
+    |
+    | The legacy `BackupToGitHub` job is preserved for back-compat and
+    | dispatches the GitHub destination directly (no `destinations`
+    | array required).
     */
 
     'backup' => [
+        'destinations' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('COMMONPLACE_BACKUP_DESTINATIONS', '')),
+        ))),
+
         'github' => [
             'repo' => env('COMMONPLACE_GITHUB_BACKUP_REPO'),
             'token' => env('COMMONPLACE_GITHUB_BACKUP_TOKEN'),
+        ],
+
+        // Per-name filesystem destinations. Reference each entry from
+        // `destinations` as `filesystem.{name}`. Example:
+        //   COMMONPLACE_BACKUP_DESTINATIONS=filesystem.local-backup,filesystem.s3-prod
+        'filesystem' => [
+            'local-backup' => [
+                'disk' => env('COMMONPLACE_BACKUP_FS_LOCAL_DISK', 'local'),
+                'path' => env('COMMONPLACE_BACKUP_FS_LOCAL_PATH', 'commonplace/backups'),
+            ],
         ],
     ],
 
