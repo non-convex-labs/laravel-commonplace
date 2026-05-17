@@ -60,20 +60,12 @@ matching key is absent.
 | `AWS_ACCESS_KEY_ID` | Bedrock (or use OIDC; see below) |
 | `AWS_SECRET_ACCESS_KEY` | Bedrock |
 
-**Variables** — only set the ones you want to override; defaults live in
-`config/commonplace.php`.
-
-| Name | Default |
-| --- | --- |
-| `AWS_BEDROCK_REGION` | `us-east-1` |
-| `VOYAGE_EMBEDDING_MODEL` | `voyage-3.5` |
-| `VOYAGE_EMBEDDING_DIMENSIONS` | `1024` |
-| `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-small` |
-| `OPENAI_EMBEDDING_DIMENSIONS` | `1536` |
-| `COHERE_EMBEDDING_MODEL` | `embed-english-v3.0` |
-| `COHERE_EMBEDDING_DIMENSIONS` | `1024` |
-| `BEDROCK_EMBEDDING_MODEL` | `amazon.titan-embed-text-v2:0` |
-| `BEDROCK_EMBEDDING_DIMENSIONS` | `1024` |
+**Variables** — none required. The CI workflow uses the package defaults
+from `config/commonplace.php` (e.g. `text-embedding-3-small` for OpenAI,
+`us-east-1` for Bedrock). To override a model or dimension in CI, edit
+`.github/workflows/smoke-tests.yml` directly; passing empty strings through
+`vars.X` is unsafe because Laravel's `env()` returns the empty value rather
+than the default.
 
 ### Running the smoke test (locally)
 
