@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace NonConvexLabs\Commonplace\Tests\Feature\Jobs;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Queue\Attributes\Backoff;
+use Illuminate\Queue\Attributes\Tries;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Log;
@@ -15,6 +17,7 @@ use NonConvexLabs\Commonplace\Models\Note;
 use NonConvexLabs\Commonplace\Tests\Fixtures\InteractsWithCommonplaceDatabase;
 use NonConvexLabs\Commonplace\Tests\Fixtures\RecordingEmbeddingProvider;
 use NonConvexLabs\Commonplace\Tests\TestCase;
+use ReflectionClass;
 use RuntimeException;
 
 class ReindexNotesTest extends TestCase
@@ -137,16 +140,18 @@ class ReindexNotesTest extends TestCase
 
     public function test_it_declares_tries(): void
     {
-        $job = new ReindexNotes;
+        $tries = (new ReflectionClass(ReindexNotes::class))
+            ->getAttributes(Tries::class)[0]->newInstance();
 
-        $this->assertSame(3, $job->tries);
+        $this->assertSame(3, $tries->tries);
     }
 
     public function test_it_declares_backoff(): void
     {
-        $job = new ReindexNotes;
+        $backoff = (new ReflectionClass(ReindexNotes::class))
+            ->getAttributes(Backoff::class)[0]->newInstance();
 
-        $this->assertSame([10, 30, 120], $job->backoff());
+        $this->assertSame([10, 30, 120], $backoff->backoff);
     }
 
     public function test_failed_logs_the_failure(): void

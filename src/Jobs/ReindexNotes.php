@@ -7,25 +7,22 @@ namespace NonConvexLabs\Commonplace\Jobs;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\Attributes\Backoff;
+use Illuminate\Queue\Attributes\Tries;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
 use NonConvexLabs\Commonplace\Models\Note;
 
+#[Tries(3)]
+#[Backoff([10, 30, 120])]
 class ReindexNotes implements ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
     use Queueable;
     use SerializesModels;
-
-    public int $tries = 3;
-
-    public function backoff(): array
-    {
-        return [10, 30, 120];
-    }
 
     public function failed(\Throwable $exception): void
     {

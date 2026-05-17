@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace NonConvexLabs\Commonplace\Tests\Feature\Jobs;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Queue\Attributes\Backoff;
+use Illuminate\Queue\Attributes\Tries;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -13,6 +15,7 @@ use NonConvexLabs\Commonplace\Jobs\BackupToGitHub;
 use NonConvexLabs\Commonplace\Models\Note;
 use NonConvexLabs\Commonplace\Tests\Fixtures\InteractsWithCommonplaceDatabase;
 use NonConvexLabs\Commonplace\Tests\TestCase;
+use ReflectionClass;
 use RuntimeException;
 
 class BackupToGitHubTest extends TestCase
@@ -218,10 +221,13 @@ class BackupToGitHubTest extends TestCase
 
     public function test_it_declares_retry_configuration(): void
     {
-        $job = new BackupToGitHub;
+        $reflection = new ReflectionClass(BackupToGitHub::class);
 
-        $this->assertSame(5, $job->tries);
-        $this->assertSame([30, 120, 300], $job->backoff());
+        $tries = $reflection->getAttributes(Tries::class)[0]->newInstance();
+        $backoff = $reflection->getAttributes(Backoff::class)[0]->newInstance();
+
+        $this->assertSame(5, $tries->tries);
+        $this->assertSame([30, 120, 300], $backoff->backoff);
     }
 
     public function test_failed_logs_exception_context(): void
