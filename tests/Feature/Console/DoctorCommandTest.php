@@ -192,13 +192,15 @@ class DoctorCommandTest extends TestCase
 
         $this->artisan('commonplace:doctor', ['--exit-code' => true])
             ->assertExitCode(0)
-            ->expectsOutputToContain('Embedding dimension drift: stored and provider both 3 dim');
+            ->expectsOutputToContain('Embedding dimension drift: all stored rows match provider 3 dim');
     }
 
-    public function test_dimension_drift_check_fails_when_stored_vector_length_disagrees_with_provider(): void
+    public function test_dimension_drift_check_warns_when_stored_length_disagrees_with_provider(): void
     {
         // RecordingEmbeddingProvider reports 3 dimensions; store a 5-dim vector
         // to simulate the "switched provider/model after indexing" foot-gun.
+        // Status is `warn` (not `fail`), so --exit-code stays green — a routine
+        // package upgrade must not silently red downstream CI.
         $this->app->instance(EmbeddingProvider::class, new RecordingEmbeddingProvider);
 
         $user = User::factory()->create();
@@ -207,8 +209,68 @@ class DoctorCommandTest extends TestCase
             ->create(['user_id' => $user->id]);
 
         $this->artisan('commonplace:doctor', ['--exit-code' => true])
-            ->assertExitCode(1)
-            ->expectsOutputToContain('stored 5 dim vs provider 3 dim')
+            ->assertExitCode(0)
+            ->expectsOutputToContain('provider 3 dim, stored [5]')
+            ->expectsOutputToContain('php artisan commonplace:reindex');
+    }
+
+    public function test_dimension_drift_check_detects_partial_reindex_even_when_newest_row_matches(): void
+    {
+        // The canonical drift scenario: user switched provider, then a reindex
+        // ran but only completed partially (queue backlog, failed jobs, etc.).
+        // The NEWEST row matches the current provider; OLDER rows still carry
+        // the previous provider's dimensions. A "sample newest row" check would
+        // miss this entirely — the sentinel-driven distinct-aggregate catches
+        // it.
+        $this->app->instance(EmbeddingProvider::class, new RecordingEmbeddingProvider);
+
+        $user = User::factory()->create();
+        Note::factory()->withEmbedding([0.9, 0.9, 0.9, 0.9, 0.9])->create(['user_id' => $user->id]);   // old, 5-dim
+        Note::factory()->withEmbedding([0.1, 0.2, 0.3])->create(['user_id' => $user->id]);             // new, 3-dim
+
+        $this->artisan('commonplace:doctor', ['--exit-code' => true])
+            ->assertExitCode(0)
+            ->expectsOutputToContain('provider 3 dim, stored [3, 5]')
+            ->expectsOutputToContain('php artisan commonplace:reindex');
+    }
+
+    public function test_dimension_drift_check_resolves_provider_via_service_provider_dispatch(): void
+    {
+        // Exercise the real dispatch path: `null` driver + dimensions=3 in
+        // config, rather than $this->app->instance(...) which bypasses the
+        // service provider's match() table. Stores a 5-dim vector → drift.
+        config([
+            'commonplace.embedding.driver' => 'null',
+            'commonplace.embedding.null.dimensions' => 3,
+        ]);
+
+        $user = User::factory()->create();
+        Note::factory()
+            ->withEmbedding([0.1, 0.2, 0.3, 0.4, 0.5])
+            ->create(['user_id' => $user->id]);
+
+        $this->artisan('commonplace:doctor', ['--exit-code' => true])
+            ->assertExitCode(0)
+            ->expectsOutputToContain('provider 3 dim, stored [5]');
+    }
+
+    public function test_dimension_drift_check_warns_on_rows_missing_sentinel_column(): void
+    {
+        // Hand-inserted / pre-sentinel rows have `embedding` set but
+        // `embedding_dimensions` null. We can't tell their length without
+        // parsing, so we surface a warning and point at reindex.
+        $this->app->instance(EmbeddingProvider::class, new RecordingEmbeddingProvider);
+
+        $user = User::factory()->create();
+        $note = Note::factory()->create(['user_id' => $user->id]);
+
+        \DB::table('commonplace_notes')
+            ->where('id', $note->id)
+            ->update(['embedding' => '[0.1,0.2,0.3]', 'embedding_dimensions' => null]);
+
+        $this->artisan('commonplace:doctor', ['--exit-code' => true])
+            ->assertExitCode(0)
+            ->expectsOutputToContain('1 row(s) without sentinel')
             ->expectsOutputToContain('php artisan commonplace:reindex');
     }
 }
