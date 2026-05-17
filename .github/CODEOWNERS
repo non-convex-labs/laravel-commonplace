@@ -1,0 +1,9 @@
+# Default owner for everything in the repo.
+*                                       @aaddrick
+
+# Supply-chain & CI sensitive paths — require explicit review.
+/.github/                               @aaddrick
+/composer.json                          @aaddrick
+/phpstan.neon.dist                      @aaddrick
+/phpstan-baseline.neon                  @aaddrick
+/src/CommonplaceServiceProvider.php     @aaddrick
