@@ -157,6 +157,64 @@ class BackupVaultTest extends TestCase
         }
     }
 
+    public function test_traversal_in_note_path_aborts_the_backup(): void
+    {
+        config()->set('commonplace.backup.destinations', ['filesystem.test']);
+        config()->set('commonplace.backup.filesystem.test', [
+            'disk' => 'backups',
+            'path' => 'commonplace',
+        ]);
+
+        \Illuminate\Support\Facades\Storage::fake('backups');
+
+        // Bypass the model's path validation (if any) by direct insert
+        // so the test exercises the bundle's defensive check, not the
+        // controller's input validation.
+        Note::factory()->create([
+            'path' => '../etc/secret',
+            'title' => 'Bad',
+            'content' => 'body',
+        ]);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('traversal segment');
+
+        \Illuminate\Support\Facades\Bus::dispatchSync(new BackupVault);
+    }
+
+    public function test_filesystem_destination_prunes_orphaned_md_files(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('backups');
+
+        // Seed the disk with a leftover from a previous backup that no
+        // longer exists in the vault — pruning should remove it.
+        $disk = \Illuminate\Support\Facades\Storage::disk('backups');
+        $disk->put('commonplace/notes/old-note.md', 'ghost content');
+        $disk->put('commonplace/notes/unrelated.txt', 'should be kept');
+
+        config()->set('commonplace.backup.destinations', ['filesystem.test']);
+        config()->set('commonplace.backup.filesystem.test', [
+            'disk' => 'backups',
+            'path' => 'commonplace',
+        ]);
+
+        Note::factory()->create([
+            'path' => 'notes/current',
+            'title' => 'Current',
+            'content' => 'fresh',
+        ]);
+
+        \Illuminate\Support\Facades\Bus::dispatchSync(new BackupVault);
+
+        $this->assertTrue($disk->exists('commonplace/notes/current.md'));
+        $this->assertFalse(
+            $disk->exists('commonplace/notes/old-note.md'),
+            'Orphaned markdown from a previous backup was not pruned.',
+        );
+        // Non-.md files are not touched — only .md orphans are pruned.
+        $this->assertTrue($disk->exists('commonplace/notes/unrelated.txt'));
+    }
+
     public function test_filesystem_destination_requires_disk_setting(): void
     {
         config()->set('commonplace.backup.destinations', ['filesystem.broken']);

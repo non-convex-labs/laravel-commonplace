@@ -8,6 +8,7 @@ use Aws\BedrockRuntime\BedrockRuntimeClient;
 use Aws\CommandPool;
 use Aws\Result;
 use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
+use NonConvexLabs\Commonplace\Exceptions\PartialBatchEmbeddingException;
 use RuntimeException;
 use Throwable;
 
@@ -51,30 +52,30 @@ class BedrockEmbeddingProvider implements EmbeddingProvider
             $entry = $results[$i] ?? null;
 
             if ($entry instanceof Result) {
-                $embeddings[] = $this->decodeEmbedding($entry);
+                $embeddings[$i] = $this->decodeEmbedding($entry);
 
                 continue;
             }
 
-            // Anything else is a failure. All-or-nothing: bail on the
-            // first one. (Follow-up: surface partial success via a typed
-            // exception so ReindexNotes can checkpoint and not re-bill
-            // already-embedded tokens.) `previous:` is typed Throwable,
-            // so a non-Throwable rejection from a misbehaving handler
-            // would otherwise raise TypeError during error reporting
-            // and mask the real failure.
-            $previous = $entry instanceof Throwable ? $entry : null;
-            $message = $entry instanceof Throwable
-                ? $entry->getMessage()
-                : sprintf('non-Throwable rejection (%s)', get_debug_type($entry));
+            // First failure aborts the rest. Surface what already
+            // succeeded via PartialBatchEmbeddingException so callers
+            // can checkpoint and only retry the remainder, instead of
+            // re-billing tokens for work that's already done.
+            $previous = $entry instanceof Throwable
+                ? $entry
+                : new RuntimeException(sprintf(
+                    'non-Throwable rejection (%s)',
+                    get_debug_type($entry),
+                ));
 
-            throw new RuntimeException(
-                sprintf('Bedrock batch embedding failed at index %d: %s', $i, $message),
-                previous: $previous,
+            throw new PartialBatchEmbeddingException(
+                completed: $embeddings,
+                failedIndex: $i,
+                cause: $previous,
             );
         }
 
-        return $embeddings;
+        return array_values($embeddings);
     }
 
     public function dimensions(): int

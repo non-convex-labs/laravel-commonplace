@@ -55,8 +55,8 @@ class BackupVault implements ShouldQueue
             );
         }
 
-        $notes = Note::query()->orderBy('id')->get();
-        $bundle = BackupBundle::fromNotes($notes);
+        // Stream the source query so large vaults stay memory-bounded.
+        $bundle = BackupBundle::fromQuery(Note::query()->orderBy('id'));
 
         if ($bundle->isEmpty()) {
             Log::info('Commonplace backup: no notes to back up.');

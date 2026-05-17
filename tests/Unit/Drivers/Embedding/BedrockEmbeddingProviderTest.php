@@ -182,10 +182,11 @@ class BedrockEmbeddingProviderTest extends TestCase
         $this->assertCount(3, $this->sentCommands);
     }
 
-    public function test_embed_batch_throws_when_any_command_fails(): void
+    public function test_embed_batch_surfaces_partial_success_via_typed_exception(): void
     {
-        // Two successes + one AWS failure. embedBatch must fail loud
-        // without returning any partial result.
+        // Two successes + one AWS failure. Caller should see the
+        // completed embeddings on the exception so it can checkpoint
+        // and re-run only the failed remainder.
         $this->queueEmbedding([1.0]);
 
         $failingCommand = (new BedrockRuntimeClient([
@@ -197,10 +198,33 @@ class BedrockEmbeddingProviderTest extends TestCase
 
         $this->queueEmbedding([3.0]);
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Bedrock batch embedding failed');
+        try {
+            $this->provider->embedBatch(['a', 'b', 'c']);
+            $this->fail('Expected PartialBatchEmbeddingException.');
+        } catch (\NonConvexLabs\Commonplace\Exceptions\PartialBatchEmbeddingException $e) {
+            $this->assertSame(1, $e->failedIndex);
+            $this->assertArrayHasKey(0, $e->completed);
+            $this->assertSame([1.0], $e->completed[0]);
+            $this->assertArrayNotHasKey(1, $e->completed);
+        }
+    }
 
-        $this->provider->embedBatch(['a', 'b', 'c']);
+    public function test_embed_batch_exception_failure_at_index_zero_has_empty_completed(): void
+    {
+        $failingCommand = (new BedrockRuntimeClient([
+            'region' => 'us-east-1',
+            'version' => 'latest',
+            'credentials' => ['key' => 'fake', 'secret' => 'fake'],
+        ]))->getCommand('InvokeModel', []);
+        $this->mock->append(new AwsException('ThrottlingException', $failingCommand));
+
+        try {
+            $this->provider->embedBatch(['a']);
+            $this->fail('Expected PartialBatchEmbeddingException.');
+        } catch (\NonConvexLabs\Commonplace\Exceptions\PartialBatchEmbeddingException $e) {
+            $this->assertSame(0, $e->failedIndex);
+            $this->assertSame([], $e->completed);
+        }
     }
 
     public function test_embed_batch_clamps_concurrency_to_at_least_one(): void

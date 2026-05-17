@@ -141,11 +141,17 @@ parameters:
 		-
 			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$content\.$#'
 			identifier: property.notFound
-			count: 1
+			count: 2
 			path: src/Backup/BackupBundle.php
 
 		-
 			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$path\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Backup/BackupBundle.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$title\.$#'
 			identifier: property.notFound
 			count: 1
 			path: src/Backup/BackupBundle.php
