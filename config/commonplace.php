@@ -77,6 +77,11 @@ return [
             'model' => env('BEDROCK_EMBEDDING_MODEL', 'amazon.titan-embed-text-v2:0'),
             'dimensions' => (int) env('BEDROCK_EMBEDDING_DIMENSIONS', 1024),
             'normalize' => (bool) env('BEDROCK_EMBEDDING_NORMALIZE', true),
+            // Bedrock has no batch-embeddings endpoint; embedBatch() fans
+            // out concurrent invokeModel calls via Aws\CommandPool with
+            // this cap. Stays small by default — `concurrency * batch_size`
+            // must fit under your account's Bedrock RPM. Bump cautiously.
+            'concurrency' => (int) env('BEDROCK_EMBEDDING_CONCURRENCY', 2),
         ],
 
         'null' => [
