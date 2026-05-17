@@ -51,6 +51,10 @@ when rewriting:
 - **Before rolling your own `EmbeddingProvider` contract + driver pattern,
   check whether the AI SDK already covers the use case.** It probably does,
   and you inherit the SDK's testing helpers, fakes, and observability.
+- For this repo specifically, the check was done in #34 — see
+  [`ai-sdk-evaluation.md`](./ai-sdk-evaluation.md). Decision: stay on
+  the in-repo contract pending per-driver-knob coverage in a future
+  SDK release.
 
 ### Native vector queries & semantic search
 - First-class support for vector queries, embedding workflows, and similarity
