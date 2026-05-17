@@ -132,6 +132,47 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Markdown rendering
+    |--------------------------------------------------------------------------
+    | Extensions added to the CommonMark Environment, in order. Each entry
+    | is either a class string (resolved through Laravel's container) or an
+    | already-constructed `League\CommonMark\Extension\ExtensionInterface`
+    | instance. Use instances for extensions that need constructor args
+    | (e.g. ExternalLinkExtension, HeadingPermalinkExtension).
+    |
+    | Order matters in CommonMark: extensions registered later can override
+    | renderers / parsers from extensions registered earlier. Runtime
+    | extenders registered via `Commonplace::extendMarkdown()` run after
+    | this list, so they win on conflicts.
+    |
+    | Removing `DisallowedRawHtmlExtension` is an XSS regression — `<script>`
+    | tags will pass through to the output. Keep it unless you have your
+    | own sanitizer in the pipeline.
+    |
+    | The `tempest/highlight` extension is wired in separately (it needs a
+    | constructed Highlighter); toggle via `markdown.highlight.enabled`.
+    */
+
+    'markdown' => [
+        'extensions' => [
+            League\CommonMark\Extension\Table\TableExtension::class,
+            League\CommonMark\Extension\Autolink\AutolinkExtension::class,
+            League\CommonMark\Extension\Strikethrough\StrikethroughExtension::class,
+            League\CommonMark\Extension\TaskList\TaskListExtension::class,
+            League\CommonMark\Extension\DisallowedRawHtml\DisallowedRawHtmlExtension::class,
+            League\CommonMark\Extension\Footnote\FootnoteExtension::class,
+            League\CommonMark\Extension\SmartPunct\SmartPunctExtension::class,
+            ElGigi\CommonMarkEmoji\EmojiExtension::class,
+            NonConvexLabs\Commonplace\Markdown\Wikilink\WikilinkExtension::class,
+        ],
+
+        'highlight' => [
+            'enabled' => (bool) env('COMMONPLACE_MARKDOWN_HIGHLIGHT', true),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | MCP server
     |--------------------------------------------------------------------------
     | When enabled, the package registers its MCP server routes (HTTP

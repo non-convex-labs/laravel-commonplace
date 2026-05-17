@@ -17,7 +17,7 @@ class MarkdownRendererTest extends TestCase
     {
         parent::setUp();
 
-        $this->renderer = new MarkdownRenderer(new WikilinkParser);
+        $this->renderer = $this->app->make(MarkdownRenderer::class);
     }
 
     public function test_renders_headings(): void
@@ -268,7 +268,7 @@ class MarkdownRendererTest extends TestCase
 
     public function test_render_note_strips_frontmatter_and_renders_body(): void
     {
-        $renderer = new MarkdownRenderer($this->stubWikilinkParser());
+        $renderer = $this->rendererWithBrokenWikilinks();
 
         $html = $renderer->renderNote("---\ntitle: Foo\n---\n\n# Heading\n\nBody copy.");
 
@@ -279,7 +279,7 @@ class MarkdownRendererTest extends TestCase
 
     public function test_render_note_strips_crlf_frontmatter_like_lf_frontmatter(): void
     {
-        $renderer = new MarkdownRenderer($this->stubWikilinkParser());
+        $renderer = $this->rendererWithBrokenWikilinks();
 
         $html = $renderer->renderNote("---\r\ntitle: Foo\r\n---\r\n\r\n# Heading\r\n\r\nBody copy.");
 
@@ -288,9 +288,131 @@ class MarkdownRendererTest extends TestCase
         $this->assertStringNotContainsString('title: Foo', $html);
     }
 
+    public function test_extension_list_is_config_driven_so_gfm_can_be_removed(): void
+    {
+        // Strip the GFM-flavour extensions from the default list. Tables
+        // should no longer render — confirming the config is the source
+        // of truth, not a hardcoded `addExtension` call in the renderer.
+        config()->set('commonplace.markdown.extensions', [
+            \NonConvexLabs\Commonplace\Markdown\Wikilink\WikilinkExtension::class,
+        ]);
+        $this->app->forgetInstance(MarkdownRenderer::class);
+        $renderer = $this->app->make(MarkdownRenderer::class);
+
+        $html = $renderer->render("| a | b |\n| --- | --- |\n| 1 | 2 |");
+
+        $this->assertStringNotContainsString('<table>', $html);
+    }
+
+    public function test_extension_list_accepts_instances_for_parameterised_extensions(): void
+    {
+        // Some CommonMark extensions need constructor args. Verify the
+        // config accepts an already-built instance alongside class strings.
+        $instance = new \League\CommonMark\Extension\Mention\MentionParser(
+            'twitter',
+            '@',
+            '[a-z0-9_]+',
+            new \League\CommonMark\Extension\Mention\Generator\StringTemplateLinkGenerator('https://twitter.com/%s'),
+        );
+
+        $extensionInstance = new class($instance) implements \League\CommonMark\Extension\ExtensionInterface
+        {
+            public function __construct(private readonly \League\CommonMark\Parser\Inline\InlineParserInterface $parser) {}
+
+            public function register(\League\CommonMark\Environment\EnvironmentBuilderInterface $env): void
+            {
+                $env->addInlineParser($this->parser);
+            }
+        };
+
+        config()->set('commonplace.markdown.extensions', [
+            $extensionInstance,
+            \League\CommonMark\Extension\Autolink\AutolinkExtension::class,
+        ]);
+        $this->app->forgetInstance(MarkdownRenderer::class);
+        $renderer = $this->app->make(MarkdownRenderer::class);
+
+        $html = $renderer->render('hi @colinodell');
+
+        $this->assertStringContainsString('href="https://twitter.com/colinodell"', $html);
+    }
+
+    public function test_extend_markdown_callback_receives_environment_and_can_register_renderer(): void
+    {
+        // Register a callback that swaps the paragraph renderer to wrap
+        // content in a span. Runtime extenders run AFTER config extensions,
+        // so they win on duplicate renderer registration.
+        $commonplace = $this->app->make(\NonConvexLabs\Commonplace\Services\Commonplace::class);
+
+        $commonplace->extendMarkdown(function (\League\CommonMark\Environment\Environment $env): void {
+            $env->addRenderer(
+                \League\CommonMark\Node\Block\Paragraph::class,
+                new class implements \League\CommonMark\Renderer\NodeRendererInterface
+                {
+                    public function render(
+                        \League\CommonMark\Node\Node $node,
+                        \League\CommonMark\Renderer\ChildNodeRendererInterface $childRenderer,
+                    ): \League\CommonMark\Util\HtmlElement {
+                        return new \League\CommonMark\Util\HtmlElement(
+                            'p',
+                            ['class' => 'extended'],
+                            $childRenderer->renderNodes($node->children()),
+                        );
+                    }
+                },
+            );
+        });
+
+        try {
+            $html = $this->renderer->render('Plain paragraph.');
+
+            $this->assertStringContainsString('<p class="extended">Plain paragraph.</p>', $html);
+        } finally {
+            $commonplace->clearMarkdownExtenders();
+        }
+    }
+
+    public function test_wikilink_inline_parser_wins_over_commonmark_link_parser(): void
+    {
+        // Pins the priority knob: without WikilinkInlineParser's
+        // priority 100, CommonMark's OpenBracketParser would try to
+        // consume `[[some target]](http://x)` as `[label](url)` and the
+        // wikilink would never render.
+        $renderer = $this->rendererWithBrokenWikilinks();
+
+        $html = $renderer->render('See [[some target]] and ![[image]] here.');
+
+        $this->assertStringContainsString('class="vault-link vault-link-broken"', $html);
+        $this->assertStringContainsString('>some target</a>', $html);
+    }
+
+    public function test_wikilink_resolver_is_swappable(): void
+    {
+        // A custom resolver routing every target at an external URL.
+        $resolver = new class implements \NonConvexLabs\Commonplace\Contracts\WikilinkResolver
+        {
+            public function resolve(string $target): \NonConvexLabs\Commonplace\Markdown\Wikilink\ResolvedWikilink
+            {
+                return new \NonConvexLabs\Commonplace\Markdown\Wikilink\ResolvedWikilink(
+                    href: 'https://wiki.example.com/'.rawurlencode($target),
+                );
+            }
+        };
+        $this->app->bind(\NonConvexLabs\Commonplace\Contracts\WikilinkResolver::class, fn () => $resolver);
+        $this->app->forgetInstance(MarkdownRenderer::class);
+
+        $renderer = $this->app->make(MarkdownRenderer::class);
+
+        $html = $renderer->render('See [[Some Page]] for details.');
+
+        $this->assertStringContainsString('href="https://wiki.example.com/Some%20Page"', $html);
+        $this->assertStringContainsString('class="vault-link"', $html);
+        $this->assertStringNotContainsString('vault-link-broken', $html);
+    }
+
     public function test_render_note_emits_broken_wikilink_when_target_missing(): void
     {
-        $renderer = new MarkdownRenderer($this->stubWikilinkParser());
+        $renderer = $this->rendererWithBrokenWikilinks();
 
         $html = $renderer->renderNote('See [[Missing Note]] for context.');
 
@@ -298,14 +420,24 @@ class MarkdownRendererTest extends TestCase
         $this->assertStringContainsString('Missing Note', $html);
     }
 
-    private function stubWikilinkParser(): WikilinkParser
+    /**
+     * Build a renderer whose WikilinkResolver always returns null (broken
+     * link path), exercising the broken-wikilink branch deterministically.
+     */
+    private function rendererWithBrokenWikilinks(): MarkdownRenderer
     {
-        return new class extends WikilinkParser
+        $stub = new class extends WikilinkParser
         {
             public function resolveTarget(string $target): ?Note
             {
                 return null;
             }
         };
+
+        $this->app->instance(WikilinkParser::class, $stub);
+        $this->app->bind(\NonConvexLabs\Commonplace\Contracts\WikilinkResolver::class, fn () => $stub);
+        $this->app->forgetInstance(MarkdownRenderer::class);
+
+        return $this->app->make(MarkdownRenderer::class);
     }
 }

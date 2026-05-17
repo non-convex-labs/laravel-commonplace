@@ -670,7 +670,13 @@ parameters:
 			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$path\.$#'
 			identifier: property.notFound
 			count: 1
-			path: src/Services/MarkdownRenderer.php
+			path: src/Services/WikilinkParser.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$title\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Services/WikilinkParser.php
 
 		-
 			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$path\.$#'

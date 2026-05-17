@@ -19,12 +19,72 @@ use NonConvexLabs\Commonplace\Models\Tag;
 
 class Commonplace
 {
+    /**
+     * Boot-time-registered callbacks invoked with the CommonMark Environment
+     * when MarkdownRenderer builds its converter. Register from your service
+     * provider's `boot()` — not per-request — otherwise callbacks accumulate
+     * across requests under Octane / queue workers and leak memory.
+     *
+     * @var array<int, callable(\League\CommonMark\Environment\Environment): void>
+     */
+    private array $markdownExtenders = [];
+
+    /**
+     * Set when MarkdownRenderer reads the extender list — prevents
+     * surprise mutations after the converter has been built. Calling
+     * `extendMarkdown()` after this is set throws.
+     */
+    private bool $markdownExtendersFrozen = false;
+
     public function __construct(
         private readonly FrontmatterParser $frontmatterParser,
         private readonly WikilinkParser $wikilinkParser,
         private readonly EmbeddingProvider $embeddingProvider,
         private readonly VectorSearch $vectorDriver,
     ) {}
+
+    /**
+     * Register a callback that receives the CommonMark Environment after
+     * the configured extensions have been added. Use for custom inline /
+     * block parsers, renderers, or event listeners.
+     *
+     * **Call this from a service provider's boot() method only.**
+     *
+     * @param  callable(\League\CommonMark\Environment\Environment): void  $callback
+     */
+    public function extendMarkdown(callable $callback): void
+    {
+        if ($this->markdownExtendersFrozen) {
+            throw new \LogicException(
+                'Commonplace::extendMarkdown() must be called from a service provider boot() — '
+                .'the registry is frozen once the markdown renderer is first built. Adding '
+                .'extenders per-request leaks memory under Octane / queue workers.'
+            );
+        }
+
+        $this->markdownExtenders[] = $callback;
+    }
+
+    /**
+     * @return array<int, callable(\League\CommonMark\Environment\Environment): void>
+     *
+     * @internal Used by MarkdownRenderer.
+     */
+    public function registeredMarkdownExtenders(): array
+    {
+        $this->markdownExtendersFrozen = true;
+
+        return $this->markdownExtenders;
+    }
+
+    /**
+     * @internal Reset registered extenders. Tests + Octane request lifecycle.
+     */
+    public function clearMarkdownExtenders(): void
+    {
+        $this->markdownExtenders = [];
+        $this->markdownExtendersFrozen = false;
+    }
 
     public function createNote(
         string $path,
