@@ -4,13 +4,33 @@ declare(strict_types=1);
 
 namespace NonConvexLabs\Commonplace\Services;
 
+use NonConvexLabs\Commonplace\Contracts\WikilinkResolver;
+use NonConvexLabs\Commonplace\Markdown\Wikilink\ResolvedWikilink;
 use NonConvexLabs\Commonplace\Models\Note;
 
-class WikilinkParser
+class WikilinkParser implements WikilinkResolver
 {
+    public function resolve(string $target): ?ResolvedWikilink
+    {
+        $note = $this->resolveTarget($target);
+
+        if ($note === null) {
+            return null;
+        }
+
+        $prefix = '/'.ltrim((string) config('commonplace.routes.prefix', 'commonplace'), '/');
+
+        return new ResolvedWikilink(
+            href: $prefix.'/'.ltrim($note->path, '/'),
+            title: $note->title,
+        );
+    }
+
     public function extractLinks(string $content): array
     {
-        if (! preg_match_all('/\[\[([^\]]+)\]\]/', $content, $matches)) {
+        // Same constraints as WikilinkInlineParser so DB-sync and render
+        // agree on what counts as a wikilink.
+        if (! preg_match_all('/\[\[([^\]\n]+)\]\]/', $content, $matches)) {
             return [];
         }
 

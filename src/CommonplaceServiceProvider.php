@@ -11,6 +11,8 @@ use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
 use NonConvexLabs\Commonplace\Contracts\VectorSearch;
 use NonConvexLabs\Commonplace\Contracts\VectorSearchDriver;
 use NonConvexLabs\Commonplace\Contracts\VectorStorage;
+use NonConvexLabs\Commonplace\Contracts\WikilinkResolver;
+use NonConvexLabs\Commonplace\Services\WikilinkParser;
 use NonConvexLabs\Commonplace\Drivers\Embedding\BedrockEmbeddingProvider;
 use NonConvexLabs\Commonplace\Drivers\Embedding\CohereEmbeddingProvider;
 use NonConvexLabs\Commonplace\Drivers\Embedding\NullEmbeddingProvider;
@@ -78,6 +80,11 @@ class CommonplaceServiceProvider extends PackageServiceProvider
         // changing consumers.
         $this->app->bind(VectorStorage::class, fn ($app) => $app->make(VectorSearchDriver::class));
         $this->app->bind(VectorSearch::class, fn ($app) => $app->make(VectorSearchDriver::class));
+
+        // The default wikilink resolver wraps the package's WikilinkParser
+        // and resolves against the Note model. Rebind in your own service
+        // provider to point wikilinks at different models / external URLs.
+        $this->app->bind(WikilinkResolver::class, fn ($app) => $app->make(WikilinkParser::class));
 
         $this->app->singleton(MarkdownRenderer::class);
 
