@@ -19,9 +19,6 @@ Where a scenario depends on Postgres-only graph queries (`neighborhood-tool`, `s
 
 **Intent.** A connected client discovers exactly the documented tool surface and the recommended workflow hints baked into the server.
 
-> [!NOTE]
-> Validation 2026-05-17: `tools/list` currently returns 15 of the 16 registered tools — `suggested-links-tool` is missing from the listing. Direct `tools/call` against it still works, so the tool is wired and dispatching, just invisible to discovery. Tracked in [#66](https://github.com/non-convex-labs/laravel-commonplace/issues/66).
-
 **Preconditions.** MCP enabled. Client connected and authenticated.
 
 **Steps.**
