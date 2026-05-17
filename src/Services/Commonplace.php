@@ -230,14 +230,11 @@ class Commonplace
 
     public function semanticSearch(string $query, Authenticatable $user): Collection
     {
-        $queryEmbedding = $this->embeddingProvider->embed($query);
-        $vector = '['.implode(',', $queryEmbedding).']';
-
         return $this->searchByVectorDistance(
             Note::accessibleBy($user)
                 ->with(['tags', 'owner'])
                 ->whereNotNull('embedding'),
-            $vector,
+            $this->embeddingProvider->embed($query),
             20,
         );
     }
@@ -472,15 +469,14 @@ class Commonplace
             ->all();
     }
 
-    // TODO(issue #1): extract into VectorSearchDriver contract so non-pgvector
-    // backends (e.g. SQLite + manual cosine, Qdrant, pinecone) can be swapped in.
-    // Today this method assumes pgvector's `<=>` distance operator and a stored
-    // vector column. SQLite tests skip semantic-search paths entirely.
-    private function searchByVectorDistance($baseQuery, $vector, int $limit): Collection
+    /**
+     * @param  array<int, float>  $vector
+     */
+    private function searchByVectorDistance($baseQuery, array $vector, int $limit): Collection
     {
         return $baseQuery
-            ->selectRaw('*, embedding <=> ? AS distance', [$vector])
-            ->orderBy('distance')
+            ->selectVectorDistance('embedding', $vector, 'distance')
+            ->orderByVectorDistance('embedding', $vector)
             ->limit($limit)
             ->get();
     }

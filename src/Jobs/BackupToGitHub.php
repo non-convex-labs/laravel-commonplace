@@ -8,6 +8,8 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Queue\Attributes\Backoff;
+use Illuminate\Queue\Attributes\Tries;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Http;
@@ -16,6 +18,8 @@ use NonConvexLabs\Commonplace\Models\Note;
 use RuntimeException;
 use Throwable;
 
+#[Tries(5)]
+#[Backoff([30, 120, 300])]
 class BackupToGitHub implements ShouldQueue
 {
     use Dispatchable;
@@ -23,21 +27,11 @@ class BackupToGitHub implements ShouldQueue
     use Queueable;
     use SerializesModels;
 
-    public int $tries = 5;
-
     private const API_BASE = 'https://api.github.com';
 
     private const COMMITTER_NAME = 'Commonplace Backup';
 
     private const COMMITTER_EMAIL = 'commonplace-backup@users.noreply.github.com';
-
-    /**
-     * @return array<int, int>
-     */
-    public function backoff(): array
-    {
-        return [30, 120, 300];
-    }
 
     public function failed(Throwable $exception): void
     {
