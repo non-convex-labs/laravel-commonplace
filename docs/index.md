@@ -31,6 +31,7 @@ php artisan commonplace:doctor
 
 ## Start here
 
+- [Design](design.md) — what this package is, who it's for, how it compares to Obsidian / Logseq / Foam / Dendron.
 - [User model](user-model.md) — required model contract, optional `CommonplaceUser` interface, trait surface.
 - [Embedding drivers](embedding-drivers.md) — Voyage, OpenAI, Cohere, Bedrock, null. How to switch and reindex.
 - [Vector storage](vector-storage.md) — `in_php_cosine`, `pgvector`, `null`. Pick where embeddings live and how search runs.
