@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NonConvexLabs\Commonplace\Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use NonConvexLabs\Commonplace\Contracts\CommonplaceUser;
 use NonConvexLabs\Commonplace\Models\Note;
 use NonConvexLabs\Commonplace\Models\NoteVersion;
 use NonConvexLabs\Commonplace\Tests\Fixtures\InteractsWithCommonplaceDatabase;
@@ -60,5 +61,12 @@ class HasCommonplaceNotesTraitTest extends TestCase
         NoteVersion::factory()->create(['changed_by' => null]);
 
         $this->assertCount(2, $user->noteVersions);
+    }
+
+    public function test_trait_satisfies_commonplace_user_contract(): void
+    {
+        // Catches signature drift: if the interface or trait method
+        // signatures diverge, PHP fatals at class-load before this assert.
+        $this->assertInstanceOf(CommonplaceUser::class, User::factory()->create());
     }
 }
