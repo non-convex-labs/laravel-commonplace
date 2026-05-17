@@ -277,6 +277,17 @@ class MarkdownRendererTest extends TestCase
         $this->assertStringNotContainsString('title: Foo', $html);
     }
 
+    public function test_render_note_strips_crlf_frontmatter_like_lf_frontmatter(): void
+    {
+        $renderer = new MarkdownRenderer($this->stubWikilinkParser());
+
+        $html = $renderer->renderNote("---\r\ntitle: Foo\r\n---\r\n\r\n# Heading\r\n\r\nBody copy.");
+
+        $this->assertStringContainsString('<h1>Heading</h1>', $html);
+        $this->assertStringContainsString('Body copy.', $html);
+        $this->assertStringNotContainsString('title: Foo', $html);
+    }
+
     public function test_render_note_emits_broken_wikilink_when_target_missing(): void
     {
         $renderer = new MarkdownRenderer($this->stubWikilinkParser());
