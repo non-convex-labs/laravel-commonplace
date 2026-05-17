@@ -295,18 +295,25 @@ class DoctorCommand extends Command
     }
 
     /**
-     * Compare the configured provider's dimensions() against every distinct
-     * stored length. Reads the per-row `embedding_dimensions` sentinel rather
-     * than parsing vectors, which (a) catches partial-reindex drift where
-     * only newest rows are on the current provider, (b) survives the
-     * pgvector binary payload where the model accessor's parse() returns
-     * null, and (c) is one cheap distinct-aggregate query regardless of
-     * table size.
+     * Compare the configured provider's dimensions() against what's actually
+     * stored. The check is structurally a yes/no question — "does any row
+     * disagree with the current provider?" — so we ask it that way:
+     *
+     *   1. EXISTS short-circuits on the first mismatched row (drift case).
+     *   2. On the healthy path it falls through to an index scan over
+     *      `embedding_dimensions` (indexed in the base migration) and
+     *      confirms no disagreement.
+     *   3. Only if drift is found do we run a bounded follow-up to pull
+     *      distinct values for the user-facing message.
+     *
+     * Rows where `embedding` is set but the sentinel is NULL are folded into
+     * the drift case as `unknown` — we can't quantify the dimension, but the
+     * row is still suspect.
      *
      * Status is `warn`, not `fail`: --exit-code stays green so a routine
-     * upgrade doesn't silently break downstream CI pipelines. Drift is
-     * still loud — the check name, both numbers, and the reindex command
-     * are all in the doctor output.
+     * upgrade doesn't silently break downstream CI pipelines. The detail
+     * line is prefixed `DRIFT:` so the recommendations footer surfaces it
+     * above the other warns.
      *
      * @return array{label: string, status: string, detail: string, recommendation?: string}
      */
@@ -331,20 +338,44 @@ class DoctorCommand extends Command
                 );
             }
 
-            $stored = $db->table('commonplace_notes')
+            $hasEmbeddings = $db->table('commonplace_notes')
                 ->whereNotNull('embedding')
-                ->whereNotNull('embedding_dimensions')
-                ->distinct()
-                ->pluck('embedding_dimensions')
-                ->map(static fn ($v) => (int) $v)
-                ->sort()
-                ->values()
-                ->all();
+                ->exists();
 
-            $orphaned = (int) $db->table('commonplace_notes')
+            if (! $hasEmbeddings) {
+                return $this->report(
+                    label: 'Embedding dimension drift',
+                    status: 'skip',
+                    detail: 'no stored embeddings yet',
+                );
+            }
+
+            $hasDrift = $db->table('commonplace_notes')
                 ->whereNotNull('embedding')
-                ->whereNull('embedding_dimensions')
-                ->count();
+                ->where(function ($q) use ($expected) {
+                    $q->whereNull('embedding_dimensions')
+                        ->orWhere('embedding_dimensions', '!=', $expected);
+                })
+                ->exists();
+
+            if (! $hasDrift) {
+                return $this->report(
+                    label: 'Embedding dimension drift',
+                    status: 'ok',
+                    detail: "all stored rows match provider {$expected} dim",
+                );
+            }
+
+            $drifted = $db->table('commonplace_notes')
+                ->whereNotNull('embedding')
+                ->where(function ($q) use ($expected) {
+                    $q->whereNull('embedding_dimensions')
+                        ->orWhere('embedding_dimensions', '!=', $expected);
+                })
+                ->distinct()
+                ->limit(10)
+                ->pluck('embedding_dimensions')
+                ->all();
         } catch (\Throwable $e) {
             return $this->report(
                 label: 'Embedding dimension drift',
@@ -353,46 +384,21 @@ class DoctorCommand extends Command
             );
         }
 
-        if ($stored === [] && $orphaned === 0) {
-            return $this->report(
-                label: 'Embedding dimension drift',
-                status: 'skip',
-                detail: 'no stored embeddings yet',
-            );
-        }
-
-        $drifted = array_values(array_filter($stored, static fn (int $d) => $d !== $expected));
-
-        if ($drifted === [] && $orphaned === 0) {
-            return $this->report(
-                label: 'Embedding dimension drift',
-                status: 'ok',
-                detail: "all stored rows match provider {$expected} dim",
-            );
-        }
-
-        $storedSummary = $stored === [] ? '[]' : '['.implode(', ', $stored).']';
-        $orphanSuffix = $orphaned > 0 ? "; {$orphaned} row(s) without sentinel" : '';
-
-        if ($drifted !== []) {
-            $driftedPhrase = count($drifted) === 1
-                ? "dimension {$drifted[0]}"
-                : 'dimensions ['.implode(', ', $drifted).']';
-
-            $recommendation = "Embedding dimensions drifted: stored rows have {$driftedPhrase} but the configured "
-                ."provider produces {$expected}. Searches will return wrong results (or pgvector will error at "
-                .'query time). Re-embed your notes with `php artisan commonplace:reindex`.';
-        } else {
-            $recommendation = "{$orphaned} embedded row(s) have no embedding_dimensions sentinel — likely "
-                .'pre-sentinel or hand-inserted data. Re-run `php artisan commonplace:reindex` to refresh them. '
-                .'If the rows came from a previous provider with a different dimension, this is silent drift.';
-        }
+        $values = array_map(
+            static fn ($v) => $v === null ? 'unknown' : (string) (int) $v,
+            $drifted,
+        );
+        sort($values);
+        $summary = '['.implode(', ', $values).']';
 
         return $this->report(
             label: 'Embedding dimension drift',
             status: 'warn',
-            detail: "provider {$expected} dim, stored {$storedSummary}{$orphanSuffix}",
-            recommendation: $recommendation,
+            detail: "DRIFT: provider expects {$expected} dim, found rows with {$summary}",
+            recommendation: "Embedding dimensions drifted: stored rows have dimensions {$summary} but the "
+                ."configured provider produces {$expected}. Searches will return wrong results "
+                .'(or pgvector will error at query time). Re-embed your notes with '
+                .'`php artisan commonplace:reindex`.',
         );
     }
 

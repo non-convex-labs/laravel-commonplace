@@ -200,7 +200,8 @@ class DoctorCommandTest extends TestCase
         // RecordingEmbeddingProvider reports 3 dimensions; store a 5-dim vector
         // to simulate the "switched provider/model after indexing" foot-gun.
         // Status is `warn` (not `fail`), so --exit-code stays green — a routine
-        // package upgrade must not silently red downstream CI.
+        // package upgrade must not silently red downstream CI. The detail line
+        // is prefixed `DRIFT:` so it surfaces above sibling warns.
         $this->app->instance(EmbeddingProvider::class, new RecordingEmbeddingProvider);
 
         $user = User::factory()->create();
@@ -210,7 +211,7 @@ class DoctorCommandTest extends TestCase
 
         $this->artisan('commonplace:doctor', ['--exit-code' => true])
             ->assertExitCode(0)
-            ->expectsOutputToContain('provider 3 dim, stored [5]')
+            ->expectsOutputToContain('DRIFT: provider expects 3 dim, found rows with [5]')
             ->expectsOutputToContain('php artisan commonplace:reindex');
     }
 
@@ -220,8 +221,7 @@ class DoctorCommandTest extends TestCase
         // ran but only completed partially (queue backlog, failed jobs, etc.).
         // The NEWEST row matches the current provider; OLDER rows still carry
         // the previous provider's dimensions. A "sample newest row" check would
-        // miss this entirely — the sentinel-driven distinct-aggregate catches
-        // it.
+        // miss this entirely — the sentinel-driven EXISTS catches it.
         $this->app->instance(EmbeddingProvider::class, new RecordingEmbeddingProvider);
 
         $user = User::factory()->create();
@@ -230,7 +230,7 @@ class DoctorCommandTest extends TestCase
 
         $this->artisan('commonplace:doctor', ['--exit-code' => true])
             ->assertExitCode(0)
-            ->expectsOutputToContain('provider 3 dim, stored [3, 5]')
+            ->expectsOutputToContain('DRIFT: provider expects 3 dim, found rows with [5]')
             ->expectsOutputToContain('php artisan commonplace:reindex');
     }
 
@@ -251,26 +251,29 @@ class DoctorCommandTest extends TestCase
 
         $this->artisan('commonplace:doctor', ['--exit-code' => true])
             ->assertExitCode(0)
-            ->expectsOutputToContain('provider 3 dim, stored [5]');
+            ->expectsOutputToContain('DRIFT: provider expects 3 dim, found rows with [5]');
     }
 
-    public function test_dimension_drift_check_warns_on_rows_missing_sentinel_column(): void
+    public function test_dimension_drift_check_treats_rows_missing_sentinel_as_drift(): void
     {
-        // Hand-inserted / pre-sentinel rows have `embedding` set but
-        // `embedding_dimensions` null. We can't tell their length without
-        // parsing, so we surface a warning and point at reindex.
+        // Rows with `embedding` populated but `embedding_dimensions` null
+        // (pre-sentinel data, hand-inserted SQL fixtures) are folded into the
+        // drift case as `unknown` — we can't quantify the length but the row
+        // is still suspect. Pair it with a clean 5-dim row to assert both
+        // values appear in the message.
         $this->app->instance(EmbeddingProvider::class, new RecordingEmbeddingProvider);
 
         $user = User::factory()->create();
-        $note = Note::factory()->create(['user_id' => $user->id]);
+        Note::factory()->withEmbedding([0.1, 0.2, 0.3, 0.4, 0.5])->create(['user_id' => $user->id]);
+        $orphan = Note::factory()->create(['user_id' => $user->id]);
 
         \DB::table('commonplace_notes')
-            ->where('id', $note->id)
+            ->where('id', $orphan->id)
             ->update(['embedding' => '[0.1,0.2,0.3]', 'embedding_dimensions' => null]);
 
         $this->artisan('commonplace:doctor', ['--exit-code' => true])
             ->assertExitCode(0)
-            ->expectsOutputToContain('1 row(s) without sentinel')
+            ->expectsOutputToContain('DRIFT: provider expects 3 dim, found rows with [5, unknown]')
             ->expectsOutputToContain('php artisan commonplace:reindex');
     }
 }
