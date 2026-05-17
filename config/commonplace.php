@@ -53,7 +53,12 @@ return [
         'openai' => [
             'api_key' => env('OPENAI_API_KEY'),
             'model' => env('OPENAI_EMBEDDING_MODEL', 'text-embedding-3-small'),
-            'dimensions' => (int) env('OPENAI_EMBEDDING_DIMENSIONS', 1536),
+            // Null when unset or blank: the driver substitutes the model's
+            // native size and refuses to forward this to models that don't
+            // accept it. `is_numeric` covers `=` (empty string) edge cases.
+            'dimensions' => is_numeric(env('OPENAI_EMBEDDING_DIMENSIONS'))
+                ? (int) env('OPENAI_EMBEDDING_DIMENSIONS')
+                : null,
         ],
 
         'cohere' => [
