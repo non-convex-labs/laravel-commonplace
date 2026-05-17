@@ -54,6 +54,10 @@ php artisan commonplace:doctor
 
 - [Backup](backup.md) — pluggable destinations, the bundle format, and how to write your own.
 
+## Scenarios
+
+- [Scenarios overview](scenarios/index.md) — narrative behavior specs grouped by who is driving the package (note-taker, AI agent, collaborator, public-visitor, integrator, operator). Use this folder to drive a verification pass against a running install.
+
 ## Internal reference
 
 - [AI SDK evaluation](ai-sdk-evaluation.md) — the decision record for keeping the in-repo `EmbeddingProvider` contract.
