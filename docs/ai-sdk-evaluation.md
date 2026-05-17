@@ -8,7 +8,7 @@ losing per-driver knobs.
 
 ## Context
 
-`docs/laravel-style-and-best-practices.md` flags:
+`docs/styleguides/laravel_styleguide.md` flags:
 
 > Before rolling your own EmbeddingProvider contract + driver pattern,
 > check whether the AI SDK already covers the use case.
@@ -127,5 +127,5 @@ If a future evaluation flips the decision to **migrate**:
 - [x] Decision recorded.
 - [ ] Add a calendar reminder to re-evaluate when Laravel 14 ships, or
       when we add a 6th embedding provider — whichever comes first.
-- [ ] Link this doc from `docs/laravel-style-and-best-practices.md`
+- [ ] Link this doc from `docs/styleguides/laravel_styleguide.md`
       as the answer to the "did you check the AI SDK?" prompt.
