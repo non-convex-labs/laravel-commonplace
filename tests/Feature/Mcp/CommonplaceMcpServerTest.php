@@ -8,7 +8,9 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route;
 use Laravel\Mcp\Server\McpServiceProvider;
+use Laravel\Mcp\Server\Methods\ListTools;
 use Laravel\Mcp\Server\Transport\FakeTransporter;
+use Laravel\Mcp\Server\Transport\JsonRpcRequest;
 use NonConvexLabs\Commonplace\Mcp\CommonplaceMcpServer;
 use NonConvexLabs\Commonplace\Mcp\Tools\BacklinksTool;
 use NonConvexLabs\Commonplace\Mcp\Tools\CreateNoteTool;
@@ -122,6 +124,22 @@ class CommonplaceMcpServerTest extends TestCase
         $context = $server->createContext();
 
         $this->assertCount(16, $context->tools());
+    }
+
+    public function test_tools_list_returns_all_tools_in_a_single_page(): void
+    {
+        $server = $this->app->make(CommonplaceMcpServer::class, [
+            'transport' => new FakeTransporter,
+        ]);
+
+        $request = new JsonRpcRequest(id: 1, method: 'tools/list', params: []);
+        $response = (new ListTools)->handle($request, $server->createContext());
+
+        $result = $response->toArray()['result'];
+
+        $this->assertCount(16, $result['tools']);
+        $this->assertArrayNotHasKey('nextCursor', $result, 'tools/list must not paginate — all tools should fit in the first page so MCP clients see every tool during discovery');
+        $this->assertContains('suggested-links-tool', array_column($result['tools'], 'name'));
     }
 
     public function test_create_note_tool_creates_note(): void

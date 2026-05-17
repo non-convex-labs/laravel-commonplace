@@ -52,6 +52,8 @@ Read the `commonplace-guide` note first with `read-note-tool` (path: "commonplac
 INSTRUCTIONS)]
 class CommonplaceMcpServer extends Server
 {
+    public int $defaultPaginationLength = 50;
+
     protected array $tools = [
         CreateNoteTool::class,
         ReadNoteTool::class,
