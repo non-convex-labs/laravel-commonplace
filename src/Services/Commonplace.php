@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
-use NonConvexLabs\Commonplace\Contracts\VectorSearchDriver;
+use NonConvexLabs\Commonplace\Contracts\VectorSearch;
 use NonConvexLabs\Commonplace\Enums\SemanticSearchScope;
 use NonConvexLabs\Commonplace\Models\Link;
 use NonConvexLabs\Commonplace\Models\Note;
@@ -23,7 +23,7 @@ class Commonplace
         private readonly FrontmatterParser $frontmatterParser,
         private readonly WikilinkParser $wikilinkParser,
         private readonly EmbeddingProvider $embeddingProvider,
-        private readonly VectorSearchDriver $vectorDriver,
+        private readonly VectorSearch $vectorDriver,
     ) {}
 
     public function createNote(

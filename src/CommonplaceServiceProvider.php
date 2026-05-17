@@ -7,7 +7,9 @@ namespace NonConvexLabs\Commonplace;
 use InvalidArgumentException;
 use NonConvexLabs\Commonplace\Console\DoctorCommand;
 use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
+use NonConvexLabs\Commonplace\Contracts\VectorSearch;
 use NonConvexLabs\Commonplace\Contracts\VectorSearchDriver;
+use NonConvexLabs\Commonplace\Contracts\VectorStorage;
 use NonConvexLabs\Commonplace\Drivers\Embedding\NullEmbeddingProvider;
 use NonConvexLabs\Commonplace\Drivers\Embedding\VoyageEmbeddingProvider;
 use NonConvexLabs\Commonplace\Drivers\Vector\InPhpCosineDriver;
@@ -60,6 +62,14 @@ class CommonplaceServiceProvider extends PackageServiceProvider
                 default => throw new InvalidArgumentException("Unknown commonplace vector driver: {$driver}"),
             };
         });
+
+        // Narrow-contract aliases. Code that only needs storage or only needs
+        // search should depend on these rather than the composite, so future
+        // external-service drivers (Qdrant, Pinecone, Chroma) can be wired
+        // with a separate VectorStorage binding (typically a no-op) without
+        // changing consumers.
+        $this->app->bind(VectorStorage::class, fn ($app) => $app->make(VectorSearchDriver::class));
+        $this->app->bind(VectorSearch::class, fn ($app) => $app->make(VectorSearchDriver::class));
 
         $this->app->singleton(MarkdownRenderer::class);
 

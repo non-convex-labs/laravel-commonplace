@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Log;
-use NonConvexLabs\Commonplace\Contracts\VectorSearchDriver;
+use NonConvexLabs\Commonplace\Contracts\VectorStorage;
 use NonConvexLabs\Commonplace\Database\Factories\NoteFactory;
 use Throwable;
 
@@ -47,13 +47,19 @@ class Note extends Model
     }
 
     /**
-     * Embedding is read-only on the model — the active VectorSearchDriver
-     * owns serialization and the write path is `$driver->store($id, $vec)`.
+     * Embedding is read-only on the model — the active VectorStorage
+     * implementation owns serialization and the write path is
+     * `$storage->store($id, $vec)`.
      *
-     * Deliberately NOT cached: the driver is resolved on every read so
-     * test rebinds (`$app->instance(VectorSearchDriver::class, ...)`)
-     * take effect against already-hydrated Notes. Parsing a JSON array
-     * is cheap relative to anything that consumes it.
+     * Depends on the narrower VectorStorage contract (not the composite
+     * VectorSearchDriver) because the accessor only needs parse(). This
+     * keeps future external-service drivers free to bind storage
+     * independently from search.
+     *
+     * Deliberately NOT cached: the binding is resolved on every read so
+     * test rebinds (`$app->instance(VectorStorage::class, ...)`) take
+     * effect against already-hydrated Notes. Parsing a JSON array is
+     * cheap relative to anything that consumes it.
      *
      * Driver resolution is wrapped defensively: a misconfigured driver
      * (bad `commonplace.vector.driver` value, missing dependency on a
@@ -66,13 +72,13 @@ class Note extends Model
         return Attribute::make(
             get: function (mixed $value) {
                 try {
-                    return app(VectorSearchDriver::class)->parse($value);
+                    return app(VectorStorage::class)->parse($value);
                 } catch (Throwable $e) {
                     static $logged = false;
 
                     if (! $logged) {
                         $logged = true;
-                        Log::warning('Commonplace: failed to resolve VectorSearchDriver for Note::embedding accessor; returning null.', [
+                        Log::warning('Commonplace: failed to resolve VectorStorage for Note::embedding accessor; returning null.', [
                             'note_id' => $this->getKey(),
                             'exception' => $e->getMessage(),
                         ]);

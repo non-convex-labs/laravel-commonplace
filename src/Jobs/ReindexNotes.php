@@ -13,7 +13,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
-use NonConvexLabs\Commonplace\Contracts\VectorSearchDriver;
+use NonConvexLabs\Commonplace\Contracts\VectorStorage;
 use NonConvexLabs\Commonplace\Models\Note;
 
 #[Tries(3)]
@@ -34,7 +34,7 @@ class ReindexNotes implements ShouldQueue
         ]);
     }
 
-    public function handle(EmbeddingProvider $embedder, VectorSearchDriver $vector): void
+    public function handle(EmbeddingProvider $embedder, VectorStorage $vector): void
     {
         $cooldown = (int) config('commonplace.reindex.cooldown_minutes', 60);
         $batchSize = (int) config('commonplace.reindex.batch_size', 10);

@@ -8,6 +8,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use NonConvexLabs\Commonplace\Contracts\VectorSearchDriver;
+use NonConvexLabs\Commonplace\Contracts\VectorStorage;
 use NonConvexLabs\Commonplace\Models\Link;
 use NonConvexLabs\Commonplace\Models\Note;
 use NonConvexLabs\Commonplace\Models\NoteVersion;
@@ -67,9 +68,11 @@ class NoteTest extends TestCase
     {
         $note = Note::factory()->create();
 
-        // Rebind the driver to a closure that throws on resolution, simulating
-        // a misconfigured queue worker / replica where the driver can't boot.
-        $this->app->bind(VectorSearchDriver::class, function () {
+        // Rebind the storage contract to a closure that throws on resolution,
+        // simulating a misconfigured queue worker / replica where the driver
+        // can't boot. The accessor now depends on the narrower VectorStorage
+        // contract, so rebind that to exercise the defensive path.
+        $this->app->bind(VectorStorage::class, function () {
             throw new RuntimeException('driver boot exploded');
         });
 
@@ -80,7 +83,7 @@ class NoteTest extends TestCase
         Log::shouldHaveReceived('warning')
             ->once()
             ->withArgs(function (string $message, array $context): bool {
-                return str_contains($message, 'failed to resolve VectorSearchDriver')
+                return str_contains($message, 'failed to resolve VectorStorage')
                     && ($context['exception'] ?? null) === 'driver boot exploded'
                     && array_key_exists('note_id', $context);
             });

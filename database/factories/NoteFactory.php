@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace NonConvexLabs\Commonplace\Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
-use NonConvexLabs\Commonplace\Contracts\VectorSearchDriver;
+use NonConvexLabs\Commonplace\Contracts\VectorStorage;
 use NonConvexLabs\Commonplace\Models\Note;
 
 class NoteFactory extends Factory
@@ -39,10 +39,11 @@ class NoteFactory extends Factory
     }
 
     /**
-     * Persist an embedding via the active VectorSearchDriver after the note is
+     * Persist an embedding via the active VectorStorage after the note is
      * created. Pass an explicit vector for deterministic ranking tests; otherwise
-     * defaults to a small uniform vector. The driver's store() writes both the
-     * embedding bytes and the per-row embedding_dimensions sentinel.
+     * defaults to a small uniform vector. The storage implementation's store()
+     * writes both the embedding bytes and the per-row embedding_dimensions
+     * sentinel.
      *
      * @param  array<int, float>|null  $vector
      */
@@ -50,7 +51,7 @@ class NoteFactory extends Factory
     {
         return $this->afterCreating(function (Note $note) use ($vector) {
             $vector ??= array_fill(0, 8, 0.1);
-            app(VectorSearchDriver::class)->store($note->id, $vector);
+            app(VectorStorage::class)->store($note->id, $vector);
         });
     }
 
