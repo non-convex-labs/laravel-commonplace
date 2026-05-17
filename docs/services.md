@@ -56,11 +56,11 @@ The five write methods that own the note lifecycle. All accept paths in any slas
 
 | Method | Source | Returns |
 |---|---|---|
-| `createNote` | [Commonplace.php:90](../src/Services/Commonplace.php#L90) | `Note` with `tags`, `owner`, `outgoingLinks` loaded |
-| `readNote` | [Commonplace.php:123](../src/Services/Commonplace.php#L123) | `Note` with `tags`, `owner` loaded |
-| `updateNote` | [Commonplace.php:134](../src/Services/Commonplace.php#L134) | `Note` with `tags`, `owner`, `outgoingLinks` loaded |
-| `editNote` | [Commonplace.php:207](../src/Services/Commonplace.php#L207) | `Note` (delegates to `updateNote`) |
-| `deleteNote` | [Commonplace.php:250](../src/Services/Commonplace.php#L250) | `void` (writes a final `NoteVersion`, then deletes) |
+| `createNote` | [Commonplace.php:92](../src/Services/Commonplace.php#L92) | `Note` with `tags`, `owner`, `outgoingLinks` loaded |
+| `readNote` | [Commonplace.php:125](../src/Services/Commonplace.php#L125) | `Note` with `tags`, `owner` loaded |
+| `updateNote` | [Commonplace.php:136](../src/Services/Commonplace.php#L136) | `Note` with `tags`, `owner`, `outgoingLinks` loaded |
+| `editNote` | [Commonplace.php:219](../src/Services/Commonplace.php#L219) | `Note` (delegates to `updateNote`) |
+| `deleteNote` | [Commonplace.php:262](../src/Services/Commonplace.php#L262) | `void` (writes a final `NoteVersion`, then deletes) |
 
 ### `createNote`
 
@@ -114,7 +114,7 @@ Accepted keys in `$data`:
 | Key | Effect |
 |---|---|
 | `content` | Replaces content. If the hash changes, a `NoteVersion` is written and `indexed_at` is cleared so the next reindex picks it up. Wikilinks are re-synced. Frontmatter overrides separately-passed `visibility` / `tags`. |
-| `new_path` | Renames the note. (Backlink rewriting is queued — see the TODO note at [Commonplace.php:378](../src/Services/Commonplace.php#L378).) |
+| `new_path` | Renames the note. Delegates to `moveNote` ([Commonplace.php:210-212](../src/Services/Commonplace.php#L210)), so referencing `[[wikilinks]]` are rewritten via the same async job — owner-level check applies. |
 | `visibility` | Sets `private` / `public`. Ignored if `content` frontmatter sets `visibility` (frontmatter wins). |
 | `tags` | Replaces the tag set. Ignored if `content` frontmatter sets `tags`. |
 
@@ -193,7 +193,7 @@ $recent = Commonplace::listNotes(
 );
 ```
 
-Source: [Commonplace.php:269](../src/Services/Commonplace.php#L269). The folder filter uses the `inFolder` scope; the tag filter uses `withTag`.
+Source: [Commonplace.php:281](../src/Services/Commonplace.php#L281). The folder filter uses the `inFolder` scope; the tag filter uses `withTag`.
 
 ### `searchNotes`
 
@@ -207,7 +207,7 @@ Lexical search across title + content using `ILIKE` on PostgreSQL, `LIKE` elsewh
 $results = Commonplace::searchNotes('vault', auth()->user());
 ```
 
-Source: [Commonplace.php:292](../src/Services/Commonplace.php#L292).
+Source: [Commonplace.php:304](../src/Services/Commonplace.php#L304).
 
 ### `semanticSearch`
 
@@ -233,7 +233,7 @@ $similar = Commonplace::semanticSearch(
 );
 ```
 
-Source: [Commonplace.php:316](../src/Services/Commonplace.php#L316). Scope enum: [`src/Enums/SemanticSearchScope.php`](../src/Enums/SemanticSearchScope.php). See [`vector-storage.md`](./vector-storage.md) and [`embedding-drivers.md`](./embedding-drivers.md) for driver wiring.
+Source: [Commonplace.php:328](../src/Services/Commonplace.php#L328). Scope enum: [`src/Enums/SemanticSearchScope.php`](../src/Enums/SemanticSearchScope.php). See [`vector-storage.md`](./vector-storage.md) and [`embedding-drivers.md`](./embedding-drivers.md) for driver wiring.
 
 ### `lastSearchWarnings`
 
@@ -254,7 +254,7 @@ foreach (Commonplace::lastSearchWarnings() as $warning) {
 }
 ```
 
-Source: [Commonplace.php:343](../src/Services/Commonplace.php#L343).
+Source: [Commonplace.php:355](../src/Services/Commonplace.php#L355).
 
 ## Graph queries
 
@@ -262,13 +262,13 @@ The wikilink graph is built from `commonplace_links` rows, populated automatical
 
 | Method | Source | Returns |
 |---|---|---|
-| `getBacklinks` | [Commonplace.php:348](../src/Services/Commonplace.php#L348) | `Collection<Note>` |
-| `moveNote` | [Commonplace.php:363](../src/Services/Commonplace.php#L363) | `Note` |
-| `getNeighborhood` | [Commonplace.php:404](../src/Services/Commonplace.php#L404) | `array` of `{path, title, depth, tags}` |
-| `getShortestPath` | [Commonplace.php:460](../src/Services/Commonplace.php#L460) | `array` of `{path, title}` (or `null` if no path) |
-| `getHubNotes` | [Commonplace.php:521](../src/Services/Commonplace.php#L521) | `array` of `{path, title, outgoing_links, incoming_links, total_links}` |
-| `getOrphanNotes` | [Commonplace.php:550](../src/Services/Commonplace.php#L550) | `Collection<Note>` |
-| `getSuggestedLinks` | [Commonplace.php:560](../src/Services/Commonplace.php#L560) | `array` of `{path, title, distance}` |
+| `getBacklinks` | [Commonplace.php:360](../src/Services/Commonplace.php#L360) | `Collection<Note>` |
+| `moveNote` | [Commonplace.php:375](../src/Services/Commonplace.php#L375) | `Note` |
+| `getNeighborhood` | [Commonplace.php:437](../src/Services/Commonplace.php#L437) | `array` of `{path, title, depth, tags}` |
+| `getShortestPath` | [Commonplace.php:493](../src/Services/Commonplace.php#L493) | `array` of `{path, title}` (or `null` if no path) |
+| `getHubNotes` | [Commonplace.php:554](../src/Services/Commonplace.php#L554) | `array` of `{path, title, outgoing_links, incoming_links, total_links}` |
+| `getOrphanNotes` | [Commonplace.php:583](../src/Services/Commonplace.php#L583) | `Collection<Note>` |
+| `getSuggestedLinks` | [Commonplace.php:593](../src/Services/Commonplace.php#L593) | `array` of `{path, title, distance}` |
 
 > [!WARNING]
 > `getNeighborhood`, `getShortestPath`, and `getHubNotes` are implemented with PostgreSQL-specific recursive CTEs and `ARRAY[]` syntax. They do not run on MySQL or SQLite.
@@ -291,7 +291,7 @@ $backlinks = Commonplace::getBacklinks('references/clean-architecture', auth()->
 public function moveNote(string $fromPath, string $toPath, Authenticatable $user): Note
 ```
 
-Owner-only. Throws `InvalidArgumentException` if a note already exists at `$toPath`. Inbound wikilinks are not yet rewritten — see [Commonplace.php:378](../src/Services/Commonplace.php#L378) for the job dispatch TODO.
+Owner-only. Throws `InvalidArgumentException` if a note already exists at `$toPath`. The path change runs inside a `DB::transaction`; on commit, [`UpdateWikilinksJob`](../src/Jobs/UpdateWikilinksJob.php) is dispatched ([Commonplace.php:402-410](../src/Services/Commonplace.php#L402)) to rewrite every referencing `[[wikilink]]` — full path, alias form, and trailing-segment all handled. Async by default; set `commonplace.wikilinks.rewrite_sync = true` (env `COMMONPLACE_WIKILINKS_REWRITE_SYNC`) to dispatch via `dispatchSync()` for atomicity in tests or queue-less consumers. If the queue worker is down and a dispatch is lost, [`commonplace:relink`](commands.md#commonplacerelink) re-resolves the orphaned link rows.
 
 ```php
 Commonplace::moveNote('drafts/idea', 'projects/idea', auth()->user());
@@ -396,7 +396,7 @@ foreach ($versions as $v) {
 }
 ```
 
-Source: [Commonplace.php:383](../src/Services/Commonplace.php#L383). Versions are written automatically by `updateNote` (on content change) and `deleteNote` (final snapshot). See [`model-relationships.md`](./model-relationships.md) for the `NoteVersion` schema.
+Source: [Commonplace.php:416](../src/Services/Commonplace.php#L416). Versions are written automatically by `updateNote` (on content change) and `deleteNote` (final snapshot). See [`model-relationships.md`](./model-relationships.md) for the `NoteVersion` schema.
 
 ## Markdown extension hooks
 
@@ -404,9 +404,9 @@ Three methods let your application's service provider register CommonMark extens
 
 | Method | Source | Purpose |
 |---|---|---|
-| `extendMarkdown` | [Commonplace.php:56](../src/Services/Commonplace.php#L56) | Register a callback that receives the `Environment` after configured extensions are added. |
-| `registeredMarkdownExtenders` | [Commonplace.php:74](../src/Services/Commonplace.php#L74) | `@internal` — used by `MarkdownRenderer`. Freezes the registry. |
-| `clearMarkdownExtenders` | [Commonplace.php:84](../src/Services/Commonplace.php#L84) | `@internal` — used by tests and the Octane request lifecycle. |
+| `extendMarkdown` | [Commonplace.php:58](../src/Services/Commonplace.php#L58) | Register a callback that receives the `Environment` after configured extensions are added. |
+| `registeredMarkdownExtenders` | [Commonplace.php:76](../src/Services/Commonplace.php#L76) | `@internal` — used by `MarkdownRenderer`. Freezes the registry. |
+| `clearMarkdownExtenders` | [Commonplace.php:86](../src/Services/Commonplace.php#L86) | `@internal` — used by tests and the Octane request lifecycle. |
 
 ```php
 // In your AppServiceProvider::boot()

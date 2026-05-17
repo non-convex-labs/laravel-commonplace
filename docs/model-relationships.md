@@ -60,7 +60,7 @@ Eloquent models the package ships with, the tables behind them, and how they fit
 
 ### Casts, accessors, mutators
 
-- `indexed_at` cast to `datetime`; `visibility` cast to `string` ([`Note.php:41-47`](../src/Models/Note.php#L41)).
+- `indexed_at` cast to `datetime`; `visibility` cast to the [`Visibility`](../src/Enums/Visibility.php) backed enum — cases `Private` (`'private'`) and `Public` (`'public'`) ([`Note.php:42-47`](../src/Models/Note.php#L42)). Per-user grants on private notes happen via the [`Share`](#share) model, not a third visibility value.
 - `embedding` is a **read-only** accessor that delegates to the bound `VectorStorage`'s `parse()` ([`Note.php:70-91`](../src/Models/Note.php#L70)). The write path is `$storage->store($note->id, $vector)` — see [vector storage](vector-storage.md). The accessor swallows driver-resolution failures and returns `null` (logged once) so `toArray()` and queue payloads never blow up.
 - `embedding` and `embedding_dimensions` are listed in `$hidden`, so they never leak into `toArray()` / `toJson()`, and `embedding` is not in `$fillable`.
 
