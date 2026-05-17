@@ -16,8 +16,18 @@ class RecordingEmbeddingProvider implements EmbeddingProvider
     /** @var array<int, string> */
     public array $lastBatch = [];
 
+    /** @var array<int, string> */
+    public array $queryEmbeds = [];
+
     public function embed(string $text): array
     {
+        return [0.1, 0.2, 0.3];
+    }
+
+    public function embedQuery(string $text): array
+    {
+        $this->queryEmbeds[] = $text;
+
         return [0.1, 0.2, 0.3];
     }
 

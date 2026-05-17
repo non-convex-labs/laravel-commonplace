@@ -266,7 +266,7 @@ class Commonplace
 
         return $this->vectorDriver->search(
             $baseQuery,
-            $this->embeddingProvider->embed($query),
+            $this->embeddingProvider->embedQuery($query),
             20,
         );
     }

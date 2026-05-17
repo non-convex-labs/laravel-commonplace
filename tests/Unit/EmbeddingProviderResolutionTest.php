@@ -6,7 +6,10 @@ namespace NonConvexLabs\Commonplace\Tests\Unit;
 
 use InvalidArgumentException;
 use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
+use NonConvexLabs\Commonplace\Drivers\Embedding\BedrockEmbeddingProvider;
+use NonConvexLabs\Commonplace\Drivers\Embedding\CohereEmbeddingProvider;
 use NonConvexLabs\Commonplace\Drivers\Embedding\NullEmbeddingProvider;
+use NonConvexLabs\Commonplace\Drivers\Embedding\OpenAIEmbeddingProvider;
 use NonConvexLabs\Commonplace\Drivers\Embedding\VoyageEmbeddingProvider;
 use NonConvexLabs\Commonplace\Tests\TestCase;
 
@@ -28,6 +31,36 @@ class EmbeddingProviderResolutionTest extends TestCase
 
         $this->assertInstanceOf(
             VoyageEmbeddingProvider::class,
+            $this->app->make(EmbeddingProvider::class),
+        );
+    }
+
+    public function test_openai_driver_resolves_from_container(): void
+    {
+        config()->set('commonplace.embedding.driver', 'openai');
+
+        $this->assertInstanceOf(
+            OpenAIEmbeddingProvider::class,
+            $this->app->make(EmbeddingProvider::class),
+        );
+    }
+
+    public function test_cohere_driver_resolves_from_container(): void
+    {
+        config()->set('commonplace.embedding.driver', 'cohere');
+
+        $this->assertInstanceOf(
+            CohereEmbeddingProvider::class,
+            $this->app->make(EmbeddingProvider::class),
+        );
+    }
+
+    public function test_bedrock_driver_resolves_from_container(): void
+    {
+        config()->set('commonplace.embedding.driver', 'bedrock');
+
+        $this->assertInstanceOf(
+            BedrockEmbeddingProvider::class,
             $this->app->make(EmbeddingProvider::class),
         );
     }

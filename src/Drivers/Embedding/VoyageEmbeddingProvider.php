@@ -14,6 +14,11 @@ class VoyageEmbeddingProvider implements EmbeddingProvider
         private readonly HttpClient $http,
     ) {}
 
+    public function embedQuery(string $text): array
+    {
+        return $this->embed($text);
+    }
+
     public function embed(string $text): array
     {
         $response = $this->http

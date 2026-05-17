@@ -16,6 +16,7 @@ use NonConvexLabs\Commonplace\Models\Share;
 use NonConvexLabs\Commonplace\Models\Tag;
 use NonConvexLabs\Commonplace\Services\Commonplace;
 use NonConvexLabs\Commonplace\Tests\Fixtures\InteractsWithCommonplaceDatabase;
+use NonConvexLabs\Commonplace\Tests\Fixtures\RecordingEmbeddingProvider;
 use NonConvexLabs\Commonplace\Tests\Fixtures\User;
 use NonConvexLabs\Commonplace\Tests\TestCase;
 
@@ -582,6 +583,11 @@ class CommonplaceTest extends TestCase
                     return [1.0, 0.0, 0.0];
                 }
 
+                public function embedQuery(string $text): array
+                {
+                    return $this->embed($text);
+                }
+
                 public function embedBatch(array $texts): array
                 {
                     return array_map(fn () => $this->embed(''), $texts);
@@ -599,6 +605,20 @@ class CommonplaceTest extends TestCase
         $ordered = $commonplace->semanticSearch('query', $this->owner)->pluck('id')->all();
 
         $this->assertSame([$near->id, $mid->id, $far->id], $ordered);
+    }
+
+    public function test_semantic_search_routes_query_through_embed_query(): void
+    {
+        $recorder = new RecordingEmbeddingProvider;
+        $this->app->instance(EmbeddingProvider::class, $recorder);
+        $this->app->forgetInstance(Commonplace::class);
+        $commonplace = $this->app->make(Commonplace::class);
+
+        Note::factory()->withEmbedding([0.1, 0.2, 0.3])->create(['user_id' => $this->owner->id]);
+
+        $commonplace->semanticSearch('how do indexes work', $this->owner);
+
+        $this->assertSame(['how do indexes work'], $recorder->queryEmbeds);
     }
 
     public function test_get_suggested_links_returns_empty_when_driver_disabled(): void

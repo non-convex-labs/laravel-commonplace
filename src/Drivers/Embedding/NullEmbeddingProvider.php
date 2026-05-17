@@ -8,6 +8,11 @@ use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
 
 class NullEmbeddingProvider implements EmbeddingProvider
 {
+    public function embedQuery(string $text): array
+    {
+        return $this->embed($text);
+    }
+
     public function embed(string $text): array
     {
         return array_fill(0, $this->dimensions(), 0.0);
