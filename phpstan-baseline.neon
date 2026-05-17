@@ -1,0 +1,703 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Trait NonConvexLabs\\Commonplace\\Concerns\\HasCommonplaceNotes is used zero times and is not analysed\.$#'
+			identifier: trait.unused
+			count: 1
+			path: src/Concerns/HasCommonplaceNotes.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Link\:\:\$source_note_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Http/Controllers/GraphController.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Link\:\:\$target_note_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Http/Controllers/GraphController.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$path\.$#'
+			identifier: property.notFound
+			count: 5
+			path: src/Http/Controllers/GraphController.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$title\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Http/Controllers/GraphController.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$updated_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Http/Controllers/GraphController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,NonConvexLabs\\Commonplace\\Models\\Link\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: src/Http/Controllers/GraphController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,NonConvexLabs\\Commonplace\\Models\\Note\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: src/Http/Controllers/GraphController.php
+
+		-
+			message: '#^Parameter \#1 \$view of function view expects view\-string\|null, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Http/Controllers/GraphController.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$content\.$#'
+			identifier: property.notFound
+			count: 2
+			path: src/Http/Controllers/NoteController.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$path\.$#'
+			identifier: property.notFound
+			count: 5
+			path: src/Http/Controllers/NoteController.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$title\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Http/Controllers/NoteController.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$updated_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Http/Controllers/NoteController.php
+
+		-
+			message: '#^Parameter \#1 \$view of function view expects view\-string\|null, string given\.$#'
+			identifier: argument.type
+			count: 5
+			path: src/Http/Controllers/NoteController.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$content\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Http/Controllers/SearchController.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$path\.$#'
+			identifier: property.notFound
+			count: 2
+			path: src/Http/Controllers/SearchController.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$title\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Http/Controllers/SearchController.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$updated_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Http/Controllers/SearchController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<\(int\|string\),Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: src/Http/Controllers/SearchController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<\(int\|string\),Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\|string\)\: array\{path\: mixed, title\: mixed, excerpt\: string, url\: string, updated_at\: mixed, tags\: Illuminate\\Support\\Collection\<int\|string, mixed\>\}, Closure\(NonConvexLabs\\Commonplace\\Models\\Note\)\: array\{path\: mixed, title\: mixed, excerpt\: string, url\: string, updated_at\: mixed, tags\: Illuminate\\Support\\Collection\<int\|string, mixed\>\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Http/Controllers/SearchController.php
+
+		-
+			message: '#^Parameter \#1 \$view of function view expects view\-string\|null, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Http/Controllers/SearchController.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$content\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Jobs/BackupToGitHub.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$path\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Jobs/BackupToGitHub.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$content\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Jobs/ReindexNotes.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$embedding\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Jobs/ReindexNotes.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$indexed_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Jobs/ReindexNotes.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$title\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Jobs/ReindexNotes.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$path\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/BacklinksTool.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$title\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/BacklinksTool.php
+
+		-
+			message: '#^Method Illuminate\\Contracts\\JsonSchema\\JsonSchema\:\:string\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: src/Mcp/Tools/BacklinksTool.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<\(int\|string\),Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: src/Mcp/Tools/BacklinksTool.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$created_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/CreateNoteTool.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$path\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/CreateNoteTool.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$title\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/CreateNoteTool.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$visibility\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/CreateNoteTool.php
+
+		-
+			message: '#^Method Illuminate\\Contracts\\JsonSchema\\JsonSchema\:\:array\(\) invoked with 2 parameters, 0 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: src/Mcp/Tools/CreateNoteTool.php
+
+		-
+			message: '#^Method Illuminate\\Contracts\\JsonSchema\\JsonSchema\:\:string\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 4
+			path: src/Mcp/Tools/CreateNoteTool.php
+
+		-
+			message: '#^Method Illuminate\\Contracts\\JsonSchema\\JsonSchema\:\:string\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: src/Mcp/Tools/DeleteNoteTool.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$content\.$#'
+			identifier: property.notFound
+			count: 2
+			path: src/Mcp/Tools/EditNoteTool.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$path\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/EditNoteTool.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$title\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/EditNoteTool.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$updated_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/EditNoteTool.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$visibility\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/EditNoteTool.php
+
+		-
+			message: '#^Method Illuminate\\Contracts\\JsonSchema\\JsonSchema\:\:boolean\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: src/Mcp/Tools/EditNoteTool.php
+
+		-
+			message: '#^Method Illuminate\\Contracts\\JsonSchema\\JsonSchema\:\:string\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 3
+			path: src/Mcp/Tools/EditNoteTool.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$author\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/HistoryTool.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$content_hash\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/HistoryTool.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$created_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/HistoryTool.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/HistoryTool.php
+
+		-
+			message: '#^Method Illuminate\\Contracts\\JsonSchema\\JsonSchema\:\:string\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: src/Mcp/Tools/HistoryTool.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<\(int\|string\),Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: src/Mcp/Tools/HistoryTool.php
+
+		-
+			message: '#^Method Illuminate\\Contracts\\JsonSchema\\JsonSchema\:\:number\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: src/Mcp/Tools/HubNotesTool.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$path\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/ListTool.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$tags\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/ListTool.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$title\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/ListTool.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$updated_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/ListTool.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$visibility\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/ListTool.php
+
+		-
+			message: '#^Method Illuminate\\Contracts\\JsonSchema\\JsonSchema\:\:string\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 3
+			path: src/Mcp/Tools/ListTool.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<\(int\|string\),Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: src/Mcp/Tools/ListTool.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$path\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/MoveTool.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$title\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/MoveTool.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$updated_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/MoveTool.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$visibility\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/MoveTool.php
+
+		-
+			message: '#^Method Illuminate\\Contracts\\JsonSchema\\JsonSchema\:\:string\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 2
+			path: src/Mcp/Tools/MoveTool.php
+
+		-
+			message: '#^Method Illuminate\\Contracts\\JsonSchema\\JsonSchema\:\:number\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: src/Mcp/Tools/NeighborhoodTool.php
+
+		-
+			message: '#^Method Illuminate\\Contracts\\JsonSchema\\JsonSchema\:\:string\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: src/Mcp/Tools/NeighborhoodTool.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$path\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/OrphanNotesTool.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$tags\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/OrphanNotesTool.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$title\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/OrphanNotesTool.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$updated_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/OrphanNotesTool.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<\(int\|string\),Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: src/Mcp/Tools/OrphanNotesTool.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$content\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/ReadNoteTool.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$path\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/ReadNoteTool.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$title\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/ReadNoteTool.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$updated_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/ReadNoteTool.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$visibility\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/ReadNoteTool.php
+
+		-
+			message: '#^Method Illuminate\\Contracts\\JsonSchema\\JsonSchema\:\:string\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: src/Mcp/Tools/ReadNoteTool.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$content\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/SearchTool.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$path\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/SearchTool.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$title\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/SearchTool.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$updated_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/SearchTool.php
+
+		-
+			message: '#^Method Illuminate\\Contracts\\JsonSchema\\JsonSchema\:\:string\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: src/Mcp/Tools/SearchTool.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<\(int\|string\),Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: src/Mcp/Tools/SearchTool.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$content\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/SemanticSearchTool.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$path\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/SemanticSearchTool.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$title\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/SemanticSearchTool.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$updated_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/SemanticSearchTool.php
+
+		-
+			message: '#^Method Illuminate\\Contracts\\JsonSchema\\JsonSchema\:\:string\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: src/Mcp/Tools/SemanticSearchTool.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<\(int\|string\),Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: src/Mcp/Tools/SemanticSearchTool.php
+
+		-
+			message: '#^Method Illuminate\\Contracts\\JsonSchema\\JsonSchema\:\:string\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 2
+			path: src/Mcp/Tools/ShortestPathTool.php
+
+		-
+			message: '#^Method Illuminate\\Contracts\\JsonSchema\\JsonSchema\:\:number\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: src/Mcp/Tools/SuggestedLinksTool.php
+
+		-
+			message: '#^Method Illuminate\\Contracts\\JsonSchema\\JsonSchema\:\:string\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: src/Mcp/Tools/SuggestedLinksTool.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$content\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/UpdateNoteTool.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$path\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/UpdateNoteTool.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$title\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/UpdateNoteTool.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$updated_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/UpdateNoteTool.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$visibility\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Mcp/Tools/UpdateNoteTool.php
+
+		-
+			message: '#^Method Illuminate\\Contracts\\JsonSchema\\JsonSchema\:\:array\(\) invoked with 2 parameters, 0 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: src/Mcp/Tools/UpdateNoteTool.php
+
+		-
+			message: '#^Method Illuminate\\Contracts\\JsonSchema\\JsonSchema\:\:string\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 5
+			path: src/Mcp/Tools/UpdateNoteTool.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$permission\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Services/Commonplace.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$content\.$#'
+			identifier: property.notFound
+			count: 6
+			path: src/Services/Commonplace.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$content_hash\.$#'
+			identifier: property.notFound
+			count: 4
+			path: src/Services/Commonplace.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$distance\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Services/Commonplace.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$embedding\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Services/Commonplace.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$indexed_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Services/Commonplace.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$path\.$#'
+			identifier: property.notFound
+			count: 6
+			path: src/Services/Commonplace.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$title\.$#'
+			identifier: property.notFound
+			count: 4
+			path: src/Services/Commonplace.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$user_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Services/Commonplace.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$visibility\.$#'
+			identifier: property.notFound
+			count: 3
+			path: src/Services/Commonplace.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<\(int\|string\),Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: src/Services/Commonplace.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<\(int\|string\),Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\|string\)\: array\{path\: mixed, title\: mixed, distance\: float\}, Closure\(NonConvexLabs\\Commonplace\\Models\\Note\)\: array\{path\: mixed, title\: mixed, distance\: float\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Services/Commonplace.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,NonConvexLabs\\Commonplace\\Models\\Note\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: src/Services/Commonplace.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,NonConvexLabs\\Commonplace\\Models\\Note\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: src/Services/Commonplace.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,array\<string, mixed\>\>\:\:sortBy\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: src/Services/Commonplace.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$path\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Services/JournalCalendar.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$path\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Services/MarkdownRenderer.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$path\.$#'
+			identifier: property.notFound
+			count: 2
+			path: src/Services/NoteBrowser.php
