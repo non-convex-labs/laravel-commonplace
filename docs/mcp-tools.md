@@ -318,7 +318,13 @@ Rename or move a note. Preserves version history; queues a job that rewrites `[[
 
 **Output:** same shape as `read-note-tool` (the moved note's new metadata).
 
-Wikilink rewriting runs asynchronously — referring notes update on the next queue worker pass. Errors surface as `InvalidArgumentException` (collision, invalid path) or `AuthorizationException` (caller doesn't own the source).
+Wikilink rewriting runs asynchronously via `UpdateWikilinksJob` ([`src/Jobs/UpdateWikilinksJob.php`](../src/Jobs/UpdateWikilinksJob.php)). The job reads `commonplace_links` rows pointing at the moved note, replaces the literal `target_path` text in each source note's content (preserving any `|alias` suffix), and rewrites the link rows directly. Dispatched via `DB::afterCommit` inside `Commonplace::moveNote`'s transaction so the job never sees a half-applied move. Set `COMMONPLACE_WIKILINKS_REWRITE_SYNC=true` to run inline for tests / CLI tools.
+
+If the queue worker is down, `commonplace:doctor` flags orphaned link rows above a configurable threshold and recommends `commonplace:relink` to re-resolve them. See [commands.md](commands.md). Errors surface as `InvalidArgumentException` (collision, invalid path) or `AuthorizationException` (caller doesn't own the source).
+
+The same rewrite covers the `new_path` parameter on `update-note-tool` — `Commonplace::updateNote` delegates the path mutation to `moveNote` so both entry points dispatch the same job.
+
+Anchor-suffixed wikilinks (`[[a/b#heading]]`) and wikilinks inside fenced code blocks are pre-existing limitations of `WikilinkParser::resolveTarget` / `extractLinks` and are **not** rewritten by the move job.
 
 ## history-tool
 

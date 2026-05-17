@@ -7,6 +7,7 @@ namespace NonConvexLabs\Commonplace;
 use InvalidArgumentException;
 use NonConvexLabs\Commonplace\Console\DoctorCommand;
 use NonConvexLabs\Commonplace\Console\ReindexCommand;
+use NonConvexLabs\Commonplace\Console\RelinkCommand;
 use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
 use NonConvexLabs\Commonplace\Contracts\VectorSearch;
 use NonConvexLabs\Commonplace\Contracts\VectorSearchDriver;
@@ -44,7 +45,8 @@ class CommonplaceServiceProvider extends PackageServiceProvider
                 '2026_03_08_000007_create_commonplace_shares_table',
             ])
             ->hasCommand(DoctorCommand::class)
-            ->hasCommand(ReindexCommand::class);
+            ->hasCommand(ReindexCommand::class)
+            ->hasCommand(RelinkCommand::class);
     }
 
     public function packageRegistered(): void

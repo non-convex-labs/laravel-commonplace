@@ -14,6 +14,7 @@ use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
 use NonConvexLabs\Commonplace\Contracts\VectorSearch;
 use NonConvexLabs\Commonplace\Enums\SemanticSearchScope;
 use NonConvexLabs\Commonplace\Enums\Visibility;
+use NonConvexLabs\Commonplace\Jobs\UpdateWikilinksJob;
 use NonConvexLabs\Commonplace\Models\Link;
 use NonConvexLabs\Commonplace\Models\Note;
 use NonConvexLabs\Commonplace\Models\NoteVersion;
@@ -192,14 +193,24 @@ class Commonplace
             }
         }
 
-        if (isset($data['new_path'])) {
-            $note->path = $data['new_path'];
-        }
-
         $note->save();
 
         if (isset($data['tags'])) {
             $this->syncTags($note, $data['tags']);
+        }
+
+        // Path change is delegated to moveNote so the wikilink-rewrite
+        // job dispatches from a single path-mutation site. Doing this
+        // last keeps the prior field updates atomic with their own save
+        // (versioning, tags) and avoids racing the rewrite job against
+        // a half-saved note. `moveNote` re-runs `checkAccess` at the
+        // `owner` level — strictly stricter than the `write` we already
+        // passed, so a writable-but-not-owner caller can't bypass owner
+        // gating by routing a move through `updateNote`.
+        if (isset($data['new_path']) && $data['new_path'] !== $note->path) {
+            $oldPath = $note->path;
+            $this->moveNote($oldPath, $data['new_path'], $user);
+            $note->refresh();
         }
 
         return $note->load(['tags', 'owner', 'outgoingLinks']);
@@ -370,13 +381,34 @@ class Commonplace
 
         $this->checkAccess($note, $user, 'owner');
 
+        if ($fromPath === $toPath) {
+            return $note->load(['tags', 'owner']);
+        }
+
         if (Note::where('path', $toPath)->exists()) {
             throw new \InvalidArgumentException("A note already exists at path: {$toPath}");
         }
 
-        $note->update(['path' => $toPath]);
+        // `DB::afterCommit` fires *immediately* when called outside a
+        // transaction (documented Laravel behavior), which would
+        // silently regress to the synchronous, path-locking rewrite
+        // this job is meant to replace. The wrap is load-bearing.
+        DB::transaction(function () use ($note, $fromPath, $toPath): void {
+            $note->update(['path' => $toPath]);
 
-        // TODO(chunk-7): dispatch UpdateWikilinksJob here once the job class lands.
+            $noteId = (int) $note->getKey();
+            $sync = (bool) config('commonplace.wikilinks.rewrite_sync', false);
+
+            DB::afterCommit(function () use ($noteId, $fromPath, $toPath, $sync): void {
+                if ($sync) {
+                    UpdateWikilinksJob::dispatchSync($noteId, $fromPath, $toPath);
+
+                    return;
+                }
+
+                UpdateWikilinksJob::dispatch($noteId, $fromPath, $toPath);
+            });
+        });
 
         return $note->load(['tags', 'owner']);
     }

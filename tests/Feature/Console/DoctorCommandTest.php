@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace NonConvexLabs\Commonplace\Tests\Feature\Console;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
 use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
+use NonConvexLabs\Commonplace\Models\Link;
 use NonConvexLabs\Commonplace\Models\Note;
 use NonConvexLabs\Commonplace\Tests\Fixtures\InteractsWithCommonplaceDatabase;
 use NonConvexLabs\Commonplace\Tests\Fixtures\RecordingEmbeddingProvider;
@@ -275,5 +277,47 @@ class DoctorCommandTest extends TestCase
             ->assertExitCode(0)
             ->expectsOutputToContain('DRIFT: provider expects 3 dim, found rows with [5, unknown]')
             ->expectsOutputToContain('php artisan commonplace:reindex');
+    }
+
+    public function test_doctor_warns_when_orphan_link_count_exceeds_threshold(): void
+    {
+        config(['commonplace.wikilinks.orphan_warn_threshold' => 2]);
+
+        $owner = User::factory()->create();
+        $source = Note::factory()->create(['path' => 'source', 'user_id' => $owner->id]);
+
+        foreach (['a', 'b', 'c'] as $missing) {
+            Link::create([
+                'source_note_id' => $source->id,
+                'target_path' => $missing,
+                'target_note_id' => null,
+            ]);
+        }
+
+        Artisan::call('commonplace:doctor');
+        $output = Artisan::output();
+        $this->assertStringContainsString('Orphaned wikilinks', $output);
+        $this->assertStringContainsString('3 (over threshold 2)', $output);
+        $this->assertStringContainsString('php artisan commonplace:relink', $output);
+    }
+
+    public function test_doctor_silent_when_orphan_count_under_threshold(): void
+    {
+        config(['commonplace.wikilinks.orphan_warn_threshold' => 50]);
+
+        $owner = User::factory()->create();
+        $source = Note::factory()->create(['path' => 'source', 'user_id' => $owner->id]);
+
+        Link::create([
+            'source_note_id' => $source->id,
+            'target_path' => 'missing',
+            'target_note_id' => null,
+        ]);
+
+        $exit = Artisan::call('commonplace:doctor', ['--exit-code' => true]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('1 (under threshold 50)', $output);
     }
 }
