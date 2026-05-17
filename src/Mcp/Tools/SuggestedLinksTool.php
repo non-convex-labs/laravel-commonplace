@@ -12,6 +12,7 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
+use NonConvexLabs\Commonplace\Enums\SemanticSearchScope;
 use NonConvexLabs\Commonplace\Services\Commonplace;
 
 #[Description('Suggest notes that should be linked to a given note based on semantic similarity (embedding distance). Only returns notes that are NOT already linked. Use to discover missing connections.')]
@@ -25,10 +26,14 @@ class SuggestedLinksTool extends Tool
         try {
             $limit = $request->get('limit') ?? 10;
 
+            $scope = SemanticSearchScope::tryFrom((string) ($request->get('scope') ?? ''))
+                ?? SemanticSearchScope::Mine;
+
             $results = $this->commonplace->getSuggestedLinks(
                 path: $request->get('path'),
                 user: $request->user(),
                 limit: min((int) $limit, 20),
+                scope: $scope,
             );
 
             return Response::json($results);
@@ -44,6 +49,10 @@ class SuggestedLinksTool extends Tool
         return [
             'path' => $schema->string('Virtual path of the note to find suggestions for'),
             'limit' => $schema->number('Maximum number of suggestions (default 10, max 20)'),
+            'scope' => $schema->string()
+                ->description('Suggestion scope: "mine" (default — only from your notes, avoids cross-user dangling links), "public", or "accessible"')
+                ->enum(['mine', 'public', 'accessible'])
+                ->nullable(),
         ];
     }
 }

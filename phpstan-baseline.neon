@@ -145,18 +145,6 @@ parameters:
 			path: src/Jobs/ReindexNotes.php
 
 		-
-			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$embedding\.$#'
-			identifier: property.notFound
-			count: 1
-			path: src/Jobs/ReindexNotes.php
-
-		-
-			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$indexed_at\.$#'
-			identifier: property.notFound
-			count: 1
-			path: src/Jobs/ReindexNotes.php
-
-		-
 			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$title\.$#'
 			identifier: property.notFound
 			count: 1
@@ -655,21 +643,9 @@ parameters:
 			path: src/Services/Commonplace.php
 
 		-
-			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<\(int\|string\),Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
-			identifier: argument.unresolvableType
-			count: 1
-			path: src/Services/Commonplace.php
-
-		-
-			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<\(int\|string\),Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\|string\)\: array\{path\: mixed, title\: mixed, distance\: float\}, Closure\(NonConvexLabs\\Commonplace\\Models\\Note\)\: array\{path\: mixed, title\: mixed, distance\: float\} given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Services/Commonplace.php
-
-		-
 			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,NonConvexLabs\\Commonplace\\Models\\Note\>\:\:map\(\) contains unresolvable type\.$#'
 			identifier: argument.unresolvableType
-			count: 1
+			count: 2
 			path: src/Services/Commonplace.php
 
 		-

@@ -6,11 +6,13 @@ namespace NonConvexLabs\Commonplace\Models;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use NonConvexLabs\Commonplace\Contracts\VectorSearchDriver;
 use NonConvexLabs\Commonplace\Database\Factories\NoteFactory;
 
 class Note extends Model
@@ -26,8 +28,11 @@ class Note extends Model
         'content_hash',
         'visibility',
         'indexed_at',
-        'embedding',
         'user_id',
+    ];
+
+    protected $hidden = [
+        'embedding',
     ];
 
     protected function casts(): array
@@ -35,8 +40,18 @@ class Note extends Model
         return [
             'indexed_at' => 'datetime',
             'visibility' => 'string',
-            'embedding' => 'array',
         ];
+    }
+
+    /**
+     * Embedding is read-only on the model — the active VectorSearchDriver
+     * owns serialization and the write path is `$driver->store($id, $vec)`.
+     */
+    protected function embedding(): Attribute
+    {
+        return Attribute::make(
+            get: fn (mixed $value) => app(VectorSearchDriver::class)->parse($value),
+        )->shouldCache();
     }
 
     public function getRouteKeyName(): string

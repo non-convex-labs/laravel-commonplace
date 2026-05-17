@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
+use NonConvexLabs\Commonplace\Contracts\VectorSearchDriver;
+use NonConvexLabs\Commonplace\Enums\SemanticSearchScope;
 use NonConvexLabs\Commonplace\Models\Link;
 use NonConvexLabs\Commonplace\Models\Note;
 use NonConvexLabs\Commonplace\Models\NoteVersion;
@@ -21,6 +23,7 @@ class Commonplace
         private readonly FrontmatterParser $frontmatterParser,
         private readonly WikilinkParser $wikilinkParser,
         private readonly EmbeddingProvider $embeddingProvider,
+        private readonly VectorSearchDriver $vectorDriver,
     ) {}
 
     public function createNote(
@@ -249,12 +252,20 @@ class Commonplace
             ->get();
     }
 
-    public function semanticSearch(string $query, Authenticatable $user): Collection
-    {
-        return $this->searchByVectorDistance(
-            Note::accessibleBy($user)
-                ->with(['tags', 'owner'])
-                ->whereNotNull('embedding'),
+    public function semanticSearch(
+        string $query,
+        Authenticatable $user,
+        SemanticSearchScope $scope = SemanticSearchScope::Accessible,
+    ): Collection {
+        if (! $this->vectorDriver->isEnabled()) {
+            return new Collection;
+        }
+
+        $baseQuery = $scope->apply(Note::query(), $user)
+            ->with(['tags', 'owner']);
+
+        return $this->vectorDriver->search(
+            $baseQuery,
             $this->embeddingProvider->embed($query),
             20,
         );
@@ -472,14 +483,24 @@ class Commonplace
             ->get();
     }
 
-    public function getSuggestedLinks(string $path, Authenticatable $user, int $limit = 10): array
-    {
+    public function getSuggestedLinks(
+        string $path,
+        Authenticatable $user,
+        int $limit = 10,
+        SemanticSearchScope $scope = SemanticSearchScope::Mine,
+    ): array {
+        if (! $this->vectorDriver->isEnabled()) {
+            return [];
+        }
+
         $path = $this->normalizePath($path);
 
         $note = Note::where('path', $path)->firstOrFail();
         $this->checkAccess($note, $user);
 
-        if (! $note->embedding) {
+        $embedding = $note->embedding;
+
+        if ($embedding === null) {
             return [];
         }
 
@@ -487,33 +508,18 @@ class Commonplace
         $existingSourceIds = $note->incomingLinks()->pluck('source_note_id')->filter()->all();
         $excludeIds = array_unique(array_merge($existingTargetIds, $existingSourceIds, [$note->id]));
 
-        $results = $this->searchByVectorDistance(
-            Note::accessibleBy($user)
-                ->whereNotNull('embedding')
-                ->whereNotIn('id', $excludeIds),
-            $note->embedding,
-            $limit,
-        );
+        $baseQuery = $scope->apply(Note::query(), $user)
+            ->whereNotIn('id', $excludeIds);
+
+        $results = $this->vectorDriver->search($baseQuery, $embedding, $limit);
 
         return $results
             ->map(fn (Note $n) => [
                 'path' => $n->path,
                 'title' => $n->title,
-                'distance' => round($n->distance, 4),
+                'distance' => round((float) $n->distance, 4),
             ])
             ->all();
-    }
-
-    /**
-     * @param  array<int, float>  $vector
-     */
-    private function searchByVectorDistance($baseQuery, array $vector, int $limit): Collection
-    {
-        return $baseQuery
-            ->selectVectorDistance('embedding', $vector, 'distance')
-            ->orderByVectorDistance('embedding', $vector)
-            ->limit($limit)
-            ->get();
     }
 
     private function checkAccess(Note $note, Authenticatable $user, string $level = 'read'): void

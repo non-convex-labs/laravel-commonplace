@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NonConvexLabs\Commonplace\Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
+use NonConvexLabs\Commonplace\Contracts\VectorSearchDriver;
 use NonConvexLabs\Commonplace\Models\Note;
 
 class NoteFactory extends Factory
@@ -23,7 +24,6 @@ class NoteFactory extends Factory
             'content_hash' => hash('sha256', $this->faker->text(200)),
             'visibility' => 'private',
             'indexed_at' => null,
-            'embedding' => null,
             'user_id' => $this->createUser(),
         ];
     }
@@ -38,11 +38,20 @@ class NoteFactory extends Factory
         return $this->state(fn () => ['indexed_at' => now()]);
     }
 
-    public function withEmbedding(int $dimensions = 8): static
+    /**
+     * Persist an embedding via the active VectorSearchDriver after the note is
+     * created. Pass an explicit vector for deterministic ranking tests; otherwise
+     * defaults to a small uniform vector.
+     *
+     * @param  array<int, float>|null  $vector
+     */
+    public function withEmbedding(?array $vector = null): static
     {
-        return $this->state(fn () => [
-            'embedding' => array_fill(0, $dimensions, 0.1),
-        ]);
+        return $this->afterCreating(function (Note $note) use ($vector) {
+            $vector ??= array_fill(0, 8, 0.1);
+            app(VectorSearchDriver::class)->store($note->id, $vector);
+            $note->refresh();
+        });
     }
 
     protected function createUser(): int

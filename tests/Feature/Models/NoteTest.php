@@ -6,6 +6,7 @@ namespace NonConvexLabs\Commonplace\Tests\Feature\Models;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use NonConvexLabs\Commonplace\Contracts\VectorSearchDriver;
 use NonConvexLabs\Commonplace\Models\Link;
 use NonConvexLabs\Commonplace\Models\Note;
 use NonConvexLabs\Commonplace\Models\NoteVersion;
@@ -50,13 +51,36 @@ class NoteTest extends TestCase
         $this->assertInstanceOf(Carbon::class, $note->fresh()->indexed_at);
     }
 
-    public function test_embedding_is_cast_to_array(): void
+    public function test_embedding_accessor_delegates_to_driver(): void
     {
         $vector = [0.1, 0.2, 0.3, 0.4];
 
-        $note = Note::factory()->create(['embedding' => $vector]);
+        $note = Note::factory()->create();
+        app(VectorSearchDriver::class)->store($note->id, $vector);
 
         $this->assertSame($vector, $note->fresh()->embedding);
+    }
+
+    public function test_embedding_is_hidden_from_array_and_json(): void
+    {
+        $note = Note::factory()->create();
+        app(VectorSearchDriver::class)->store($note->id, [0.1, 0.2, 0.3]);
+
+        $array = $note->fresh()->toArray();
+        $json = $note->fresh()->toJson();
+
+        $this->assertArrayNotHasKey('embedding', $array);
+        $this->assertStringNotContainsString('embedding', $json);
+    }
+
+    public function test_embedding_is_not_mass_assignable(): void
+    {
+        $note = Note::factory()->create();
+
+        $note->fill(['embedding' => [9.9, 9.9, 9.9]]);
+        $note->save();
+
+        $this->assertNull($note->fresh()->embedding);
     }
 
     public function test_owner_relationship_returns_user(): void

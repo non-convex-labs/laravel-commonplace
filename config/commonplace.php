@@ -52,6 +52,35 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Vector search driver
+    |--------------------------------------------------------------------------
+    | Selects how embeddings are stored and how similarity search is executed.
+    |
+    | - 'in_php_cosine' (default): JSON storage, cosine computed in PHP.
+    |   Works on any database. Best for personal/single-user installs;
+    |   bounded by `max_candidates` / `hard_max_candidates`.
+    |
+    | - 'pgvector': PostgreSQL + pgvector extension. Indexed similarity
+    |   search via Laravel 13's native vector query builders. Requires
+    |   publishing the pgvector migration:
+    |     php artisan vendor:publish --tag=commonplace-pgvector-migration
+    |
+    | - 'null': Semantic search disabled. Storage and search are no-ops.
+    |
+    | Run `php artisan commonplace:doctor` for a guided check.
+    */
+
+    'vector' => [
+        'driver' => env('COMMONPLACE_VECTOR_DRIVER', 'in_php_cosine'),
+
+        'in_php_cosine' => [
+            'max_candidates' => (int) env('COMMONPLACE_INPHP_MAX_CANDIDATES', 2000),
+            'hard_max_candidates' => (int) env('COMMONPLACE_INPHP_HARD_MAX_CANDIDATES', 20000),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Reindexing
     |--------------------------------------------------------------------------
     */

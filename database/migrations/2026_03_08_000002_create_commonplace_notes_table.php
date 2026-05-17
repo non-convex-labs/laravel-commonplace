@@ -19,7 +19,7 @@ return new class extends Migration
             $table->string('visibility')->default('private');
             $table->timestamp('indexed_at')->nullable();
             $table->foreignIdFor(config('commonplace.user_model'))->constrained()->cascadeOnDelete();
-            $table->longText('embedding')->nullable(); // vector storage type to be set by VectorSearchDriver per issue #1
+            $table->longText('embedding')->nullable();
             $table->timestamps();
         });
     }
