@@ -69,21 +69,22 @@ than the default.
 
 ### Running the smoke test (locally)
 
-Useful when iterating on a driver change before pushing. Same env vars, run
-directly:
+Useful when iterating on a driver change before pushing. Copy the template,
+fill in the keys for the driver(s) you care about, source it, and run
+phpunit:
 
 ```bash
-COMMONPLACE_SMOKE_TEST=1 \
-VOYAGE_API_KEY=... \
-OPENAI_API_KEY=... \
-COHERE_API_KEY=... \
+cp .env.smoke.example .env.smoke
+$EDITOR .env.smoke
+set -a && source .env.smoke && set +a
 vendor/bin/phpunit --group=smoke
 ```
 
-Each driver's smoke test self-skips unless its credentials are present, so
-you can run them one at a time. To include Bedrock, set
-`COMMONPLACE_SMOKE_TEST_BEDROCK=1` and make sure your default AWS credential
-chain and `AWS_BEDROCK_REGION` are wired up.
+`.env.smoke` is gitignored. Each driver's smoke test self-skips unless its
+credentials are present, so you can run them one at a time. To include
+Bedrock, set `COMMONPLACE_SMOKE_TEST_BEDROCK=1` in the env file and make
+sure your default AWS credential chain and `AWS_BEDROCK_REGION` are wired
+up.
 
 ### What "passing" means
 
