@@ -40,16 +40,17 @@ COMMONPLACE_MCP_ENABLED=true
 COMMONPLACE_MCP_PREFIX=mcp/commonplace
 ```
 
-Config keys live under `commonplace.mcp` ([`config/commonplace.php:212-215`](../config/commonplace.php#L212)):
+Config keys live under `commonplace.mcp` in [`config/commonplace.php`](../config/commonplace.php):
 
 ```php
 'mcp' => [
     'enabled' => (bool) env('COMMONPLACE_MCP_ENABLED', false),
     'prefix' => env('COMMONPLACE_MCP_PREFIX', 'mcp/commonplace'),
+    'middleware' => /* parsed from COMMONPLACE_MCP_MIDDLEWARE, default ['auth:sanctum'] */,
 ],
 ```
 
-When enabled, the service provider loads [`routes/mcp.php`](../routes/mcp.php), which registers a single `Mcp::web()` endpoint at the configured prefix. There is **no separate auth stack** for MCP — the endpoint inherits whatever Laravel session / token auth the surrounding app provides. If your app uses `auth:sanctum` or `auth` web middleware on the streamable transport, clients must present matching credentials.
+When enabled, the service provider loads [`routes/mcp.php`](../routes/mcp.php), which registers an `Mcp::web()` endpoint at the configured prefix inside a `Route::middleware(config('commonplace.mcp.middleware'))->group(...)` wrapper. The middleware applies to every route the MCP registrar adds — the JSON-RPC `POST`, the `405 Allow: POST` `GET`/`DELETE` stubs, and any route the registrar grows in future. The default is `auth:sanctum` so the dominant MCP client class (Claude Desktop, Cursor, remote bridges) can present a Bearer token from a non-browser context; see [auth.md → MCP](auth.md#mcp) for browser-SPA, Passport, and OAuth-DCR overrides.
 
 Register the server with Claude Code:
 

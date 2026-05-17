@@ -75,3 +75,86 @@ authenticated routes.
 Combine this with the [user model contract](user-model.md) for the
 `getAuthIdentifier()` and `name` requirements on the authenticated
 side.
+
+---
+
+## MCP
+
+The MCP transport (`routes/mcp.php`) runs under its own middleware
+stack, **not** the `COMMONPLACE_ROUTES_MIDDLEWARE` setting that gates
+the HTTP routes. The MCP knob is `COMMONPLACE_MCP_MIDDLEWARE`.
+
+### Default: `auth:sanctum`
+
+```dotenv
+COMMONPLACE_MCP_MIDDLEWARE=auth:sanctum
+```
+
+The dominant MCP client class — Claude Desktop, Cursor, Zed, Pi, and
+remote MCP bridges — sends `Authorization: Bearer <token>` from a
+non-browser context. Sanctum's guard accepts a personal access token
+in that header and resolves `$request->user()` cleanly. A `web,auth`
+stack would 419-CSRF the JSON-RPC POST and a `Bearer`-token client
+would 302 to `/login` against the session guard.
+
+The middleware is applied as a route **group**, so it covers every
+route the MCP registrar adds — POST plus the `405 Allow: POST` GET
+and DELETE stubs, and any future route the registrar grows (e.g. SSE
+GET). Chaining onto the returned POST `Route` would leave the 405s
+unauthenticated.
+
+Issue a Sanctum PAT to your user and configure the client:
+
+```bash
+claude mcp add commonplace --transport http https://your-app.test/mcp/commonplace --header "Authorization: Bearer <token>"
+```
+
+### Browser-resident MCP clients (SPA cookie auth)
+
+If your MCP client runs in the browser and authenticates via Sanctum
+session cookies, `auth:sanctum` on its own is **insufficient** —
+Sanctum's stateful guard needs the `EnsureFrontendRequestsAreStateful`
+middleware before `auth:sanctum` to switch from token resolution to
+session resolution. Cookie auth also re-introduces CSRF requirements
+on `POST`, so add `web` if you're routing through Laravel's session.
+
+```dotenv
+COMMONPLACE_MCP_MIDDLEWARE=web,auth:sanctum
+```
+
+This is the same shape as the SPA cookie config for the HTTP routes
+above — same guard, same caveat. Most MCP usage today is bearer-token
+from a desktop client, which is why the default doesn't include `web`.
+
+### Passport
+
+If your app uses Passport, point the MCP guard at it:
+
+```dotenv
+COMMONPLACE_MCP_MIDDLEWARE=auth:api
+```
+
+Make sure the `api` guard is wired to Passport in `config/auth.php`.
+
+### OAuth-DCR via `laravel/mcp`
+
+`laravel/mcp`'s `Registrar::oauthRoutes()` registers the metadata
+endpoints (`/.well-known/oauth-protected-resource`,
+`/.well-known/oauth-authorization-server`) and the dynamic-client
+registration endpoint. This package doesn't wire that path yet — if
+you need OAuth-DCR, call `Mcp::oauthRoutes(...)` in your own service
+provider's `boot()` and document the scopes you support.
+
+### Doctor
+
+`commonplace:doctor` validates the MCP middleware stack when MCP is
+enabled:
+
+- Fails if `commonplace.mcp.middleware` is empty (the transport would
+  ship unauthenticated; tool-level `$request->user()` fail-closed is
+  defense in depth, not the auth boundary).
+- Fails if the stack references `auth:sanctum` but the
+  `Laravel\Sanctum\Sanctum` class isn't loaded (you removed the
+  default but didn't install Sanctum). Recommendation:
+  `composer require laravel/sanctum`.
+- Silent when MCP is disabled.
