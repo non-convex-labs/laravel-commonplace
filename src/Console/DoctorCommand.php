@@ -35,6 +35,7 @@ class DoctorCommand extends Command
             $this->checkSchema(),
             $this->checkPgvectorExtension($db),
             $this->checkEmbeddingColumn($db),
+            $this->checkEmbeddingDimensionDrift($db),
             $this->checkDriverReadiness(),
             $this->checkInPhpCosineCandidates(),
             $this->checkMultiUserVault(),
@@ -291,6 +292,114 @@ class DoctorCommand extends Command
         }
 
         return $this->report(label: 'embedding column type', status: 'ok', detail: $type);
+    }
+
+    /**
+     * Compare the configured provider's dimensions() against what's actually
+     * stored. The check is structurally a yes/no question — "does any row
+     * disagree with the current provider?" — so we ask it that way:
+     *
+     *   1. EXISTS short-circuits on the first mismatched row (drift case).
+     *   2. On the healthy path it falls through to an index scan over
+     *      `embedding_dimensions` (indexed in the base migration) and
+     *      confirms no disagreement.
+     *   3. Only if drift is found do we run a bounded follow-up to pull
+     *      distinct values for the user-facing message.
+     *
+     * Rows where `embedding` is set but the sentinel is NULL are folded into
+     * the drift case as `unknown` — we can't quantify the dimension, but the
+     * row is still suspect.
+     *
+     * Status is `warn`, not `fail`: --exit-code stays green so a routine
+     * upgrade doesn't silently break downstream CI pipelines. The detail
+     * line is prefixed `DRIFT:` so the recommendations footer surfaces it
+     * above the other warns.
+     *
+     * @return array{label: string, status: string, detail: string, recommendation?: string}
+     */
+    private function checkEmbeddingDimensionDrift(Connection $db): array
+    {
+        try {
+            $expected = app(EmbeddingProvider::class)->dimensions();
+        } catch (\Throwable) {
+            return $this->report(
+                label: 'Embedding dimension drift',
+                status: 'skip',
+                detail: 'embedding provider not resolvable',
+            );
+        }
+
+        try {
+            if (! Schema::hasTable('commonplace_notes')) {
+                return $this->report(
+                    label: 'Embedding dimension drift',
+                    status: 'skip',
+                    detail: 'commonplace_notes not present',
+                );
+            }
+
+            $hasEmbeddings = $db->table('commonplace_notes')
+                ->whereNotNull('embedding')
+                ->exists();
+
+            if (! $hasEmbeddings) {
+                return $this->report(
+                    label: 'Embedding dimension drift',
+                    status: 'skip',
+                    detail: 'no stored embeddings yet',
+                );
+            }
+
+            $hasDrift = $db->table('commonplace_notes')
+                ->whereNotNull('embedding')
+                ->where(function ($q) use ($expected) {
+                    $q->whereNull('embedding_dimensions')
+                        ->orWhere('embedding_dimensions', '!=', $expected);
+                })
+                ->exists();
+
+            if (! $hasDrift) {
+                return $this->report(
+                    label: 'Embedding dimension drift',
+                    status: 'ok',
+                    detail: "all stored rows match provider {$expected} dim",
+                );
+            }
+
+            $drifted = $db->table('commonplace_notes')
+                ->whereNotNull('embedding')
+                ->where(function ($q) use ($expected) {
+                    $q->whereNull('embedding_dimensions')
+                        ->orWhere('embedding_dimensions', '!=', $expected);
+                })
+                ->distinct()
+                ->limit(10)
+                ->pluck('embedding_dimensions')
+                ->all();
+        } catch (\Throwable $e) {
+            return $this->report(
+                label: 'Embedding dimension drift',
+                status: 'warn',
+                detail: 'could not sample commonplace_notes: '.$e->getMessage(),
+            );
+        }
+
+        $values = array_map(
+            static fn ($v) => $v === null ? 'unknown' : (string) (int) $v,
+            $drifted,
+        );
+        sort($values);
+        $summary = '['.implode(', ', $values).']';
+
+        return $this->report(
+            label: 'Embedding dimension drift',
+            status: 'warn',
+            detail: "DRIFT: provider expects {$expected} dim, found rows with {$summary}",
+            recommendation: "Embedding dimensions drifted: stored rows have dimensions {$summary} but the "
+                ."configured provider produces {$expected}. Searches will return wrong results "
+                .'(or pgvector will error at query time). Re-embed your notes with '
+                .'`php artisan commonplace:reindex`.',
+        );
     }
 
     /**

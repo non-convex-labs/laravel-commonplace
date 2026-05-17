@@ -23,8 +23,10 @@ return new class extends Migration
             // Per-row dimensions sentinel: lets the driver detect stale rows from
             // a previous embedding provider/model (different N) and skip them
             // rather than crashing. Written by the active VectorSearchDriver's
-            // store() on every embedding write.
-            $table->unsignedInteger('embedding_dimensions')->nullable();
+            // store() on every embedding write. Indexed so commonplace:doctor's
+            // drift check is an index probe, not a heap seqscan on million-row
+            // vaults.
+            $table->unsignedInteger('embedding_dimensions')->nullable()->index();
             $table->timestamps();
         });
     }

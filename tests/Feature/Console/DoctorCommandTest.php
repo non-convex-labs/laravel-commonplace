@@ -6,8 +6,10 @@ namespace NonConvexLabs\Commonplace\Tests\Feature\Console;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
+use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
 use NonConvexLabs\Commonplace\Models\Note;
 use NonConvexLabs\Commonplace\Tests\Fixtures\InteractsWithCommonplaceDatabase;
+use NonConvexLabs\Commonplace\Tests\Fixtures\RecordingEmbeddingProvider;
 use NonConvexLabs\Commonplace\Tests\Fixtures\User;
 use NonConvexLabs\Commonplace\Tests\TestCase;
 
@@ -169,5 +171,109 @@ class DoctorCommandTest extends TestCase
         $this->artisan('commonplace:doctor')
             ->assertExitCode(0)
             ->expectsOutputToContain('not applicable (driver is null)');
+    }
+
+    public function test_dimension_drift_check_skips_when_no_embeddings_stored(): void
+    {
+        // Fresh install: table is migrated but no notes have been indexed yet.
+        // The check must be a no-op — false-positives here scare users off
+        // empty databases.
+        $this->artisan('commonplace:doctor', ['--exit-code' => true])
+            ->assertExitCode(0)
+            ->expectsOutputToContain('Embedding dimension drift: no stored embeddings yet');
+    }
+
+    public function test_dimension_drift_check_passes_when_provider_and_stored_match(): void
+    {
+        $this->app->instance(EmbeddingProvider::class, new RecordingEmbeddingProvider);
+
+        $user = User::factory()->create();
+        Note::factory()->withEmbedding([0.1, 0.2, 0.3])->create(['user_id' => $user->id]);
+
+        $this->artisan('commonplace:doctor', ['--exit-code' => true])
+            ->assertExitCode(0)
+            ->expectsOutputToContain('Embedding dimension drift: all stored rows match provider 3 dim');
+    }
+
+    public function test_dimension_drift_check_warns_when_stored_length_disagrees_with_provider(): void
+    {
+        // RecordingEmbeddingProvider reports 3 dimensions; store a 5-dim vector
+        // to simulate the "switched provider/model after indexing" foot-gun.
+        // Status is `warn` (not `fail`), so --exit-code stays green — a routine
+        // package upgrade must not silently red downstream CI. The detail line
+        // is prefixed `DRIFT:` so it surfaces above sibling warns.
+        $this->app->instance(EmbeddingProvider::class, new RecordingEmbeddingProvider);
+
+        $user = User::factory()->create();
+        Note::factory()
+            ->withEmbedding([0.1, 0.2, 0.3, 0.4, 0.5])
+            ->create(['user_id' => $user->id]);
+
+        $this->artisan('commonplace:doctor', ['--exit-code' => true])
+            ->assertExitCode(0)
+            ->expectsOutputToContain('DRIFT: provider expects 3 dim, found rows with [5]')
+            ->expectsOutputToContain('php artisan commonplace:reindex');
+    }
+
+    public function test_dimension_drift_check_detects_partial_reindex_even_when_newest_row_matches(): void
+    {
+        // The canonical drift scenario: user switched provider, then a reindex
+        // ran but only completed partially (queue backlog, failed jobs, etc.).
+        // The NEWEST row matches the current provider; OLDER rows still carry
+        // the previous provider's dimensions. A "sample newest row" check would
+        // miss this entirely — the sentinel-driven EXISTS catches it.
+        $this->app->instance(EmbeddingProvider::class, new RecordingEmbeddingProvider);
+
+        $user = User::factory()->create();
+        Note::factory()->withEmbedding([0.9, 0.9, 0.9, 0.9, 0.9])->create(['user_id' => $user->id]);   // old, 5-dim
+        Note::factory()->withEmbedding([0.1, 0.2, 0.3])->create(['user_id' => $user->id]);             // new, 3-dim
+
+        $this->artisan('commonplace:doctor', ['--exit-code' => true])
+            ->assertExitCode(0)
+            ->expectsOutputToContain('DRIFT: provider expects 3 dim, found rows with [5]')
+            ->expectsOutputToContain('php artisan commonplace:reindex');
+    }
+
+    public function test_dimension_drift_check_resolves_provider_via_service_provider_dispatch(): void
+    {
+        // Exercise the real dispatch path: `null` driver + dimensions=3 in
+        // config, rather than $this->app->instance(...) which bypasses the
+        // service provider's match() table. Stores a 5-dim vector → drift.
+        config([
+            'commonplace.embedding.driver' => 'null',
+            'commonplace.embedding.null.dimensions' => 3,
+        ]);
+
+        $user = User::factory()->create();
+        Note::factory()
+            ->withEmbedding([0.1, 0.2, 0.3, 0.4, 0.5])
+            ->create(['user_id' => $user->id]);
+
+        $this->artisan('commonplace:doctor', ['--exit-code' => true])
+            ->assertExitCode(0)
+            ->expectsOutputToContain('DRIFT: provider expects 3 dim, found rows with [5]');
+    }
+
+    public function test_dimension_drift_check_treats_rows_missing_sentinel_as_drift(): void
+    {
+        // Rows with `embedding` populated but `embedding_dimensions` null
+        // (pre-sentinel data, hand-inserted SQL fixtures) are folded into the
+        // drift case as `unknown` — we can't quantify the length but the row
+        // is still suspect. Pair it with a clean 5-dim row to assert both
+        // values appear in the message.
+        $this->app->instance(EmbeddingProvider::class, new RecordingEmbeddingProvider);
+
+        $user = User::factory()->create();
+        Note::factory()->withEmbedding([0.1, 0.2, 0.3, 0.4, 0.5])->create(['user_id' => $user->id]);
+        $orphan = Note::factory()->create(['user_id' => $user->id]);
+
+        \DB::table('commonplace_notes')
+            ->where('id', $orphan->id)
+            ->update(['embedding' => '[0.1,0.2,0.3]', 'embedding_dimensions' => null]);
+
+        $this->artisan('commonplace:doctor', ['--exit-code' => true])
+            ->assertExitCode(0)
+            ->expectsOutputToContain('DRIFT: provider expects 3 dim, found rows with [5, unknown]')
+            ->expectsOutputToContain('php artisan commonplace:reindex');
     }
 }
