@@ -363,6 +363,8 @@ class Commonplace
 
         $note = Note::where('path', $path)->firstOrFail();
 
+        $this->checkAccess($note, $user);
+
         $sourceNoteIds = Link::where('target_note_id', $note->id)
             ->pluck('source_note_id');
 

@@ -34,9 +34,9 @@ class HistoryTool extends Tool
                 'changed_by' => $version->author?->name,
                 'created_at' => $version->created_at->toIso8601String(),
             ])->all());
-        } catch (AuthorizationException $e) {
-            return Response::error($e->getMessage());
-        } catch (ModelNotFoundException) {
+        } catch (AuthorizationException|ModelNotFoundException) {
+            // Collapse "inaccessible" and "missing" into the same response
+            // to prevent path enumeration. See docs/mcp-tools.md#history-tool.
             return Response::error('Note not found.');
         }
     }

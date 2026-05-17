@@ -352,6 +352,8 @@ Return the version snapshots recorded for a note.
 
 Versions are append-only and survive deletion (see the [`NoteVersion` section in model-relationships.md](./model-relationships.md#noteversion)), so this tool can recover the last known content of a deleted path.
 
+If the path exists but is not visible to the caller, the tool returns `Note not found.` — same wording as a truly missing path, to prevent path enumeration.
+
 ## neighborhood-tool
 
 Breadth-first traversal of the wikilink graph starting from a note, treating links as undirected.
@@ -376,6 +378,8 @@ The recursive CTE that powers this is PostgreSQL-only. The test suite explicitly
 
 > [!NOTE]
 > Requires PostgreSQL. The CTE uses `ARRAY` and `ANY` operators that aren't portable to SQLite or MySQL.
+
+If the starting note is not visible to the caller, the tool returns `Note not found.` — same wording as a truly missing path, to prevent path enumeration.
 
 ## shortest-path-tool
 
@@ -407,7 +411,7 @@ When no path exists within 10 hops:
 {"connected": false, "path": []}
 ```
 
-Both endpoints must be visible to the caller. PostgreSQL-only (same reason as `neighborhood-tool`).
+Both endpoints must be visible to the caller. If either endpoint is missing or not visible, the tool returns `One or both notes not found.` without distinguishing the two cases, to prevent path enumeration. PostgreSQL-only (same reason as `neighborhood-tool`).
 
 ## hub-notes-tool
 
@@ -481,6 +485,8 @@ For a given note, return semantically similar notes that aren't already linked t
 If the vector driver emits warnings, they appear in a top-level `warnings` array (same shape as `semantic-search-tool`).
 
 The **default scope is `mine`**, not `accessible`. This is deliberate ([`SuggestedLinksTool.php:32`](../src/Mcp/Tools/SuggestedLinksTool.php#L32) and `SuggestedLinksTool.php:69`). Suggesting a link to a public note owned by someone else would create a wikilink the model couldn't reliably resolve later if visibility changed. Pass `scope: "accessible"` if you want cross-user suggestions anyway. Requires a working embedding driver and vector backend. Returns `[]` when vectors are disabled ([`Commonplace.php:566`](../src/Services/Commonplace.php#L566)).
+
+If the input note is not visible to the caller, the tool returns `Note not found.` — same wording as a truly missing path, to prevent path enumeration.
 
 ## Visibility model
 

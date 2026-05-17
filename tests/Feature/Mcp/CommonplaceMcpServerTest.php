@@ -183,6 +183,57 @@ class CommonplaceMcpServerTest extends TestCase
         $response->assertHasErrors(['Note not found.']);
     }
 
+    public function test_read_note_tool_collapses_inaccessible_into_not_found(): void
+    {
+        Note::factory()->create([
+            'path' => 'private/owners-note',
+            'user_id' => $this->owner->id,
+            'visibility' => 'private',
+        ]);
+
+        $other = User::factory()->create();
+
+        $response = CommonplaceMcpServer::actingAs($other)->tool(ReadNoteTool::class, [
+            'path' => 'private/owners-note',
+        ]);
+
+        $response->assertHasErrors(['Note not found.']);
+    }
+
+    public function test_backlinks_tool_collapses_inaccessible_into_not_found(): void
+    {
+        Note::factory()->create([
+            'path' => 'private/owners-note',
+            'user_id' => $this->owner->id,
+            'visibility' => 'private',
+        ]);
+
+        $other = User::factory()->create();
+
+        $response = CommonplaceMcpServer::actingAs($other)->tool(BacklinksTool::class, [
+            'path' => 'private/owners-note',
+        ]);
+
+        $response->assertHasErrors(['Note not found.']);
+    }
+
+    public function test_history_tool_collapses_inaccessible_into_not_found(): void
+    {
+        Note::factory()->create([
+            'path' => 'private/owners-note',
+            'user_id' => $this->owner->id,
+            'visibility' => 'private',
+        ]);
+
+        $other = User::factory()->create();
+
+        $response = CommonplaceMcpServer::actingAs($other)->tool(HistoryTool::class, [
+            'path' => 'private/owners-note',
+        ]);
+
+        $response->assertHasErrors(['Note not found.']);
+    }
+
     public function test_update_note_tool_updates_content(): void
     {
         Note::factory()->create([
