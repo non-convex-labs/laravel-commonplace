@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace NonConvexLabs\Commonplace\Tests\Unit\Drivers\Vector;
 
+use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
 use NonConvexLabs\Commonplace\Drivers\Vector\PgvectorDriver;
 use NonConvexLabs\Commonplace\Exceptions\PgvectorDriverNotReady;
 use NonConvexLabs\Commonplace\Models\Note;
 use NonConvexLabs\Commonplace\Tests\Fixtures\InteractsWithCommonplaceDatabase;
 use NonConvexLabs\Commonplace\Tests\TestCase;
+use RuntimeException;
 
 class PgvectorDriverTest extends TestCase
 {
@@ -63,5 +65,22 @@ class PgvectorDriverTest extends TestCase
         $this->expectException(PgvectorDriverNotReady::class);
 
         $driver->store(1, [0.1, 0.2]);
+    }
+
+    public function test_driver_resolves_without_a_working_embedder(): void
+    {
+        // Read-only workers (replicas, health checks, search-only cron) must
+        // be able to resolve the driver even when the embedder is misconfigured
+        // — the embedder is only needed by defineColumn(), which they never call.
+        $this->app->bind(EmbeddingProvider::class, function () {
+            throw new RuntimeException('embedder boot exploded');
+        });
+
+        $driver = $this->app->make(PgvectorDriver::class);
+
+        $this->assertInstanceOf(PgvectorDriver::class, $driver);
+        // parse() / isEnabled() should remain usable without ever touching the embedder.
+        $this->assertNull($driver->parse(null));
+        $this->assertTrue($driver->isEnabled());
     }
 }

@@ -19,7 +19,6 @@ class PgvectorDriver implements VectorSearchDriver
 
     public function __construct(
         private readonly Connection $db,
-        private readonly EmbeddingProvider $embedder,
     ) {}
 
     public function store(int $noteId, array $vector): void
@@ -73,7 +72,14 @@ class PgvectorDriver implements VectorSearchDriver
 
     public function defineColumn(Blueprint $table, string $column = 'embedding'): void
     {
-        $table->vector($column, $this->embedder->dimensions())->nullable();
+        // Resolved lazily here (not via the constructor) so read-only workers
+        // — replicas, health checks, cron jobs that only call search() — can
+        // boot the driver without a working embedder configured. defineColumn
+        // is only reached by the publishable migration, which runs in an
+        // environment where the embedder is already wired up.
+        $dimensions = app(EmbeddingProvider::class)->dimensions();
+
+        $table->vector($column, $dimensions)->nullable();
     }
 
     private function ensureReady(): void

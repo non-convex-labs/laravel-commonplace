@@ -6,6 +6,7 @@ namespace NonConvexLabs\Commonplace\Tests\Feature\Models;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 use NonConvexLabs\Commonplace\Contracts\VectorSearchDriver;
 use NonConvexLabs\Commonplace\Models\Link;
 use NonConvexLabs\Commonplace\Models\Note;
@@ -15,6 +16,7 @@ use NonConvexLabs\Commonplace\Models\Tag;
 use NonConvexLabs\Commonplace\Tests\Fixtures\InteractsWithCommonplaceDatabase;
 use NonConvexLabs\Commonplace\Tests\Fixtures\User;
 use NonConvexLabs\Commonplace\Tests\TestCase;
+use RuntimeException;
 
 // User fixture chosen over Testbench default: orchestra/testbench has no first-party User
 // model, so a minimal fixture + migration keeps the user-FK contract explicit.
@@ -59,6 +61,29 @@ class NoteTest extends TestCase
         app(VectorSearchDriver::class)->store($note->id, $vector);
 
         $this->assertSame($vector, $note->fresh()->embedding);
+    }
+
+    public function test_embedding_accessor_returns_null_and_logs_when_driver_resolution_throws(): void
+    {
+        $note = Note::factory()->create();
+
+        // Rebind the driver to a closure that throws on resolution, simulating
+        // a misconfigured queue worker / replica where the driver can't boot.
+        $this->app->bind(VectorSearchDriver::class, function () {
+            throw new RuntimeException('driver boot exploded');
+        });
+
+        Log::spy();
+
+        $this->assertNull($note->fresh()->embedding);
+
+        Log::shouldHaveReceived('warning')
+            ->once()
+            ->withArgs(function (string $message, array $context): bool {
+                return str_contains($message, 'failed to resolve VectorSearchDriver')
+                    && ($context['exception'] ?? null) === 'driver boot exploded'
+                    && array_key_exists('note_id', $context);
+            });
     }
 
     public function test_embedding_is_hidden_from_array_and_json(): void

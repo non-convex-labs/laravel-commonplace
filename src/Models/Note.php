@@ -12,8 +12,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Log;
 use NonConvexLabs\Commonplace\Contracts\VectorSearchDriver;
 use NonConvexLabs\Commonplace\Database\Factories\NoteFactory;
+use Throwable;
 
 class Note extends Model
 {
@@ -51,11 +53,33 @@ class Note extends Model
      * test rebinds (`$app->instance(VectorSearchDriver::class, ...)`)
      * take effect against already-hydrated Notes. Parsing a JSON array
      * is cheap relative to anything that consumes it.
+     *
+     * Driver resolution is wrapped defensively: a misconfigured driver
+     * (bad `commonplace.vector.driver` value, missing dependency on a
+     * queue worker, etc.) must not brick model hydration — broadcasting,
+     * `dd($note)`, queue payloads, and toArray() all read this accessor
+     * and should degrade to `null` rather than throw far from the cause.
      */
     protected function embedding(): Attribute
     {
         return Attribute::make(
-            get: fn (mixed $value) => app(VectorSearchDriver::class)->parse($value),
+            get: function (mixed $value) {
+                try {
+                    return app(VectorSearchDriver::class)->parse($value);
+                } catch (Throwable $e) {
+                    static $logged = false;
+
+                    if (! $logged) {
+                        $logged = true;
+                        Log::warning('Commonplace: failed to resolve VectorSearchDriver for Note::embedding accessor; returning null.', [
+                            'note_id' => $this->getKey(),
+                            'exception' => $e->getMessage(),
+                        ]);
+                    }
+
+                    return null;
+                }
+            },
         );
     }
 
