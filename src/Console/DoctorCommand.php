@@ -18,7 +18,7 @@ class DoctorCommand extends Command
         .'{--exit-code : Return a non-zero exit code if any check fails} '
         .'{--pgvector-migration-precheck : Scan commonplace_notes.embedding for rows that would break the pgvector ALTER and exit}';
 
-    protected $description = 'Diagnose the Commonplace vector search configuration.';
+    protected $description = 'Diagnose the Commonplace install: vector search, multi-user posture, wikilink graph, MCP auth.';
 
     public function handle(Connection $db): int
     {

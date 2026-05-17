@@ -21,7 +21,7 @@ Doctor never mutates state. Reindex with `--force` clears `indexed_at` on every 
 
 ## `commonplace:doctor`
 
-Diagnoses the vector search configuration: driver wiring, schema, pgvector extension, dimension drift, candidate-cap headroom, and multi-user posture. Defined at [`src/Console/DoctorCommand.php:16-18`](../src/Console/DoctorCommand.php).
+Diagnoses your install across four areas: vector search (driver wiring, schema, pgvector extension, dimension drift, candidate-cap headroom), multi-user posture, wikilink-graph integrity (orphaned link rows from a missed `UpdateWikilinksJob` — recommends [`commonplace:relink`](#commonplacerelink) above `commonplace.wikilinks.orphan_warn_threshold`, default 50), and MCP transport auth (fails when MCP is enabled but middleware is empty, or references `auth:sanctum` without Sanctum installed). Defined at [`src/Console/DoctorCommand.php`](../src/Console/DoctorCommand.php) — each check method is named `check*`.
 
 **Signature:**
 
