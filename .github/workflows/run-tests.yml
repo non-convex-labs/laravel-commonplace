@@ -1,13 +1,6 @@
 name: run-tests
 
 on:
-  push:
-    paths:
-      - '**.php'
-      - '.github/workflows/run-tests.yml'
-      - 'phpunit.xml.dist'
-      - 'pint.json'
-      - 'composer.json'
   pull_request:
     paths:
       - '**.php'
