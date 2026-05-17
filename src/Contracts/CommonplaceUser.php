@@ -6,6 +6,8 @@ namespace NonConvexLabs\Commonplace\Contracts;
 
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use NonConvexLabs\Commonplace\Concerns\HasCommonplaceNotes;
+use NonConvexLabs\Commonplace\Models\Note;
 
 /**
  * Type-hint surface for user models that own commonplace notes.
@@ -13,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * Adopting this interface is optional — the package only relies on
  * `getAuthIdentifier()` (via Laravel's Authenticatable) when assigning
  * notes, and `name` when displaying version-history attribution. Use
- * the {@see \NonConvexLabs\Commonplace\Concerns\HasCommonplaceNotes}
+ * the {@see HasCommonplaceNotes}
  * trait to satisfy this contract structurally without writing the
  * relations by hand.
  *
@@ -25,7 +27,7 @@ interface CommonplaceUser
     public function notes(): HasMany;
 
     /**
-     * @return Collection<int, \NonConvexLabs\Commonplace\Models\Note>
+     * @return Collection<int, Note>
      */
     public function recentNotes(int $limit = 10): Collection;
 

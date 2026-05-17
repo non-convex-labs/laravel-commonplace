@@ -1,6 +1,15 @@
 <?php
 
 declare(strict_types=1);
+use ElGigi\CommonMarkEmoji\EmojiExtension;
+use League\CommonMark\Extension\Autolink\AutolinkExtension;
+use League\CommonMark\Extension\DisallowedRawHtml\DisallowedRawHtmlExtension;
+use League\CommonMark\Extension\Footnote\FootnoteExtension;
+use League\CommonMark\Extension\SmartPunct\SmartPunctExtension;
+use League\CommonMark\Extension\Strikethrough\StrikethroughExtension;
+use League\CommonMark\Extension\Table\TableExtension;
+use League\CommonMark\Extension\TaskList\TaskListExtension;
+use NonConvexLabs\Commonplace\Markdown\Wikilink\WikilinkExtension;
 
 return [
 
@@ -176,15 +185,15 @@ return [
 
     'markdown' => [
         'extensions' => [
-            League\CommonMark\Extension\Table\TableExtension::class,
-            League\CommonMark\Extension\Autolink\AutolinkExtension::class,
-            League\CommonMark\Extension\Strikethrough\StrikethroughExtension::class,
-            League\CommonMark\Extension\TaskList\TaskListExtension::class,
-            League\CommonMark\Extension\DisallowedRawHtml\DisallowedRawHtmlExtension::class,
-            League\CommonMark\Extension\Footnote\FootnoteExtension::class,
-            League\CommonMark\Extension\SmartPunct\SmartPunctExtension::class,
-            ElGigi\CommonMarkEmoji\EmojiExtension::class,
-            NonConvexLabs\Commonplace\Markdown\Wikilink\WikilinkExtension::class,
+            TableExtension::class,
+            AutolinkExtension::class,
+            StrikethroughExtension::class,
+            TaskListExtension::class,
+            DisallowedRawHtmlExtension::class,
+            FootnoteExtension::class,
+            SmartPunctExtension::class,
+            EmojiExtension::class,
+            WikilinkExtension::class,
         ],
 
         'highlight' => [

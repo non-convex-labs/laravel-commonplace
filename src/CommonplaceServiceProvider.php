@@ -12,7 +12,6 @@ use NonConvexLabs\Commonplace\Contracts\VectorSearch;
 use NonConvexLabs\Commonplace\Contracts\VectorSearchDriver;
 use NonConvexLabs\Commonplace\Contracts\VectorStorage;
 use NonConvexLabs\Commonplace\Contracts\WikilinkResolver;
-use NonConvexLabs\Commonplace\Services\WikilinkParser;
 use NonConvexLabs\Commonplace\Drivers\Embedding\BedrockEmbeddingProvider;
 use NonConvexLabs\Commonplace\Drivers\Embedding\CohereEmbeddingProvider;
 use NonConvexLabs\Commonplace\Drivers\Embedding\NullEmbeddingProvider;
@@ -23,6 +22,7 @@ use NonConvexLabs\Commonplace\Drivers\Vector\NullDriver;
 use NonConvexLabs\Commonplace\Drivers\Vector\PgvectorDriver;
 use NonConvexLabs\Commonplace\Services\Commonplace;
 use NonConvexLabs\Commonplace\Services\MarkdownRenderer;
+use NonConvexLabs\Commonplace\Services\WikilinkParser;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 

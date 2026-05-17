@@ -9,6 +9,7 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use League\CommonMark\Environment\Environment;
 use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
 use NonConvexLabs\Commonplace\Contracts\VectorSearch;
 use NonConvexLabs\Commonplace\Enums\SemanticSearchScope;
@@ -25,7 +26,7 @@ class Commonplace
      * provider's `boot()` — not per-request — otherwise callbacks accumulate
      * across requests under Octane / queue workers and leak memory.
      *
-     * @var array<int, callable(\League\CommonMark\Environment\Environment): void>
+     * @var array<int, callable(Environment): void>
      */
     private array $markdownExtenders = [];
 
@@ -50,7 +51,7 @@ class Commonplace
      *
      * **Call this from a service provider's boot() method only.**
      *
-     * @param  callable(\League\CommonMark\Environment\Environment): void  $callback
+     * @param  callable(Environment): void  $callback
      */
     public function extendMarkdown(callable $callback): void
     {
@@ -66,7 +67,7 @@ class Commonplace
     }
 
     /**
-     * @return array<int, callable(\League\CommonMark\Environment\Environment): void>
+     * @return array<int, callable(Environment): void>
      *
      * @internal Used by MarkdownRenderer.
      */

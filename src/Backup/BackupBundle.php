@@ -139,8 +139,8 @@ final class BackupBundle
 
     /**
      * @return array<int, string> The set of normalized note paths
-     *                             included in this bundle, suitable for
-     *                             prune-vs-keep diffs at a destination.
+     *                            included in this bundle, suitable for
+     *                            prune-vs-keep diffs at a destination.
      */
     public function knownPaths(): array
     {
