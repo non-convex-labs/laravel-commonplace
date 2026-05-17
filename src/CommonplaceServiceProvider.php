@@ -101,5 +101,12 @@ class CommonplaceServiceProvider extends PackageServiceProvider
         $this->publishes([
             __DIR__.'/../database/pgvector-migrations/2026_05_16_000002_alter_commonplace_notes_embedding_to_vector.php' => database_path('migrations/'.date('Y_m_d_His').'_alter_commonplace_notes_embedding_to_vector.php'),
         ], 'commonplace-pgvector-migration');
+
+        // CSS source for consumers who want to restyle. The published
+        // file is overrideable; the package's AssetController falls
+        // back to the bundled source when no override is present.
+        $this->publishes([
+            __DIR__.'/../resources/css/commonplace/commonplace.css' => resource_path('css/commonplace/commonplace.css'),
+        ], 'commonplace-css');
     }
 }

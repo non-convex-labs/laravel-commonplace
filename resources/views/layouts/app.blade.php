@@ -12,17 +12,25 @@
     @stack('head')
 </head>
 <body class="commonplace">
-    <header class="commonplace-topbar" role="banner">
-        <nav class="commonplace-nav" aria-label="Commonplace navigation">
-            <a class="commonplace-brand" href="{{ route('commonplace.index') }}">Commonplace</a>
-            <ul class="commonplace-nav-links" role="list">
-                <li><a href="{{ route('commonplace.index') }}">Notes</a></li>
-                <li><a href="{{ route('commonplace.search') }}">Search</a></li>
-                <li><a href="{{ route('commonplace.graph') }}">Graph</a></li>
-                <li><a href="{{ route('commonplace.create') }}">New</a></li>
-            </ul>
-        </nav>
-    </header>
+    {{-- Header injection point: a consumer can `@section('commonplace.nav')`
+         to replace the entire default topbar with their own (e.g. tying
+         the vault into a global app nav). Leave empty to keep the
+         default. --}}
+    @hasSection('commonplace.nav')
+        @yield('commonplace.nav')
+    @else
+        <header class="commonplace-topbar" role="banner">
+            <nav class="commonplace-nav" aria-label="Commonplace navigation">
+                <a class="commonplace-brand" href="{{ route('commonplace.index') }}">Commonplace</a>
+                <ul class="commonplace-nav-links" role="list">
+                    <li><a href="{{ route('commonplace.index') }}">Notes</a></li>
+                    <li><a href="{{ route('commonplace.search') }}">Search</a></li>
+                    <li><a href="{{ route('commonplace.graph') }}">Graph</a></li>
+                    <li><a href="{{ route('commonplace.create') }}">New</a></li>
+                </ul>
+            </nav>
+        </header>
+    @endif
 
     <main class="commonplace-main" id="main" tabindex="-1">
         @if (session('success'))
