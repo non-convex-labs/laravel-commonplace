@@ -167,12 +167,31 @@ AWS_BEDROCK_REGION=us-east-1
 BEDROCK_EMBEDDING_MODEL=amazon.titan-embed-text-v2:0
 BEDROCK_EMBEDDING_DIMENSIONS=1024
 BEDROCK_EMBEDDING_NORMALIZE=true
+BEDROCK_EMBEDDING_CONCURRENCY=2
 ```
 
 Credentials are resolved through the AWS SDK's default credential chain
 (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`, `~/.aws/credentials`, instance
 metadata, etc.). Titan v2 supports `dimensions` values of `256`, `512`, and
 `1024`.
+
+**Bedrock has no batch-embeddings endpoint.** `embedBatch()` fans out
+concurrent `InvokeModel` calls via `Aws\CommandPool` capped by
+`BEDROCK_EMBEDDING_CONCURRENCY` (default `2`). Reindexes are still
+slower than HTTP-batch providers like Voyage / OpenAI. Tune throughput
+with two knobs together:
+
+- `BEDROCK_EMBEDDING_CONCURRENCY` — peak in-flight `InvokeModel` calls
+  per reindex batch.
+- `COMMONPLACE_REINDEX_BATCH_DELAY` — pause (seconds) between batches.
+
+Sustained RPM is roughly `concurrency * (60 / avg_latency_seconds)` —
+at Titan v2's typical ~200ms latency, the default `concurrency=2`
+sustains ~600 RPM if every batch is full. Stay under your account's
+per-model Bedrock quota; otherwise the SDK's exponential backoff
+kicks in and the whole batch fails (`embedBatch` is all-or-nothing
+today). A cold AWS account is often capped well below 100 RPM — start
+at the default and raise only after confirming headroom in CloudWatch.
 
 ## Vector storage
 
