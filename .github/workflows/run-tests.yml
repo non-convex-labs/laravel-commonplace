@@ -2,12 +2,6 @@ name: run-tests
 
 on:
   pull_request:
-    paths:
-      - '**.php'
-      - '.github/workflows/run-tests.yml'
-      - 'phpunit.xml.dist'
-      - 'pint.json'
-      - 'composer.json'
 
 permissions:
   contents: read
@@ -82,3 +76,17 @@ jobs:
 
       - name: Execute tests
         run: vendor/bin/phpunit
+
+  tests:
+    name: Tests
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Verify matrix succeeded
+        run: |
+          if [ "${{ needs.test.result }}" != "success" ]; then
+            echo "Test matrix result: ${{ needs.test.result }}"
+            exit 1
+          fi

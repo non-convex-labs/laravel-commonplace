@@ -2,12 +2,6 @@ name: phpstan
 
 on:
   pull_request:
-    paths:
-      - '**.php'
-      - 'phpstan.neon.dist'
-      - 'phpstan-baseline.neon'
-      - '.github/workflows/phpstan.yml'
-      - 'composer.json'
 
 permissions:
   contents: read
