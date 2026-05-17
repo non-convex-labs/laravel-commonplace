@@ -185,4 +185,29 @@ MD;
 
         $this->assertSame("Line one.\n\nLine two.\n\nLine three.", $result['body']);
     }
+
+    public function test_parses_crlf_frontmatter_with_same_metadata_as_lf(): void
+    {
+        $lf = "---\ntitle: Cross Platform\nvisibility: public\ntags:\n  - alpha\n  - beta\n---\nBody content.";
+        $crlf = str_replace("\n", "\r\n", $lf);
+
+        $lfResult = $this->parser->parse($lf);
+        $crlfResult = $this->parser->parse($crlf);
+
+        $this->assertSame($lfResult['meta'], $crlfResult['meta']);
+        $this->assertSame('Cross Platform', $crlfResult['meta']['title']);
+        $this->assertSame('public', $crlfResult['meta']['visibility']);
+        $this->assertSame(['alpha', 'beta'], $crlfResult['meta']['tags']);
+    }
+
+    public function test_parses_crlf_frontmatter_when_body_has_trailing_blank_line(): void
+    {
+        $lf = "---\ntitle: T\ntags:\n  - a\n---\n\nBody copy.";
+        $crlf = str_replace("\n", "\r\n", $lf);
+
+        $result = $this->parser->parse($crlf);
+
+        $this->assertSame('T', $result['meta']['title']);
+        $this->assertSame(['a'], $result['meta']['tags']);
+    }
 }
