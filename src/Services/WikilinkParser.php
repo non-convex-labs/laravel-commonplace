@@ -10,6 +10,14 @@ use NonConvexLabs\Commonplace\Models\Note;
 
 class WikilinkParser implements WikilinkResolver
 {
+    /**
+     * Single source of truth for `[[wikilink]]` recognition. Same shape
+     * as the inline parser uses so DB-sync, rendering, and the
+     * move-rewrite job all agree on what counts as a wikilink. Capture
+     * group 1 is the raw inner text (may contain `target|alias`).
+     */
+    public const PATTERN = '/\[\[([^\]\n]+)\]\]/';
+
     public function resolve(string $target): ?ResolvedWikilink
     {
         $note = $this->resolveTarget($target);
@@ -28,9 +36,7 @@ class WikilinkParser implements WikilinkResolver
 
     public function extractLinks(string $content): array
     {
-        // Same constraints as WikilinkInlineParser so DB-sync and render
-        // agree on what counts as a wikilink.
-        if (! preg_match_all('/\[\[([^\]\n]+)\]\]/', $content, $matches)) {
+        if (! preg_match_all(self::PATTERN, $content, $matches)) {
             return [];
         }
 

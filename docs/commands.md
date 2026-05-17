@@ -1,12 +1,13 @@
 # Artisan commands
 
-The package ships two Artisan commands for diagnosing vector search and rebuilding embeddings.
+The package ships three Artisan commands for diagnosing vector search, rebuilding embeddings, and recovering wikilink graph drift.
 
 **Source files:**
 
 - [`src/Console/DoctorCommand.php`](../src/Console/DoctorCommand.php) — `commonplace:doctor`
 - [`src/Console/ReindexCommand.php`](../src/Console/ReindexCommand.php) — `commonplace:reindex`
-- [`src/CommonplaceServiceProvider.php`](../src/CommonplaceServiceProvider.php) — registration (lines 46–47, via Spatie Package Tools `hasCommand(...)`)
+- [`src/Console/RelinkCommand.php`](../src/Console/RelinkCommand.php) — `commonplace:relink`
+- [`src/CommonplaceServiceProvider.php`](../src/CommonplaceServiceProvider.php) — registration, via Spatie Package Tools `hasCommand(...)`
 
 ## Overview
 
@@ -14,6 +15,7 @@ The package ships two Artisan commands for diagnosing vector search and rebuildi
 |---|---|
 | `commonplace:doctor` | Before opening a bug report, after deploying, after switching embedding driver or vector backend, and as a CI step (`--exit-code`). |
 | `commonplace:reindex` | After switching embedding driver, after changing model dimensions, or to backfill notes created while the queue was down. |
+| `commonplace:relink` | After a queue outage during which `UpdateWikilinksJob` failed; doctor's "Orphaned wikilinks" warning recommends it. |
 
 Doctor never mutates state. Reindex with `--force` clears `indexed_at` on every note and is the only way to recover from embedding dimension drift surfaced by doctor.
 
@@ -120,6 +122,37 @@ php artisan commonplace:reindex
 - Default (queued) mode requires a running queue worker. Without one, the dispatched job sits in the queue until a worker picks it up — `commonplace:doctor` does not flag this.
 - `--sync` blocks until the job finishes. The job batches notes through `EmbeddingProvider::embedBatch()`; with a remote provider, large vaults can take minutes.
 - Writes embeddings to `commonplace_notes.embedding` and `commonplace_notes.embedding_dimensions`, plus sets `indexed_at`. See [vector-storage.md](vector-storage.md) for the storage shape per driver.
+
+## `commonplace:relink`
+
+Re-resolves `commonplace_links` rows whose `target_note_id` is `NULL` against the current note set, via `WikilinkParser::resolveTarget`. Defined at [`src/Console/RelinkCommand.php`](../src/Console/RelinkCommand.php).
+
+Orphaned link rows are the symptom that `UpdateWikilinksJob` (the move-rewrites-wikilinks job) failed silently — typical cause is a queue worker that wasn't running when a note got moved. `commonplace:doctor` watches the count via `commonplace.wikilinks.orphan_warn_threshold` (default 50) and recommends this command above threshold.
+
+**Signature:**
+
+```
+commonplace:relink
+    {--exit-code : Return a non-zero exit code if any orphan remains after the run}
+```
+
+### Flags
+
+| Flag | Type | Default | Purpose |
+|---|---|---|---|
+| `--exit-code` | bool | `false` | Return exit code 1 when at least one row is still unresolved after the pass (the target note genuinely doesn't exist). Without this, the command always returns 0. |
+
+### Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | Walked every orphan row. Some may still be unresolved if their target note doesn't exist. |
+| `1` | At least one orphan remained and `--exit-code` was set. |
+
+### Pre/post conditions
+
+- Idempotent. Rows that already have a non-null `target_note_id` are skipped.
+- **Blind spot:** only repairs `NULL` targets. Mis-resolved links — where `target_note_id` is non-null but points at the wrong note because `resolveTarget` fell through to its trailing-segment match — are not detected. A `--verify` mode for that case is tracked separately.
 
 ## Related
 

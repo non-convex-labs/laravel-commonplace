@@ -203,6 +203,27 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Wikilinks
+    |--------------------------------------------------------------------------
+    | `rewrite_sync` — when true, `UpdateWikilinksJob` runs inline via
+    | `dispatchSync()` instead of being queued. Use in tests / CLI tools
+    | that need the rewrite to land before the next assertion. Default
+    | is async so a large move doesn't extend request latency.
+    |
+    | `orphan_warn_threshold` — `commonplace:doctor` warns when the count
+    | of `Link` rows with `target_note_id IS NULL` exceeds this. A growing
+    | orphan count usually means the rewrite job is failing silently
+    | (queue worker down, exception not bubbling). Recommend
+    | `commonplace:relink` to re-resolve.
+    */
+
+    'wikilinks' => [
+        'rewrite_sync' => (bool) env('COMMONPLACE_WIKILINKS_REWRITE_SYNC', false),
+        'orphan_warn_threshold' => (int) env('COMMONPLACE_WIKILINKS_ORPHAN_WARN_THRESHOLD', 50),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | MCP server
     |--------------------------------------------------------------------------
     | When enabled, the package registers its MCP server routes (HTTP

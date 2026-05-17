@@ -9,6 +9,7 @@ use Illuminate\Database\Connection;
 use Illuminate\Support\Facades\Schema;
 use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
 use NonConvexLabs\Commonplace\Contracts\VectorSearchDriver;
+use NonConvexLabs\Commonplace\Models\Link;
 use NonConvexLabs\Commonplace\Models\Note;
 
 class DoctorCommand extends Command
@@ -39,6 +40,7 @@ class DoctorCommand extends Command
             $this->checkDriverReadiness(),
             $this->checkInPhpCosineCandidates(),
             $this->checkMultiUserVault(),
+            $this->checkOrphanedLinks(),
         ];
 
         $failed = collect($checks)->where('status', 'fail')->count();
@@ -521,6 +523,60 @@ class DoctorCommand extends Command
             label: 'Vault user count',
             status: 'ok',
             detail: $userCount.' distinct user(s)',
+        );
+    }
+
+    /**
+     * Orphan link rows (`target_note_id IS NULL`) are the symptom of a
+     * `UpdateWikilinksJob` that never ran — queue worker down, exception
+     * silently swallowed, or wikilinks typed at non-existent paths and
+     * the target was never created. A small handful is normal; a growing
+     * count means rewrites are dropping on the floor. Threshold is
+     * configurable.
+     *
+     * @return array{label: string, status: string, detail: string, recommendation?: string}
+     */
+    private function checkOrphanedLinks(): array
+    {
+        try {
+            if (! Schema::hasTable('commonplace_links')) {
+                return $this->report(
+                    label: 'Orphaned wikilinks',
+                    status: 'skip',
+                    detail: 'commonplace_links not present',
+                );
+            }
+
+            $count = Link::query()->whereNull('target_note_id')->count();
+        } catch (\Throwable $e) {
+            return $this->report(
+                label: 'Orphaned wikilinks',
+                status: 'warn',
+                detail: 'could not query commonplace_links: '.$e->getMessage(),
+            );
+        }
+
+        $threshold = (int) config('commonplace.wikilinks.orphan_warn_threshold', 50);
+
+        if ($count === 0) {
+            return $this->report(label: 'Orphaned wikilinks', status: 'ok', detail: '0');
+        }
+
+        if ($count <= $threshold) {
+            return $this->report(
+                label: 'Orphaned wikilinks',
+                status: 'ok',
+                detail: "{$count} (under threshold {$threshold})",
+            );
+        }
+
+        return $this->report(
+            label: 'Orphaned wikilinks',
+            status: 'warn',
+            detail: "{$count} (over threshold {$threshold})",
+            recommendation: "{$count} link rows have target_note_id IS NULL. Run "
+                .'`php artisan commonplace:relink` to re-resolve. If the count keeps growing, '
+                .'check that a queue worker is processing UpdateWikilinksJob.',
         );
     }
 
