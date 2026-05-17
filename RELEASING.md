@@ -60,38 +60,31 @@ matching key is absent.
 | `AWS_ACCESS_KEY_ID` | Bedrock (or use OIDC; see below) |
 | `AWS_SECRET_ACCESS_KEY` | Bedrock |
 
-**Variables** — only set the ones you want to override; defaults live in
-`config/commonplace.php`.
-
-| Name | Default |
-| --- | --- |
-| `AWS_BEDROCK_REGION` | `us-east-1` |
-| `VOYAGE_EMBEDDING_MODEL` | `voyage-3.5` |
-| `VOYAGE_EMBEDDING_DIMENSIONS` | `1024` |
-| `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-small` |
-| `OPENAI_EMBEDDING_DIMENSIONS` | `1536` |
-| `COHERE_EMBEDDING_MODEL` | `embed-english-v3.0` |
-| `COHERE_EMBEDDING_DIMENSIONS` | `1024` |
-| `BEDROCK_EMBEDDING_MODEL` | `amazon.titan-embed-text-v2:0` |
-| `BEDROCK_EMBEDDING_DIMENSIONS` | `1024` |
+**Variables** — none required. The CI workflow uses the package defaults
+from `config/commonplace.php` (e.g. `text-embedding-3-small` for OpenAI,
+`us-east-1` for Bedrock). To override a model or dimension in CI, edit
+`.github/workflows/smoke-tests.yml` directly; passing empty strings through
+`vars.X` is unsafe because Laravel's `env()` returns the empty value rather
+than the default.
 
 ### Running the smoke test (locally)
 
-Useful when iterating on a driver change before pushing. Same env vars, run
-directly:
+Useful when iterating on a driver change before pushing. Copy the template,
+fill in the keys for the driver(s) you care about, source it, and run
+phpunit:
 
 ```bash
-COMMONPLACE_SMOKE_TEST=1 \
-VOYAGE_API_KEY=... \
-OPENAI_API_KEY=... \
-COHERE_API_KEY=... \
+cp .env.smoke.example .env.smoke
+$EDITOR .env.smoke
+set -a && source .env.smoke && set +a
 vendor/bin/phpunit --group=smoke
 ```
 
-Each driver's smoke test self-skips unless its credentials are present, so
-you can run them one at a time. To include Bedrock, set
-`COMMONPLACE_SMOKE_TEST_BEDROCK=1` and make sure your default AWS credential
-chain and `AWS_BEDROCK_REGION` are wired up.
+`.env.smoke` is gitignored. Each driver's smoke test self-skips unless its
+credentials are present, so you can run them one at a time. To include
+Bedrock, set `COMMONPLACE_SMOKE_TEST_BEDROCK=1` in the env file and make
+sure your default AWS credential chain and `AWS_BEDROCK_REGION` are wired
+up.
 
 ### What "passing" means
 
