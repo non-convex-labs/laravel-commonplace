@@ -9,15 +9,22 @@ use Illuminate\Database\Connection;
 use Illuminate\Support\Facades\Schema;
 use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
 use NonConvexLabs\Commonplace\Contracts\VectorSearchDriver;
+use NonConvexLabs\Commonplace\Models\Note;
 
 class DoctorCommand extends Command
 {
-    protected $signature = 'commonplace:doctor {--exit-code : Return a non-zero exit code if any check fails}';
+    protected $signature = 'commonplace:doctor '
+        .'{--exit-code : Return a non-zero exit code if any check fails} '
+        .'{--pgvector-migration-precheck : Scan commonplace_notes.embedding for rows that would break the pgvector ALTER and exit}';
 
     protected $description = 'Diagnose the Commonplace vector search configuration.';
 
     public function handle(Connection $db): int
     {
+        if ($this->option('pgvector-migration-precheck')) {
+            return $this->runPgvectorMigrationPrecheck($db);
+        }
+
         $this->line('Commonplace doctor');
         $this->line(str_repeat('=', 60));
 
@@ -29,6 +36,8 @@ class DoctorCommand extends Command
             $this->checkPgvectorExtension($db),
             $this->checkEmbeddingColumn($db),
             $this->checkDriverReadiness(),
+            $this->checkInPhpCosineCandidates(),
+            $this->checkMultiUserVault(),
         ];
 
         $failed = collect($checks)->where('status', 'fail')->count();
@@ -53,6 +62,67 @@ class DoctorCommand extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Standalone preflight scan: list every row in commonplace_notes whose
+     * embedding column would crash the `ALTER ... USING embedding::vector(N)`
+     * cast in the pgvector migration. Skips the rest of the doctor flow.
+     */
+    private function runPgvectorMigrationPrecheck(Connection $db): int
+    {
+        $this->line('Commonplace doctor — pgvector migration pre-check');
+        $this->line(str_repeat('=', 60));
+
+        if ($db->getDriverName() !== 'pgsql') {
+            $this->line(
+                "This check is only meaningful on PostgreSQL — your connection is '{$db->getDriverName()}'."
+            );
+
+            return self::SUCCESS;
+        }
+
+        try {
+            $schemaExists = Schema::hasTable('commonplace_notes');
+        } catch (\Throwable $e) {
+            $this->line('Could not query schema: '.$e->getMessage());
+
+            return self::FAILURE;
+        }
+
+        if (! $schemaExists) {
+            $this->line('commonplace_notes table is not present. Run `php artisan migrate` first.');
+
+            return self::FAILURE;
+        }
+
+        try {
+            $offenders = $db->select(
+                'SELECT id, LEFT(embedding, 80) AS preview FROM commonplace_notes '
+                ."WHERE embedding IS NOT NULL AND embedding !~ '^\\[.*\\]$' LIMIT 100"
+            );
+        } catch (\Throwable $e) {
+            $this->line('Pre-check query failed: '.$e->getMessage());
+
+            return self::FAILURE;
+        }
+
+        if ($offenders === []) {
+            $this->line('All embeddings are in pgvector-compatible format — safe to migrate.');
+
+            return self::SUCCESS;
+        }
+
+        $rows = array_map(
+            static fn ($row) => [(string) $row->id, (string) ($row->preview ?? '')],
+            $offenders,
+        );
+
+        $this->table(['id', 'preview'], $rows);
+        $this->line('Found '.count($offenders).' offending row(s) (capped at 100).');
+        $this->line('Fix these rows (set embedding to NULL or repair the JSON-array value) before running the migration.');
+
+        return $this->option('exit-code') ? self::FAILURE : self::SUCCESS;
     }
 
     /**
@@ -244,6 +314,104 @@ class DoctorCommand extends Command
                 recommendation: 'See exception message above.',
             );
         }
+    }
+
+    /**
+     * Info-level row for InPhpCosine users: where are they relative to the
+     * candidate caps? Skips silently for other drivers.
+     *
+     * @return array{label: string, status: string, detail: string, recommendation?: string}
+     */
+    private function checkInPhpCosineCandidates(): array
+    {
+        $configured = (string) config('commonplace.vector.driver', 'in_php_cosine');
+
+        if ($configured !== 'in_php_cosine') {
+            return $this->report(
+                label: 'Indexed candidates (InPhp)',
+                status: 'skip',
+                detail: 'not applicable (driver is '.$configured.')',
+            );
+        }
+
+        try {
+            $count = Note::query()->whereNotNull('embedding')->count();
+        } catch (\Throwable $e) {
+            return $this->report(
+                label: 'Indexed candidates (InPhp)',
+                status: 'warn',
+                detail: 'could not query commonplace_notes: '.$e->getMessage(),
+            );
+        }
+
+        $softCap = (int) config('commonplace.vector.in_php_cosine.max_candidates', 2000);
+        $hardCap = (int) config('commonplace.vector.in_php_cosine.hard_max_candidates', 20000);
+
+        $status = match (true) {
+            $count > $hardCap => 'fail',
+            $count > $softCap => 'warn',
+            default => 'ok',
+        };
+
+        $recommendation = match ($status) {
+            'fail' => 'Indexed candidate count exceeds hard cap — semantic search will throw. '
+                .'Switch to pgvector or narrow search scope (e.g. scope=mine).',
+            'warn' => 'Indexed candidate count exceeds soft cap — searches will log warnings. '
+                .'Consider switching to pgvector for better scaling.',
+            default => null,
+        };
+
+        return $this->report(
+            label: 'Indexed candidates (InPhp)',
+            status: $status,
+            detail: number_format($count).' / soft cap '.number_format($softCap).' / hard cap '.number_format($hardCap),
+            recommendation: $recommendation,
+        );
+    }
+
+    /**
+     * Multi-user vaults on InPhpCosine are a recipe for the candidate cap:
+     * the Accessible scope sees every user's public notes plus shares, so
+     * the candidate set grows with total install size, not per-user data.
+     * pgvector pushes that work down to indexed similarity in the database
+     * and is the right answer for any vault with more than one user.
+     *
+     * @return array{label: string, status: string, detail: string, recommendation?: string}
+     */
+    private function checkMultiUserVault(): array
+    {
+        try {
+            $userCount = (int) Note::query()
+                ->whereNotNull('user_id')
+                ->distinct()
+                ->count('user_id');
+        } catch (\Throwable $e) {
+            return $this->report(
+                label: 'Vault user count',
+                status: 'warn',
+                detail: 'could not query commonplace_notes: '.$e->getMessage(),
+            );
+        }
+
+        $configured = (string) config('commonplace.vector.driver', 'in_php_cosine');
+
+        if ($userCount > 1 && $configured === 'in_php_cosine') {
+            return $this->report(
+                label: 'Vault user count',
+                status: 'warn',
+                detail: $userCount.' distinct users (in_php_cosine configured)',
+                recommendation: "Detected {$userCount} distinct users in commonplace_notes. "
+                    .'`in_php_cosine` driver is not recommended for multi-user vaults — '
+                    .'Accessible-scope searches will scan all candidates and may hit the candidate cap. '
+                    .'Consider switching to `pgvector`.',
+            );
+        }
+
+        return $this->report(
+            label: 'Vault user count',
+            status: 'ok',
+            detail: $userCount.' distinct user(s)',
+        );
     }
 
     /**
