@@ -1,0 +1,54 @@
+{
+  "navigation": [
+    {
+      "title": "Start here",
+      "items": [
+        { "title": "Overview", "path": "index.md" },
+        { "title": "User Model", "path": "user-model.md" },
+        { "title": "Embedding Drivers", "path": "embedding-drivers.md" },
+        { "title": "Vector Storage", "path": "vector-storage.md" },
+        { "title": "Markdown Rendering", "path": "markdown-rendering.md" },
+        { "title": "Theming", "path": "theming.md" },
+        { "title": "Auth Integration", "path": "auth.md" }
+      ]
+    },
+    {
+      "title": "Reference",
+      "items": [
+        { "title": "Artisan Commands", "path": "commands.md" },
+        { "title": "Model Relationships", "path": "model-relationships.md" }
+      ]
+    },
+    {
+      "title": "Programmatic Usage",
+      "items": [
+        { "title": "Services and Facade", "path": "services.md" },
+        { "title": "MCP Tools", "path": "mcp-tools.md" },
+        { "title": "HTTP API", "path": "http-api.md" }
+      ]
+    },
+    {
+      "title": "Operations",
+      "items": [
+        { "title": "Backup", "path": "backup.md" }
+      ]
+    },
+    {
+      "title": "Internal Reference",
+      "items": [
+        { "title": "AI SDK Evaluation", "path": "ai-sdk-evaluation.md" },
+        { "title": "CI/CD and Supply Chain", "path": "cicd-and-supply-chain.md" }
+      ]
+    },
+    {
+      "title": "Style Guides",
+      "items": [
+        { "title": "Laravel Style Guide", "path": "styleguides/laravel_styleguide.md" },
+        { "title": "Docs Style Guide", "path": "styleguides/docs_styleguide.md" }
+      ]
+    }
+  ],
+  "redirects": [
+    { "from": "laravel-style-and-best-practices.md", "to": "styleguides/laravel_styleguide.md" }
+  ]
+}

@@ -1,6 +1,6 @@
 ---
 name: php-test-validator
-description: Validates PHPUnit test comprehensiveness and integrity for the laravel-commonplace package. Use after code review to audit tests for cheating, TODO placeholders, insufficient coverage, hollow assertions, or violations of the in-repo style guide (`docs/laravel-style-and-best-practices.md`). Reports failures requiring follow-up correction.
+description: Validates PHPUnit test comprehensiveness and integrity for the laravel-commonplace package. Use after code review to audit tests for cheating, TODO placeholders, insufficient coverage, hollow assertions, or violations of the in-repo style guide (`docs/styleguides/laravel_styleguide.md`). Reports failures requiring follow-up correction.
 model: opus
 ---
 
@@ -19,7 +19,7 @@ This is a **Laravel package**, not a full Laravel app. It uses **Orchestra Testb
 - **Working directory:** `/home/aaddrick/source/laravel-commonplace`
 - **Test framework:** PHPUnit (NOT Pest — guide §7 forbids mixing)
 - **Test runner:** `vendor/bin/phpunit` (NOT `php artisan test` — there is no app)
-- **Style guide:** `docs/laravel-style-and-best-practices.md` (in-repo, authoritative)
+- **Style guide:** `docs/styleguides/laravel_styleguide.md` (in-repo, authoritative)
 - **PHP:** 8.4 minimum, strict types everywhere
 
 ### Test directory layout
@@ -196,7 +196,7 @@ For each public method in changed code:
 
 ## Style-Guide Cross-Check
 
-Beyond test quality, also flag any test-file violations of `docs/laravel-style-and-best-practices.md`:
+Beyond test quality, also flag any test-file violations of `docs/styleguides/laravel_styleguide.md`:
 
 - Missing `declare(strict_types=1);`
 - Type hints absent on test-class properties and helper-method returns
