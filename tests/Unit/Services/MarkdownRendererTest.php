@@ -4,7 +4,23 @@ declare(strict_types=1);
 
 namespace NonConvexLabs\Commonplace\Tests\Unit\Services;
 
+use League\CommonMark\Environment\Environment;
+use League\CommonMark\Environment\EnvironmentBuilderInterface;
+use League\CommonMark\Extension\Autolink\AutolinkExtension;
+use League\CommonMark\Extension\ExtensionInterface;
+use League\CommonMark\Extension\Mention\Generator\StringTemplateLinkGenerator;
+use League\CommonMark\Extension\Mention\MentionParser;
+use League\CommonMark\Node\Block\Paragraph;
+use League\CommonMark\Node\Node;
+use League\CommonMark\Parser\Inline\InlineParserInterface;
+use League\CommonMark\Renderer\ChildNodeRendererInterface;
+use League\CommonMark\Renderer\NodeRendererInterface;
+use League\CommonMark\Util\HtmlElement;
+use NonConvexLabs\Commonplace\Contracts\WikilinkResolver;
+use NonConvexLabs\Commonplace\Markdown\Wikilink\ResolvedWikilink;
+use NonConvexLabs\Commonplace\Markdown\Wikilink\WikilinkExtension;
 use NonConvexLabs\Commonplace\Models\Note;
+use NonConvexLabs\Commonplace\Services\Commonplace;
 use NonConvexLabs\Commonplace\Services\MarkdownRenderer;
 use NonConvexLabs\Commonplace\Services\WikilinkParser;
 use NonConvexLabs\Commonplace\Tests\TestCase;
@@ -294,7 +310,7 @@ class MarkdownRendererTest extends TestCase
         // should no longer render — confirming the config is the source
         // of truth, not a hardcoded `addExtension` call in the renderer.
         config()->set('commonplace.markdown.extensions', [
-            \NonConvexLabs\Commonplace\Markdown\Wikilink\WikilinkExtension::class,
+            WikilinkExtension::class,
         ]);
         $this->app->forgetInstance(MarkdownRenderer::class);
         $renderer = $this->app->make(MarkdownRenderer::class);
@@ -308,18 +324,18 @@ class MarkdownRendererTest extends TestCase
     {
         // Some CommonMark extensions need constructor args. Verify the
         // config accepts an already-built instance alongside class strings.
-        $instance = new \League\CommonMark\Extension\Mention\MentionParser(
+        $instance = new MentionParser(
             'twitter',
             '@',
             '[a-z0-9_]+',
-            new \League\CommonMark\Extension\Mention\Generator\StringTemplateLinkGenerator('https://twitter.com/%s'),
+            new StringTemplateLinkGenerator('https://twitter.com/%s'),
         );
 
-        $extensionInstance = new class($instance) implements \League\CommonMark\Extension\ExtensionInterface
+        $extensionInstance = new class($instance) implements ExtensionInterface
         {
-            public function __construct(private readonly \League\CommonMark\Parser\Inline\InlineParserInterface $parser) {}
+            public function __construct(private readonly InlineParserInterface $parser) {}
 
-            public function register(\League\CommonMark\Environment\EnvironmentBuilderInterface $env): void
+            public function register(EnvironmentBuilderInterface $env): void
             {
                 $env->addInlineParser($this->parser);
             }
@@ -327,7 +343,7 @@ class MarkdownRendererTest extends TestCase
 
         config()->set('commonplace.markdown.extensions', [
             $extensionInstance,
-            \League\CommonMark\Extension\Autolink\AutolinkExtension::class,
+            AutolinkExtension::class,
         ]);
         $this->app->forgetInstance(MarkdownRenderer::class);
         $renderer = $this->app->make(MarkdownRenderer::class);
@@ -342,18 +358,18 @@ class MarkdownRendererTest extends TestCase
         // Register a callback that swaps the paragraph renderer to wrap
         // content in a span. Runtime extenders run AFTER config extensions,
         // so they win on duplicate renderer registration.
-        $commonplace = $this->app->make(\NonConvexLabs\Commonplace\Services\Commonplace::class);
+        $commonplace = $this->app->make(Commonplace::class);
 
-        $commonplace->extendMarkdown(function (\League\CommonMark\Environment\Environment $env): void {
+        $commonplace->extendMarkdown(function (Environment $env): void {
             $env->addRenderer(
-                \League\CommonMark\Node\Block\Paragraph::class,
-                new class implements \League\CommonMark\Renderer\NodeRendererInterface
+                Paragraph::class,
+                new class implements NodeRendererInterface
                 {
                     public function render(
-                        \League\CommonMark\Node\Node $node,
-                        \League\CommonMark\Renderer\ChildNodeRendererInterface $childRenderer,
-                    ): \League\CommonMark\Util\HtmlElement {
-                        return new \League\CommonMark\Util\HtmlElement(
+                        Node $node,
+                        ChildNodeRendererInterface $childRenderer,
+                    ): HtmlElement {
+                        return new HtmlElement(
                             'p',
                             ['class' => 'extended'],
                             $childRenderer->renderNodes($node->children()),
@@ -389,16 +405,16 @@ class MarkdownRendererTest extends TestCase
     public function test_wikilink_resolver_is_swappable(): void
     {
         // A custom resolver routing every target at an external URL.
-        $resolver = new class implements \NonConvexLabs\Commonplace\Contracts\WikilinkResolver
+        $resolver = new class implements WikilinkResolver
         {
-            public function resolve(string $target): \NonConvexLabs\Commonplace\Markdown\Wikilink\ResolvedWikilink
+            public function resolve(string $target): ResolvedWikilink
             {
-                return new \NonConvexLabs\Commonplace\Markdown\Wikilink\ResolvedWikilink(
+                return new ResolvedWikilink(
                     href: 'https://wiki.example.com/'.rawurlencode($target),
                 );
             }
         };
-        $this->app->bind(\NonConvexLabs\Commonplace\Contracts\WikilinkResolver::class, fn () => $resolver);
+        $this->app->bind(WikilinkResolver::class, fn () => $resolver);
         $this->app->forgetInstance(MarkdownRenderer::class);
 
         $renderer = $this->app->make(MarkdownRenderer::class);
@@ -435,7 +451,7 @@ class MarkdownRendererTest extends TestCase
         };
 
         $this->app->instance(WikilinkParser::class, $stub);
-        $this->app->bind(\NonConvexLabs\Commonplace\Contracts\WikilinkResolver::class, fn () => $stub);
+        $this->app->bind(WikilinkResolver::class, fn () => $stub);
         $this->app->forgetInstance(MarkdownRenderer::class);
 
         return $this->app->make(MarkdownRenderer::class);

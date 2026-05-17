@@ -9,8 +9,10 @@ use Aws\CommandInterface;
 use Aws\Exception\AwsException;
 use Aws\MockHandler;
 use Aws\Result;
+use GuzzleHttp\Promise\Create;
 use GuzzleHttp\Psr7\Utils;
 use NonConvexLabs\Commonplace\Drivers\Embedding\BedrockEmbeddingProvider;
+use NonConvexLabs\Commonplace\Exceptions\PartialBatchEmbeddingException;
 use NonConvexLabs\Commonplace\Tests\TestCase;
 use RuntimeException;
 
@@ -201,7 +203,7 @@ class BedrockEmbeddingProviderTest extends TestCase
         try {
             $this->provider->embedBatch(['a', 'b', 'c']);
             $this->fail('Expected PartialBatchEmbeddingException.');
-        } catch (\NonConvexLabs\Commonplace\Exceptions\PartialBatchEmbeddingException $e) {
+        } catch (PartialBatchEmbeddingException $e) {
             $this->assertSame(1, $e->failedIndex);
             $this->assertArrayHasKey(0, $e->completed);
             $this->assertSame([1.0], $e->completed[0]);
@@ -221,7 +223,7 @@ class BedrockEmbeddingProviderTest extends TestCase
         try {
             $this->provider->embedBatch(['a']);
             $this->fail('Expected PartialBatchEmbeddingException.');
-        } catch (\NonConvexLabs\Commonplace\Exceptions\PartialBatchEmbeddingException $e) {
+        } catch (PartialBatchEmbeddingException $e) {
             $this->assertSame(0, $e->failedIndex);
             $this->assertSame([], $e->completed);
         }
@@ -283,7 +285,7 @@ class BedrockEmbeddingProviderTest extends TestCase
                 $vector = $textToVector[$text]
                     ?? throw new RuntimeException("No mock vector for text '{$text}'");
 
-                return \GuzzleHttp\Promise\Create::promiseFor(new Result([
+                return Create::promiseFor(new Result([
                     'body' => Utils::streamFor(json_encode([
                         'embedding' => $vector,
                         'inputTextTokenCount' => 5,

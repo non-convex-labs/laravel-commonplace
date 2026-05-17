@@ -9,7 +9,6 @@ use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use NonConvexLabs\Commonplace\Backup\BackupBundle;
-use NonConvexLabs\Commonplace\Backup\Destinations\FilesystemBackupDestination;
 use NonConvexLabs\Commonplace\Contracts\BackupDestination;
 use NonConvexLabs\Commonplace\Jobs\BackupVault;
 use NonConvexLabs\Commonplace\Models\Note;
@@ -165,7 +164,7 @@ class BackupVaultTest extends TestCase
             'path' => 'commonplace',
         ]);
 
-        \Illuminate\Support\Facades\Storage::fake('backups');
+        Storage::fake('backups');
 
         // Bypass the model's path validation (if any) by direct insert
         // so the test exercises the bundle's defensive check, not the
@@ -176,19 +175,19 @@ class BackupVaultTest extends TestCase
             'content' => 'body',
         ]);
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('traversal segment');
 
-        \Illuminate\Support\Facades\Bus::dispatchSync(new BackupVault);
+        Bus::dispatchSync(new BackupVault);
     }
 
     public function test_filesystem_destination_prunes_orphaned_md_files(): void
     {
-        \Illuminate\Support\Facades\Storage::fake('backups');
+        Storage::fake('backups');
 
         // Seed the disk with a leftover from a previous backup that no
         // longer exists in the vault — pruning should remove it.
-        $disk = \Illuminate\Support\Facades\Storage::disk('backups');
+        $disk = Storage::disk('backups');
         $disk->put('commonplace/notes/old-note.md', 'ghost content');
         $disk->put('commonplace/notes/unrelated.txt', 'should be kept');
 
@@ -204,7 +203,7 @@ class BackupVaultTest extends TestCase
             'content' => 'fresh',
         ]);
 
-        \Illuminate\Support\Facades\Bus::dispatchSync(new BackupVault);
+        Bus::dispatchSync(new BackupVault);
 
         $this->assertTrue($disk->exists('commonplace/notes/current.md'));
         $this->assertFalse(

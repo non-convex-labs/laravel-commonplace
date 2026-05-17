@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
+use NonConvexLabs\Commonplace\Backup\Destinations\GitHubBackupDestination;
 use NonConvexLabs\Commonplace\Jobs\BackupToGitHub;
 use NonConvexLabs\Commonplace\Models\Note;
 use NonConvexLabs\Commonplace\Tests\Fixtures\InteractsWithCommonplaceDatabase;
@@ -259,7 +260,7 @@ class BackupToGitHubTest extends TestCase
         ]);
 
         $job = new BackupToGitHub;
-        $destination = $this->app->make(\NonConvexLabs\Commonplace\Backup\Destinations\GitHubBackupDestination::class);
+        $destination = $this->app->make(GitHubBackupDestination::class);
 
         try {
             $job->handle($destination);

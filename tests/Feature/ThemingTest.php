@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace NonConvexLabs\Commonplace\Tests\Feature;
 
+use Illuminate\Support\ServiceProvider;
 use NonConvexLabs\Commonplace\Tests\TestCase;
 
 class ThemingTest extends TestCase
 {
     public function test_commonplace_css_publish_tag_is_registered(): void
     {
-        $publishGroups = \Illuminate\Support\ServiceProvider::publishableGroups();
+        $publishGroups = ServiceProvider::publishableGroups();
 
         $this->assertContains('commonplace-css', $publishGroups);
     }
@@ -20,7 +21,7 @@ class ThemingTest extends TestCase
         // Spatie's PackageServiceProvider registers this for us via
         // hasViews('commonplace'). Asserting it pins the contract so a
         // future refactor of the service provider can't quietly drop it.
-        $publishGroups = \Illuminate\Support\ServiceProvider::publishableGroups();
+        $publishGroups = ServiceProvider::publishableGroups();
 
         $this->assertContains('commonplace-views', $publishGroups);
     }
