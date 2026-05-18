@@ -184,6 +184,8 @@ Share::firstOrCreate(
 | `name` | string, unique | Tag name (no `#` prefix in storage). |
 | `timestamps` | — | `created_at` / `updated_at`. |
 
+Tag rows are pruned by `Commonplace` when their last referencing note disappears — either via `deleteNote` or via a tag-set replacement in `updateNote`.
+
 ### Relationships
 
 | Method | Returns | What |

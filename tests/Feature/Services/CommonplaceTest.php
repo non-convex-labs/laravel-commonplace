@@ -298,6 +298,72 @@ class CommonplaceTest extends TestCase
         $this->assertSame(1, NoteVersion::where('note_path', 'projects/doomed')->count());
     }
 
+    public function test_delete_note_prunes_tag_rows_that_become_orphaned(): void
+    {
+        $this->commonplace->createNote(
+            path: 'projects/first',
+            content: 'body',
+            tags: ['a', 'b'],
+            visibility: 'private',
+            owner: $this->owner,
+        );
+        $this->commonplace->createNote(
+            path: 'projects/second',
+            content: 'body',
+            tags: ['a'],
+            visibility: 'private',
+            owner: $this->owner,
+        );
+
+        $this->commonplace->deleteNote('projects/first', $this->owner);
+
+        $this->assertDatabaseHas('commonplace_tags', ['name' => 'a']);
+        $this->assertDatabaseMissing('commonplace_tags', ['name' => 'b']);
+    }
+
+    public function test_update_note_prunes_tag_rows_that_become_orphaned(): void
+    {
+        $this->commonplace->createNote(
+            path: 'projects/swap',
+            content: 'body',
+            tags: ['a', 'b'],
+            visibility: 'private',
+            owner: $this->owner,
+        );
+
+        $this->commonplace->updateNote(
+            path: 'projects/swap',
+            data: ['tags' => ['a', 'c']],
+            user: $this->owner,
+        );
+
+        $this->assertDatabaseHas('commonplace_tags', ['name' => 'a']);
+        $this->assertDatabaseHas('commonplace_tags', ['name' => 'c']);
+        $this->assertDatabaseMissing('commonplace_tags', ['name' => 'b']);
+    }
+
+    public function test_delete_note_keeps_tag_rows_still_used_by_other_notes(): void
+    {
+        $this->commonplace->createNote(
+            path: 'projects/one',
+            content: 'body',
+            tags: ['a'],
+            visibility: 'private',
+            owner: $this->owner,
+        );
+        $this->commonplace->createNote(
+            path: 'projects/two',
+            content: 'body',
+            tags: ['a'],
+            visibility: 'private',
+            owner: $this->owner,
+        );
+
+        $this->commonplace->deleteNote('projects/one', $this->owner);
+
+        $this->assertDatabaseHas('commonplace_tags', ['name' => 'a']);
+    }
+
     public function test_list_notes_returns_only_accessible_notes(): void
     {
         $stranger = User::factory()->create();
