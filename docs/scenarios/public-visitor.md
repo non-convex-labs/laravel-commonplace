@@ -119,9 +119,6 @@ Assumptions:
 
 **Intent.** Mutation paths are entirely absent from the public route group.
 
-> [!NOTE]
-> Validation 2026-05-17: `POST` correctly returns 405. `PUT` and `DELETE` return **419** (CSRF mismatch) — the requests reach the authenticated `web` group's CSRF guard instead of being terminated at the public boundary. Tracked in [#97](https://github.com/non-convex-labs/laravel-commonplace/issues/97). The bug masks the spec but doesn't enable a write: the underlying service-layer ownership check still blocks anything that gets past the boundary.
-
 **Preconditions.** Public-read enabled.
 
 **Steps.**
@@ -141,10 +138,7 @@ Assumptions:
 
 ### S-PUB-06 — With `COMMONPLACE_PUBLIC_ROUTES_ENABLED=false`, the public group isn't registered
 
-**Intent.** Public-read is opt-in. With the toggle off, all `/public/*` URLs return 404 from the framework.
-
-> [!NOTE]
-> Validation 2026-05-17: returns **302 → /login** instead of 404. With the public group unregistered, the URL is caught by the authenticated catch-all `GET /commonplace/{path}` and the `auth` middleware redirects. Tracked in [#97](https://github.com/non-convex-labs/laravel-commonplace/issues/97). No data leak (the auth gate is enforced) but the spec wants a framework 404 so a misconfigured deploy can't be inferred from the redirect.
+**Intent.** Public-read is opt-in. With the toggle off, all `/public/*` URLs return 404 from the framework. Sealing applies to the *default* prefix only — an overridden `COMMONPLACE_PUBLIC_ROUTES_PREFIX` sits outside the auth catch-all and doesn't need it.
 
 **Preconditions.** `COMMONPLACE_PUBLIC_ROUTES_ENABLED=false`. `public/handbook` still has `visibility=public`.
 

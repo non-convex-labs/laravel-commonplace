@@ -90,7 +90,6 @@ Last full pass: **2026-05-17**, against `main` (commit `bf6d762`), Laravel 13.9 
 
 | Scenario | Issue | Status |
 |---|---|---|
-| [S-PUB-05](public-visitor.md#s-pub-05--public-read-does-not-expose-write-edit-delete-move), [S-PUB-06](public-visitor.md#s-pub-06--with-commonplace_public_routes_enabledfalse-the-public-group-isnt-registered) | [#97](https://github.com/non-convex-labs/laravel-commonplace/issues/97) | Public route group leaks: PUT/DELETE return 419; toggle-off returns 302 |
 | [S-COL-14](collaborator.md#s-col-14--collaborators-index-lists-owned--shared--public-notes-intermixed), [S-COL-15](collaborator.md#s-col-15--edit-link-is-absent-for-shared-notes-the-caller-cant-write) | [#98](https://github.com/non-convex-labs/laravel-commonplace/issues/98) | Web UI doesn't gate non-owner edit/delete; non-owner index recent-notes empty |
 
 When a fix lands, the linked scenario gets the `> [!NOTE]` annotation removed and this row drops from the table.
