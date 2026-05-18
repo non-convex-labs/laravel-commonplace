@@ -90,8 +90,11 @@ class NoteControllerTest extends TestCase
         $response->assertSee('Notes on LLMs');
     }
 
-    public function test_show_forbids_access_to_private_note_owned_by_another_user(): void
+    public function test_show_falls_through_to_folder_browser_for_inaccessible_note(): void
     {
+        // #123: an authenticated caller hitting a foreign-private note
+        // must get the same response shape as a never-existed path —
+        // otherwise the status code (403 vs 200) leaks existence.
         $stranger = User::factory()->create();
         Note::factory()->create([
             'user_id' => $stranger->id,
@@ -99,10 +102,91 @@ class NoteControllerTest extends TestCase
             'visibility' => 'private',
         ]);
 
-        $response = $this->actingAs($this->owner)
+        $inaccessible = $this->actingAs($this->owner)
             ->get(route('commonplace.show', ['path' => 'private/secret']));
+        $missing = $this->actingAs($this->owner)
+            ->get(route('commonplace.show', ['path' => 'never/existed']));
 
-        $response->assertForbidden();
+        $inaccessible->assertOk();
+        $missing->assertOk();
+
+        // Positively assert both responses render the browse view
+        // (class="cp-browse"), and negatively assert neither renders
+        // the show view's note-header / actions / markdown-content
+        // class hooks. These class names exist verbatim in the
+        // respective Blade templates — the assertion stays load-bearing
+        // through copy changes.
+        $inaccessible->assertSee('cp-browse', false);
+        $missing->assertSee('cp-browse', false);
+        $inaccessible->assertDontSee('cp-note-header', false);
+        $missing->assertDontSee('cp-note-header', false);
+        $inaccessible->assertDontSee('cp-markdown-content', false);
+        $missing->assertDontSee('cp-markdown-content', false);
+    }
+
+    public function test_show_does_not_render_edit_or_delete_affordances_for_inaccessible_note(): void
+    {
+        // #123: prove canEdit/canDelete are NOT computed (and the view
+        // partial doesn't accidentally render their buttons) when the
+        // catch-all falls through to the folder browser.
+        $stranger = User::factory()->create();
+        Note::factory()->create([
+            'user_id' => $stranger->id,
+            'path' => 'private/leak-probe',
+            'visibility' => 'private',
+        ]);
+
+        $response = $this->actingAs($this->owner)
+            ->get(route('commonplace.show', ['path' => 'private/leak-probe']));
+
+        $response->assertOk();
+        // Browse view confirmed; show view's edit / delete / action
+        // markers absent. The Delete button lives in `cp-delete-form`
+        // and `cp-delete-btn`; the "View markdown" link is the show
+        // view's only outbound `commonplace.showRaw` anchor.
+        $response->assertSee('cp-browse', false);
+        $response->assertDontSee('cp-note-actions', false);
+        $response->assertDontSee('cp-delete-form', false);
+        $response->assertDontSee('View markdown', false);
+    }
+
+    public function test_show_falls_through_to_folder_browser_after_share_revoked(): void
+    {
+        // #123: a user who clicks a wikilink to a note that was shared
+        // with them and then revoked gets the folder-browser fallback,
+        // NOT a 403 or any flash message that would re-introduce a
+        // side-channel oracle. Codifies the UX tradeoff the issue
+        // explicitly weighed.
+        $stranger = User::factory()->create();
+        $note = Note::factory()->create([
+            'user_id' => $stranger->id,
+            'path' => 'shared/topic',
+            'title' => 'Shared topic',
+            'visibility' => 'private',
+        ]);
+        $share = Share::create([
+            'note_id' => $note->id,
+            'user_id' => $this->owner->id,
+            'permission' => 'read',
+        ]);
+        $share->delete();
+
+        $revoked = $this->actingAs($this->owner)
+            ->get(route('commonplace.show', ['path' => 'shared/topic']));
+        $missing = $this->actingAs($this->owner)
+            ->get(route('commonplace.show', ['path' => 'shared/topic-never-existed']));
+
+        $revoked->assertOk();
+        $missing->assertOk();
+        $revoked->assertSee('cp-browse', false);
+        $missing->assertSee('cp-browse', false);
+        $revoked->assertDontSee('cp-note-header', false);
+
+        // No flash session keys, no per-path error message — anything
+        // visible to the user that's not also visible in the missing
+        // case would be the side-channel.
+        $this->assertNull(session('error'));
+        $this->assertNull(session('access_denied'));
     }
 
     public function test_show_allows_access_to_shared_note(): void

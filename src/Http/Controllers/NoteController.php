@@ -71,7 +71,12 @@ class NoteController extends Controller
 
             return $this->browseFolder($path, $request);
         } catch (AuthorizationException) {
-            abort(403);
+            // #123: collapse inaccessible-existing into the same
+            // folder-browser response shape used for missing paths.
+            // Without this, an authenticated caller can enumerate
+            // path names by status code (403 vs 200). Service-layer
+            // callers still see the typed AuthorizationException.
+            return $this->browseFolder($path, $request);
         }
 
         $backlinks = $this->commonplace->getBacklinks($path, $user);
@@ -93,7 +98,9 @@ class NoteController extends Controller
         } catch (ModelNotFoundException) {
             abort(404);
         } catch (AuthorizationException) {
-            abort(403);
+            // #123: collapse inaccessible into 404 so the raw surface
+            // can't be used to enumerate paths the caller can't read.
+            abort(404);
         }
 
         return response($this->buildRawMarkdown($note), 200, [
@@ -108,7 +115,8 @@ class NoteController extends Controller
         } catch (ModelNotFoundException) {
             abort(404);
         } catch (AuthorizationException) {
-            abort(403);
+            // #123: collapse inaccessible into 404 — same reason as showRaw.
+            abort(404);
         }
 
         $rawContent = $this->buildRawMarkdown($note);
@@ -240,7 +248,10 @@ class NoteController extends Controller
         try {
             $versions = $this->commonplace->getHistory($path, $user);
         } catch (AuthorizationException) {
-            abort(403);
+            // #123: inaccessible-existing collapses to 404 — same response
+            // shape an authenticated caller gets for a never-existed path
+            // once the lookup-or-empty check below runs.
+            abort(404);
         }
 
         $note = Note::where('path', $path)->first();
@@ -264,7 +275,8 @@ class NoteController extends Controller
         try {
             $versions = $this->commonplace->getHistory($path, $user);
         } catch (AuthorizationException) {
-            abort(403);
+            // #123: collapse inaccessible into 404 — see history().
+            abort(404);
         }
 
         $noteVersion = $versions->firstWhere('id', $version);
