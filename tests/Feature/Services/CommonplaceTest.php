@@ -121,6 +121,23 @@ class CommonplaceTest extends TestCase
         $this->assertNull($links->firstWhere('target_path', 'Totally Unrelated Phrase')->target_note_id);
     }
 
+    public function test_create_note_does_not_write_a_note_version(): void
+    {
+        // NoteVersion captures *displaced* content (overwritten by update,
+        // removed by delete), not a snapshot of every state. The live Note
+        // row is the original content. See docs/model-relationships.md#noteversion.
+        $note = $this->commonplace->createNote(
+            path: 'projects/just-created',
+            content: 'original body',
+            tags: [],
+            visibility: 'private',
+            owner: $this->owner,
+        );
+
+        $this->assertSame(0, NoteVersion::where('note_id', $note->id)->count());
+        $this->assertSame(0, NoteVersion::where('note_path', 'projects/just-created')->count());
+    }
+
     public function test_update_note_snapshots_previous_version_on_content_change(): void
     {
         $note = $this->commonplace->createNote(

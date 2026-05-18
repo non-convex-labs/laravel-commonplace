@@ -88,6 +88,8 @@ $note = Commonplace::createNote(
 
 The note's `content_hash` (sha256) is set and `indexed_at` is left null so the reindex queue picks it up. Wikilinks are extracted and persisted to `commonplace_links` via the internal `syncWikilinks()` step.
 
+`createNote` does **not** write a `NoteVersion` row. The live `Note` row is the original content; `NoteVersion` only captures content that has been *displaced* by an update or removed by a delete (see [model-relationships.md → NoteVersion](./model-relationships.md#noteversion)). Calling `getHistory()` on a never-updated note returns an empty collection — read the live note for the original content.
+
 ### `readNote`
 
 Loads a note by path and enforces read access (owner, share with any permission, or `visibility=public`).
