@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use NonConvexLabs\Commonplace\Backup\Destinations\GitHubBackupDestination;
+use NonConvexLabs\Commonplace\Exceptions\BackupDestinationNotConfigured;
+use NonConvexLabs\Commonplace\Exceptions\BackupDestinationUnavailable;
 use NonConvexLabs\Commonplace\Jobs\BackupToGitHub;
 use NonConvexLabs\Commonplace\Models\Note;
 use NonConvexLabs\Commonplace\Tests\Fixtures\InteractsWithCommonplaceDatabase;
@@ -45,8 +47,8 @@ class BackupToGitHubTest extends TestCase
     {
         config()->set('commonplace.backup.github.repo', null);
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Commonplace GitHub backup is not configured');
+        $this->expectException(BackupDestinationNotConfigured::class);
+        $this->expectExceptionMessage("Backup destination 'github' is not configured.");
 
         Bus::dispatchSync(new BackupToGitHub);
     }
@@ -55,8 +57,8 @@ class BackupToGitHubTest extends TestCase
     {
         config()->set('commonplace.backup.github.token', null);
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Commonplace GitHub backup is not configured');
+        $this->expectException(BackupDestinationNotConfigured::class);
+        $this->expectExceptionMessage("Backup destination 'github' is not configured.");
 
         Bus::dispatchSync(new BackupToGitHub);
     }
@@ -255,8 +257,20 @@ class BackupToGitHubTest extends TestCase
     {
         Log::spy();
 
+        // Seed at least one note so the bundle isn't empty (which
+        // would short-circuit `push()` before any HTTP call).
+        Note::factory()->create([
+            'path' => 'notes/trigger',
+            'title' => 'Trigger',
+            'content' => 'force-non-empty-bundle',
+        ]);
+
+        // #132: this previously caught a bare RuntimeException whose
+        // message embedded `$response->body()`. The curated
+        // BackupDestinationUnavailable replaces that and pins the
+        // wire-visible message away from response-body content.
         Http::fake([
-            'https://api.github.com/repos/octo/notes' => Http::response(['error' => 'server'], 500),
+            'https://api.github.com/repos/octo/notes' => Http::response(['error' => 'server with embedded repo data'], 500),
         ]);
 
         $job = new BackupToGitHub;
@@ -264,8 +278,11 @@ class BackupToGitHubTest extends TestCase
 
         try {
             $job->handle($destination);
-            $this->fail('Expected RuntimeException to be thrown.');
-        } catch (RuntimeException $exception) {
+            $this->fail('Expected BackupDestinationUnavailable to be thrown.');
+        } catch (BackupDestinationUnavailable $exception) {
+            $this->assertSame('github', $exception->destination);
+            $this->assertSame('transport', $exception->reason);
+            $this->assertStringNotContainsString('repo data', $exception->getMessage());
             $job->failed($exception);
         }
 

@@ -8,8 +8,9 @@ use Aws\BedrockRuntime\BedrockRuntimeClient;
 use Aws\CommandPool;
 use Aws\Result;
 use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
+use NonConvexLabs\Commonplace\Exceptions\EmbeddingProviderNotConfigured;
+use NonConvexLabs\Commonplace\Exceptions\EmbeddingProviderUnavailable;
 use NonConvexLabs\Commonplace\Exceptions\PartialBatchEmbeddingException;
-use RuntimeException;
 use Throwable;
 
 class BedrockEmbeddingProvider implements EmbeddingProvider
@@ -23,7 +24,24 @@ class BedrockEmbeddingProvider implements EmbeddingProvider
 
     public function embed(string $text): array
     {
-        $result = $this->client()->invokeModel($this->commandArgsFor($text));
+        // AWS SDK exceptions don't implement [[PublicMessage]] and can
+        // carry signed URLs / request IDs / region detail in their
+        // messages. Wrap them so the agent sees the same curated
+        // "bedrock unavailable" surface as the other providers (the
+        // batch path goes through PartialBatchEmbeddingException; this
+        // is the non-batch route reached by `embedQuery` →
+        // `SemanticSearchTool`).
+        try {
+            $result = $this->client()->invokeModel($this->commandArgsFor($text));
+        } catch (Throwable $e) {
+            // Allow our own curated exceptions to bubble — only the
+            // AWS-SDK / Guzzle Throwables need wrapping.
+            if ($e instanceof EmbeddingProviderUnavailable || $e instanceof EmbeddingProviderNotConfigured) {
+                throw $e;
+            }
+
+            throw new EmbeddingProviderUnavailable('bedrock', 'transport', previous: $e);
+        }
 
         return $this->decodeEmbedding($result);
     }
@@ -61,17 +79,21 @@ class BedrockEmbeddingProvider implements EmbeddingProvider
             // succeeded via PartialBatchEmbeddingException so callers
             // can checkpoint and only retry the remainder, instead of
             // re-billing tokens for work that's already done.
-            $previous = $entry instanceof Throwable
-                ? $entry
-                : new RuntimeException(sprintf(
-                    'non-Throwable rejection (%s)',
-                    get_debug_type($entry),
-                ));
+            //
+            // Wrap the AWS-SDK Throwable (or non-Throwable rejection)
+            // in a curated EmbeddingProviderUnavailable so the
+            // `previous:` chain on PartialBatchEmbeddingException
+            // stays PublicMessage end-to-end. AWS SDK exception
+            // messages can carry signed URLs and other operator-only
+            // detail — operators still see the original via report()
+            // through the doubled previous chain.
+            $awsCause = $entry instanceof Throwable ? $entry : null;
+            $cause = new EmbeddingProviderUnavailable('bedrock', 'transport', previous: $awsCause);
 
             throw new PartialBatchEmbeddingException(
                 completed: $embeddings,
                 failedIndex: $i,
-                cause: $previous,
+                cause: $cause,
             );
         }
 
@@ -115,7 +137,7 @@ class BedrockEmbeddingProvider implements EmbeddingProvider
         $decoded = json_decode((string) $result['body'], true, flags: JSON_THROW_ON_ERROR);
 
         if (! is_array($decoded) || ! isset($decoded['embedding']) || ! is_array($decoded['embedding'])) {
-            throw new RuntimeException('Bedrock returned an unexpected payload for model '.$this->model().'.');
+            throw new EmbeddingProviderUnavailable('bedrock', 'unexpected_payload');
         }
 
         return array_map(static fn (mixed $v): float => (float) $v, $decoded['embedding']);
@@ -135,10 +157,10 @@ class BedrockEmbeddingProvider implements EmbeddingProvider
         }
 
         if (! class_exists(BedrockRuntimeClient::class)) {
-            throw new RuntimeException(
-                'The Bedrock embedding driver requires aws/aws-sdk-php. '
-                .'Install it with: composer require aws/aws-sdk-php'
-            );
+            // Operator gets the remediation hint (composer require) via
+            // the framework's exception trail; the agent-visible message
+            // stays generic.
+            throw new EmbeddingProviderNotConfigured('bedrock');
         }
 
         return $this->client = new BedrockRuntimeClient([

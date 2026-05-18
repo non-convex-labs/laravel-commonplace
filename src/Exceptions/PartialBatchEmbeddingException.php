@@ -17,26 +17,44 @@ use Throwable;
  * Drivers that fail the entire batch on the first request (no
  * partial state possible — e.g. HTTP-batch providers like OpenAI /
  * Voyage where a single call returns all-or-nothing) throw the
- * underlying RuntimeException directly. This type is reserved for
- * fan-out drivers (currently: Bedrock).
+ * underlying provider exception directly. This type is reserved for
+ * fan-out drivers (currently: Bedrock, plus Voyage's chunked retry
+ * path).
+ *
+ * Implements [[PublicMessage]]. The constructor message is composed
+ * from two integers ($failedIndex and count($completed)) which are
+ * package-controlled (the driver's own batching state, not user
+ * input). The original message concatenated `$cause->getMessage()` —
+ * that's now dropped: cause messages from the embedding drivers could
+ * embed `$response->body()`, which can echo back the user's note
+ * content. The cause is preserved as `previous:` so operators see the
+ * full chain via `report()`.
+ *
+ * Invariant (enforced by #132): every driver that throws this passes a
+ * [[PublicMessage]]-implementing cause, so the `$previous` chain is
+ * curated end-to-end. If a future driver passes a bare RuntimeException
+ * as cause, the chain leaks operator-only detail back into agent
+ * visibility through any future caller that walks `getPrevious()`.
  */
-final class PartialBatchEmbeddingException extends RuntimeException
+final class PartialBatchEmbeddingException extends RuntimeException implements PublicMessage
 {
     /**
      * @param  array<int, array<int, float>>  $completed  Index → embedding vector
      * @param  int  $failedIndex  Position in the input array of the first failure
+     * @param  Throwable&PublicMessage  $cause  Must itself implement PublicMessage —
+     *                                          the intersection type makes the "curated previous chain"
+     *                                          invariant compile-time enforced rather than convention-only.
      */
     public function __construct(
         public readonly array $completed,
         public readonly int $failedIndex,
-        Throwable $cause,
+        Throwable&PublicMessage $cause,
     ) {
         parent::__construct(
             sprintf(
-                'Batch embedding partially failed at index %d after %d successes: %s',
+                'Batch embedding partially failed at index %d after %d successes.',
                 $failedIndex,
                 count($completed),
-                $cause->getMessage(),
             ),
             previous: $cause,
         );

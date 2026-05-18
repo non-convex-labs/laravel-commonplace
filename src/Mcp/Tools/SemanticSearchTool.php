@@ -11,6 +11,9 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 use NonConvexLabs\Commonplace\Enums\SemanticSearchScope;
+use NonConvexLabs\Commonplace\Exceptions\EmbeddingProviderNotConfigured;
+use NonConvexLabs\Commonplace\Exceptions\EmbeddingProviderUnavailable;
+use NonConvexLabs\Commonplace\Exceptions\PgvectorDriverNotReady;
 use NonConvexLabs\Commonplace\Services\Commonplace;
 
 #[Description('Primary search tool — use this by default. Semantic search using AI embeddings for meaning-based matching. Finds conceptually related notes even when exact words differ. Use natural language queries (e.g. "how we handle authentication" rather than "auth"). Fall back to search-tool only when you need exact substring matching.')]
@@ -54,8 +57,16 @@ class SemanticSearchTool extends Tool
 
             return Response::json($payload);
         } catch (\InvalidArgumentException $e) {
+            // Caller-supplied scope echoed back to the same caller —
+            // benign by construction (the agent already knows what it
+            // sent). Stays out of the envelope sanitiser path because
+            // the tool's own catch returns Response::error here.
             return Response::error($e->getMessage());
-        } catch (\RuntimeException $e) {
+        } catch (EmbeddingProviderUnavailable|EmbeddingProviderNotConfigured|PgvectorDriverNotReady $e) {
+            // Narrowed (#132) from `catch (\RuntimeException)` so any
+            // future non-PublicMessage RuntimeException in the call
+            // path falls through to the envelope sanitiser's
+            // fail-close instead of leaking via this Response::error.
             return Response::error($e->getMessage());
         }
     }

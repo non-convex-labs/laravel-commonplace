@@ -7,8 +7,9 @@ namespace NonConvexLabs\Commonplace\Tests\Unit\Drivers\Embedding;
 use Illuminate\Http\Client\Factory as HttpClient;
 use Illuminate\Support\Facades\Http;
 use NonConvexLabs\Commonplace\Drivers\Embedding\CohereEmbeddingProvider;
+use NonConvexLabs\Commonplace\Exceptions\EmbeddingProviderNotConfigured;
+use NonConvexLabs\Commonplace\Exceptions\EmbeddingProviderUnavailable;
 use NonConvexLabs\Commonplace\Tests\TestCase;
-use RuntimeException;
 
 class CohereEmbeddingProviderTest extends TestCase
 {
@@ -148,8 +149,8 @@ class CohereEmbeddingProviderTest extends TestCase
 
         Http::fake();
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Cohere API key is not configured');
+        $this->expectException(EmbeddingProviderNotConfigured::class);
+        $this->expectExceptionMessage("Embedding provider 'cohere' is not configured.");
 
         $this->provider->embed('hello');
     }
@@ -157,13 +158,22 @@ class CohereEmbeddingProviderTest extends TestCase
     public function test_embed_throws_when_response_is_not_successful(): void
     {
         Http::fake([
-            self::COHERE_URL => Http::response('upstream failure', 500),
+            self::COHERE_URL => Http::response('upstream failure echoing the request input', 500),
         ]);
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Cohere API error: upstream failure');
-
-        $this->provider->embed('hello');
+        try {
+            $this->provider->embed('hello');
+            $this->fail('Expected EmbeddingProviderUnavailable.');
+        } catch (EmbeddingProviderUnavailable $e) {
+            $this->assertSame('cohere', $e->provider);
+            $this->assertSame('transport', $e->reason);
+            $this->assertSame(
+                "Embedding provider 'cohere' is unavailable (transport error). Retry with backoff.",
+                $e->getMessage(),
+            );
+            $this->assertStringNotContainsString('upstream failure', $e->getMessage());
+            $this->assertStringNotContainsString('request input', $e->getMessage());
+        }
     }
 
     public function test_embed_throws_when_response_payload_is_malformed(): void
@@ -172,10 +182,17 @@ class CohereEmbeddingProviderTest extends TestCase
             self::COHERE_URL => Http::response(['something' => 'unexpected'], 200),
         ]);
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Cohere API returned an unexpected payload');
-
-        $this->provider->embed('hello');
+        try {
+            $this->provider->embed('hello');
+            $this->fail('Expected EmbeddingProviderUnavailable.');
+        } catch (EmbeddingProviderUnavailable $e) {
+            $this->assertSame('cohere', $e->provider);
+            $this->assertSame('unexpected_payload', $e->reason);
+            $this->assertSame(
+                "Embedding provider 'cohere' returned an unexpected payload.",
+                $e->getMessage(),
+            );
+        }
     }
 
     public function test_embed_batch_returns_vectors_in_input_order(): void
@@ -247,8 +264,8 @@ class CohereEmbeddingProviderTest extends TestCase
 
         Http::fake();
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Cohere API key is not configured');
+        $this->expectException(EmbeddingProviderNotConfigured::class);
+        $this->expectExceptionMessage("Embedding provider 'cohere' is not configured.");
 
         $this->provider->embedBatch(['hello']);
     }
@@ -259,8 +276,10 @@ class CohereEmbeddingProviderTest extends TestCase
             self::COHERE_URL => Http::response('boom', 500),
         ]);
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Cohere API error: boom');
+        $this->expectException(EmbeddingProviderUnavailable::class);
+        $this->expectExceptionMessage(
+            "Embedding provider 'cohere' is unavailable (transport error). Retry with backoff."
+        );
 
         $this->provider->embedBatch(['hello']);
     }

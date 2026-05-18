@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace NonConvexLabs\Commonplace\Drivers\Embedding;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpClient;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Sleep;
 use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
+use NonConvexLabs\Commonplace\Exceptions\EmbeddingProviderNotConfigured;
+use NonConvexLabs\Commonplace\Exceptions\EmbeddingProviderUnavailable;
 use NonConvexLabs\Commonplace\Exceptions\PartialBatchEmbeddingException;
-use RuntimeException;
 
 class VoyageEmbeddingProvider implements EmbeddingProvider
 {
@@ -41,7 +43,7 @@ class VoyageEmbeddingProvider implements EmbeddingProvider
         foreach (array_chunk($texts, 128) as $chunkIndex => $chunk) {
             try {
                 $response = $this->postWithRetry($chunk);
-            } catch (RuntimeException $e) {
+            } catch (EmbeddingProviderUnavailable $e) {
                 if ($embeddings !== []) {
                     throw new PartialBatchEmbeddingException(
                         completed: $embeddings,
@@ -77,12 +79,16 @@ class VoyageEmbeddingProvider implements EmbeddingProvider
         $attempt = 0;
 
         while (true) {
-            $response = $this->http
-                ->withToken($this->apiKey())
-                ->post('https://api.voyageai.com/v1/embeddings', [
-                    'input' => $input,
-                    'model' => $this->model(),
-                ]);
+            try {
+                $response = $this->http
+                    ->withToken($this->apiKey())
+                    ->post('https://api.voyageai.com/v1/embeddings', [
+                        'input' => $input,
+                        'model' => $this->model(),
+                    ]);
+            } catch (ConnectionException $e) {
+                throw new EmbeddingProviderUnavailable('voyage', 'transport', previous: $e);
+            }
 
             if (! $response->failed()) {
                 return $response;
@@ -93,7 +99,7 @@ class VoyageEmbeddingProvider implements EmbeddingProvider
             // burn quota retrying — surface them immediately so the
             // queue-level retry on ReindexNotes handles the next attempt.
             if ($response->status() !== 429 || $attempt >= $maxRetries) {
-                throw new RuntimeException('Voyage AI API error: '.$response->body());
+                throw EmbeddingProviderUnavailable::fromStatus('voyage', $response->status());
             }
 
             $delay = min(
@@ -112,9 +118,7 @@ class VoyageEmbeddingProvider implements EmbeddingProvider
         $key = config('commonplace.embedding.voyage.api_key');
 
         if (! $key) {
-            throw new RuntimeException(
-                'Voyage API key is not configured (commonplace.embedding.voyage.api_key).'
-            );
+            throw new EmbeddingProviderNotConfigured('voyage');
         }
 
         return (string) $key;

@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace NonConvexLabs\Commonplace\Drivers\Embedding;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpClient;
 use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
-use RuntimeException;
+use NonConvexLabs\Commonplace\Exceptions\EmbeddingProviderNotConfigured;
+use NonConvexLabs\Commonplace\Exceptions\EmbeddingProviderUnavailable;
 
 class OpenAIEmbeddingProvider implements EmbeddingProvider
 {
@@ -76,14 +78,11 @@ class OpenAIEmbeddingProvider implements EmbeddingProvider
         }
 
         // Unknown model: refuse to guess. Wrong storage column size would
-        // corrupt the vector store silently.
-        throw new RuntimeException(sprintf(
-            'OpenAI model "%s" is not in the known native-dimensions allowlist; '
-            .'set OPENAI_EMBEDDING_DIMENSIONS (or `%s`) explicitly so the storage '
-            .'column is sized correctly.',
-            $model,
-            self::DIMENSIONS_CONFIG_KEY,
-        ));
+        // corrupt the vector store silently. Operator gets the model
+        // name + remediation hint via report() on the underlying detail
+        // logged by the framework; the agent gets a generic "not
+        // configured" message that doesn't echo config values.
+        throw new EmbeddingProviderNotConfigured('openai');
     }
 
     /**
@@ -104,12 +103,16 @@ class OpenAIEmbeddingProvider implements EmbeddingProvider
             $payload['dimensions'] = $this->dimensions();
         }
 
-        $response = $this->http
-            ->withToken($this->apiKey())
-            ->post(self::ENDPOINT, $payload);
+        try {
+            $response = $this->http
+                ->withToken($this->apiKey())
+                ->post(self::ENDPOINT, $payload);
+        } catch (ConnectionException $e) {
+            throw new EmbeddingProviderUnavailable('openai', 'transport', previous: $e);
+        }
 
         if ($response->failed()) {
-            throw new RuntimeException('OpenAI API error: '.$response->body());
+            throw EmbeddingProviderUnavailable::fromStatus('openai', $response->status());
         }
 
         $data = $response->json('data') ?? [];
@@ -138,14 +141,7 @@ class OpenAIEmbeddingProvider implements EmbeddingProvider
             return;
         }
 
-        throw new RuntimeException(sprintf(
-            'OpenAI model "%s" does not support the `dimensions` parameter, but `%s` is configured to %d. '
-            .'Unset OPENAI_EMBEDDING_DIMENSIONS (or remove the config value), or switch to a v3 model '
-            .'(text-embedding-3-small / text-embedding-3-large).',
-            $this->model(),
-            self::DIMENSIONS_CONFIG_KEY,
-            (int) $configured,
-        ));
+        throw new EmbeddingProviderNotConfigured('openai');
     }
 
     private function apiKey(): string
@@ -153,9 +149,7 @@ class OpenAIEmbeddingProvider implements EmbeddingProvider
         $key = config('commonplace.embedding.openai.api_key');
 
         if (! $key) {
-            throw new RuntimeException(
-                'OpenAI API key is not configured (commonplace.embedding.openai.api_key).'
-            );
+            throw new EmbeddingProviderNotConfigured('openai');
         }
 
         return (string) $key;

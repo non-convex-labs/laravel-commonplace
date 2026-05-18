@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace NonConvexLabs\Commonplace\Backup\Destinations;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use NonConvexLabs\Commonplace\Backup\BackupBundle;
 use NonConvexLabs\Commonplace\Contracts\BackupDestination;
-use RuntimeException;
+use NonConvexLabs\Commonplace\Exceptions\BackupDestinationNotConfigured;
+use NonConvexLabs\Commonplace\Exceptions\BackupDestinationUnavailable;
 
 /**
  * Pushes the bundle into a GitHub repository as a single commit on the
@@ -33,9 +36,7 @@ final class GitHubBackupDestination implements BackupDestination
         $token = config('commonplace.backup.github.token');
 
         if (! $repo || ! $token) {
-            throw new RuntimeException(
-                'Commonplace GitHub backup is not configured. Set commonplace.backup.github.repo and commonplace.backup.github.token.'
-            );
+            throw new BackupDestinationNotConfigured('github');
         }
 
         // Bail before any API contact — avoids wasting a quota slice
@@ -100,41 +101,45 @@ final class GitHubBackupDestination implements BackupDestination
 
     private function defaultBranch(PendingRequest $client, string $repo): string
     {
-        $response = $client->get("/repos/{$repo}");
-
-        if ($response->failed()) {
-            throw new RuntimeException(
-                "Commonplace GitHub backup: failed to read repository {$repo}: ".$response->body()
-            );
-        }
+        $response = $this->getOrFail($client, "/repos/{$repo}");
 
         return (string) $response->json('default_branch');
     }
 
     private function latestCommitSha(PendingRequest $client, string $repo, string $branch): string
     {
-        $response = $client->get("/repos/{$repo}/git/ref/heads/{$branch}");
-
-        if ($response->failed()) {
-            throw new RuntimeException(
-                "Commonplace GitHub backup: failed to read ref heads/{$branch}: ".$response->body()
-            );
-        }
+        $response = $this->getOrFail($client, "/repos/{$repo}/git/ref/heads/{$branch}");
 
         return (string) $response->json('object.sha');
     }
 
     private function commitTreeSha(PendingRequest $client, string $repo, string $commitSha): string
     {
-        $response = $client->get("/repos/{$repo}/git/commits/{$commitSha}");
-
-        if ($response->failed()) {
-            throw new RuntimeException(
-                "Commonplace GitHub backup: failed to read commit {$commitSha}: ".$response->body()
-            );
-        }
+        $response = $this->getOrFail($client, "/repos/{$repo}/git/commits/{$commitSha}");
 
         return (string) $response->json('tree.sha');
+    }
+
+    /**
+     * GET wrapper that converts both connection failures and failed
+     * status responses into a curated [[BackupDestinationUnavailable]].
+     * The repo path / response body never reach `getMessage()` —
+     * operators see them via report() on the previous chain (when set)
+     * and existing Laravel HTTP-client logging.
+     */
+    private function getOrFail(PendingRequest $client, string $path): Response
+    {
+        try {
+            $response = $client->get($path);
+        } catch (ConnectionException $e) {
+            throw new BackupDestinationUnavailable('github', 'transport', previous: $e);
+        }
+
+        if ($response->failed()) {
+            throw BackupDestinationUnavailable::fromStatus('github', $response->status());
+        }
+
+        return $response;
     }
 
     /**
@@ -166,16 +171,10 @@ final class GitHubBackupDestination implements BackupDestination
 
     private function createBlob(PendingRequest $client, string $repo, string $content): string
     {
-        $response = $client->post("/repos/{$repo}/git/blobs", [
+        $response = $this->postOrFail($client, "/repos/{$repo}/git/blobs", [
             'content' => base64_encode($content),
             'encoding' => 'base64',
         ]);
-
-        if ($response->failed()) {
-            throw new RuntimeException(
-                'Commonplace GitHub backup: failed to create blob: '.$response->body()
-            );
-        }
 
         return (string) $response->json('sha');
     }
@@ -185,16 +184,10 @@ final class GitHubBackupDestination implements BackupDestination
      */
     private function createTree(PendingRequest $client, string $repo, string $baseTreeSha, array $tree): string
     {
-        $response = $client->post("/repos/{$repo}/git/trees", [
+        $response = $this->postOrFail($client, "/repos/{$repo}/git/trees", [
             'base_tree' => $baseTreeSha,
             'tree' => $this->makeReplaceableTree($client, $repo, $baseTreeSha, $tree),
         ]);
-
-        if ($response->failed()) {
-            throw new RuntimeException(
-                'Commonplace GitHub backup: failed to create tree: '.$response->body()
-            );
-        }
 
         return (string) $response->json('sha');
     }
@@ -270,7 +263,7 @@ final class GitHubBackupDestination implements BackupDestination
         string $treeSha,
         array $parents,
     ): string {
-        $response = $client->post("/repos/{$repo}/git/commits", [
+        $response = $this->postOrFail($client, "/repos/{$repo}/git/commits", [
             'message' => $message,
             'tree' => $treeSha,
             'parents' => $parents,
@@ -286,26 +279,40 @@ final class GitHubBackupDestination implements BackupDestination
             ],
         ]);
 
-        if ($response->failed()) {
-            throw new RuntimeException(
-                'Commonplace GitHub backup: failed to create commit: '.$response->body()
-            );
-        }
-
         return (string) $response->json('sha');
     }
 
     private function updateRef(PendingRequest $client, string $repo, string $branch, string $commitSha): void
     {
-        $response = $client->patch("/repos/{$repo}/git/refs/heads/{$branch}", [
-            'sha' => $commitSha,
-            'force' => false,
-        ]);
+        try {
+            $response = $client->patch("/repos/{$repo}/git/refs/heads/{$branch}", [
+                'sha' => $commitSha,
+                'force' => false,
+            ]);
+        } catch (ConnectionException $e) {
+            throw new BackupDestinationUnavailable('github', 'transport', previous: $e);
+        }
 
         if ($response->failed()) {
-            throw new RuntimeException(
-                "Commonplace GitHub backup: failed to update ref heads/{$branch}: ".$response->body()
-            );
+            throw BackupDestinationUnavailable::fromStatus('github', $response->status());
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function postOrFail(PendingRequest $client, string $path, array $payload): Response
+    {
+        try {
+            $response = $client->post($path, $payload);
+        } catch (ConnectionException $e) {
+            throw new BackupDestinationUnavailable('github', 'transport', previous: $e);
+        }
+
+        if ($response->failed()) {
+            throw BackupDestinationUnavailable::fromStatus('github', $response->status());
+        }
+
+        return $response;
     }
 }

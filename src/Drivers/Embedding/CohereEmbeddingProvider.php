@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace NonConvexLabs\Commonplace\Drivers\Embedding;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpClient;
 use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
-use RuntimeException;
+use NonConvexLabs\Commonplace\Exceptions\EmbeddingProviderNotConfigured;
+use NonConvexLabs\Commonplace\Exceptions\EmbeddingProviderUnavailable;
 
 class CohereEmbeddingProvider implements EmbeddingProvider
 {
@@ -67,12 +69,16 @@ class CohereEmbeddingProvider implements EmbeddingProvider
             'embedding_types' => ['float'],
         ];
 
-        $response = $this->http
-            ->withToken($this->apiKey())
-            ->post(self::ENDPOINT, $payload);
+        try {
+            $response = $this->http
+                ->withToken($this->apiKey())
+                ->post(self::ENDPOINT, $payload);
+        } catch (ConnectionException $e) {
+            throw new EmbeddingProviderUnavailable('cohere', 'transport', previous: $e);
+        }
 
         if ($response->failed()) {
-            throw new RuntimeException('Cohere API error: '.$response->body());
+            throw EmbeddingProviderUnavailable::fromStatus('cohere', $response->status());
         }
 
         // Cohere returns embeddings under `embeddings.float` when
@@ -80,7 +86,7 @@ class CohereEmbeddingProvider implements EmbeddingProvider
         $vectors = $response->json('embeddings.float');
 
         if (! is_array($vectors)) {
-            throw new RuntimeException('Cohere API returned an unexpected payload: '.$response->body());
+            throw new EmbeddingProviderUnavailable('cohere', 'unexpected_payload');
         }
 
         return array_values($vectors);
@@ -91,9 +97,7 @@ class CohereEmbeddingProvider implements EmbeddingProvider
         $key = config('commonplace.embedding.cohere.api_key');
 
         if (! $key) {
-            throw new RuntimeException(
-                'Cohere API key is not configured (commonplace.embedding.cohere.api_key).'
-            );
+            throw new EmbeddingProviderNotConfigured('cohere');
         }
 
         return (string) $key;

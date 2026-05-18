@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
+use NonConvexLabs\Commonplace\Exceptions\EmbeddingProviderUnavailable;
 use NonConvexLabs\Commonplace\Exceptions\PartialBatchEmbeddingException;
 use NonConvexLabs\Commonplace\Jobs\ReindexNotes;
 use NonConvexLabs\Commonplace\Models\Note;
@@ -209,7 +210,8 @@ class ReindexNotesTest extends TestCase
                         1 => [0.44, 0.55, 0.66],
                     ],
                     failedIndex: 2,
-                    cause: new RuntimeException('rate limited'),
+                    // Type-enforced: cause must implement PublicMessage.
+                    cause: new EmbeddingProviderUnavailable('voyage', 'rate_limited'),
                 );
             }
 

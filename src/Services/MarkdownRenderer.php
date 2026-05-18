@@ -9,8 +9,8 @@ use League\CommonMark\Environment\Environment;
 use League\CommonMark\Extension\CommonMark\CommonMarkCoreExtension;
 use League\CommonMark\Extension\ExtensionInterface;
 use League\CommonMark\MarkdownConverter;
+use NonConvexLabs\Commonplace\Exceptions\MarkdownRendererConfigError;
 use NonConvexLabs\Commonplace\Support\Highlight\Bash\BashLanguage;
-use RuntimeException;
 use Tempest\Highlight\CommonMark\HighlightExtension;
 use Tempest\Highlight\Highlighter;
 
@@ -137,12 +137,7 @@ class MarkdownRenderer
                 $resolved = $this->container->make($entry);
 
                 if (! $resolved instanceof ExtensionInterface) {
-                    throw new RuntimeException(sprintf(
-                        'Configured markdown extension "%s" did not resolve to an ExtensionInterface (got %s). '
-                        .'Check commonplace.markdown.extensions.',
-                        $entry,
-                        get_debug_type($resolved),
-                    ));
+                    throw new MarkdownRendererConfigError;
                 }
 
                 yield $resolved;
@@ -150,10 +145,7 @@ class MarkdownRenderer
                 continue;
             }
 
-            throw new RuntimeException(sprintf(
-                'commonplace.markdown.extensions entries must be class strings or ExtensionInterface instances; got %s.',
-                get_debug_type($entry),
-            ));
+            throw new MarkdownRendererConfigError;
         }
     }
 

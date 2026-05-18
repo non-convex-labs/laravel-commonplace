@@ -7,8 +7,9 @@ namespace NonConvexLabs\Commonplace\Tests\Unit\Drivers\Embedding;
 use Illuminate\Http\Client\Factory as HttpClient;
 use Illuminate\Support\Facades\Http;
 use NonConvexLabs\Commonplace\Drivers\Embedding\OpenAIEmbeddingProvider;
+use NonConvexLabs\Commonplace\Exceptions\EmbeddingProviderNotConfigured;
+use NonConvexLabs\Commonplace\Exceptions\EmbeddingProviderUnavailable;
 use NonConvexLabs\Commonplace\Tests\TestCase;
-use RuntimeException;
 
 class OpenAIEmbeddingProviderTest extends TestCase
 {
@@ -98,22 +99,34 @@ class OpenAIEmbeddingProviderTest extends TestCase
 
         Http::fake();
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('OpenAI API key is not configured');
+        $this->expectException(EmbeddingProviderNotConfigured::class);
+        $this->expectExceptionMessage("Embedding provider 'openai' is not configured.");
 
         $this->provider->embed('hello');
     }
 
     public function test_embed_throws_when_response_is_not_successful(): void
     {
+        // 500 from the provider maps to reason 'transport'. The wire-
+        // visible message must NOT include the response body — pin
+        // both halves.
         Http::fake([
-            self::OPENAI_URL => Http::response('upstream failure', 500),
+            self::OPENAI_URL => Http::response('upstream failure echoing the request payload', 500),
         ]);
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('OpenAI API error: upstream failure');
-
-        $this->provider->embed('hello');
+        try {
+            $this->provider->embed('hello');
+            $this->fail('Expected EmbeddingProviderUnavailable.');
+        } catch (EmbeddingProviderUnavailable $e) {
+            $this->assertSame('openai', $e->provider);
+            $this->assertSame('transport', $e->reason);
+            $this->assertSame(
+                "Embedding provider 'openai' is unavailable (transport error). Retry with backoff.",
+                $e->getMessage(),
+            );
+            $this->assertStringNotContainsString('upstream failure', $e->getMessage());
+            $this->assertStringNotContainsString('request payload', $e->getMessage());
+        }
     }
 
     public function test_embed_batch_returns_vectors_in_input_order(): void
@@ -212,8 +225,8 @@ class OpenAIEmbeddingProviderTest extends TestCase
 
         Http::fake();
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('OpenAI API key is not configured');
+        $this->expectException(EmbeddingProviderNotConfigured::class);
+        $this->expectExceptionMessage("Embedding provider 'openai' is not configured.");
 
         $this->provider->embedBatch(['hello']);
     }
@@ -224,8 +237,10 @@ class OpenAIEmbeddingProviderTest extends TestCase
             self::OPENAI_URL => Http::response('boom', 500),
         ]);
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('OpenAI API error: boom');
+        $this->expectException(EmbeddingProviderUnavailable::class);
+        $this->expectExceptionMessage(
+            "Embedding provider 'openai' is unavailable (transport error). Retry with backoff."
+        );
 
         $this->provider->embedBatch(['hello']);
     }
@@ -292,16 +307,23 @@ class OpenAIEmbeddingProviderTest extends TestCase
 
     public function test_embed_throws_when_dimensions_configured_for_non_v3_model(): void
     {
+        // The pre-#132 message interpolated the model name + config key
+        // string. The curated NotConfigured message no longer does — pin
+        // that the model name and config key are NOT in the wire message
+        // (the operator still gets them via report()).
         config()->set('commonplace.embedding.openai.model', 'text-embedding-ada-002');
         config()->set('commonplace.embedding.openai.dimensions', 512);
 
         Http::fake();
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('text-embedding-ada-002');
-        $this->expectExceptionMessage('commonplace.embedding.openai.dimensions');
-
-        $this->provider->embed('hello');
+        try {
+            $this->provider->embed('hello');
+            $this->fail('Expected EmbeddingProviderNotConfigured.');
+        } catch (EmbeddingProviderNotConfigured $e) {
+            $this->assertSame("Embedding provider 'openai' is not configured.", $e->getMessage());
+            $this->assertStringNotContainsString('text-embedding-ada-002', $e->getMessage());
+            $this->assertStringNotContainsString('commonplace.embedding.openai.dimensions', $e->getMessage());
+        }
 
         Http::assertNothingSent();
     }
@@ -311,9 +333,8 @@ class OpenAIEmbeddingProviderTest extends TestCase
         config()->set('commonplace.embedding.openai.model', 'text-embedding-ada-002');
         config()->set('commonplace.embedding.openai.dimensions', 1024);
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('text-embedding-ada-002');
-        $this->expectExceptionMessage('commonplace.embedding.openai.dimensions');
+        $this->expectException(EmbeddingProviderNotConfigured::class);
+        $this->expectExceptionMessage("Embedding provider 'openai' is not configured.");
 
         $this->provider->dimensions();
     }
@@ -321,14 +342,18 @@ class OpenAIEmbeddingProviderTest extends TestCase
     public function test_dimensions_throws_for_unknown_v3_model_when_not_configured(): void
     {
         // Future / typo'd v3 model: refuse to guess the storage column size.
+        // The model string never lands in the wire-visible message.
         config()->set('commonplace.embedding.openai.model', 'text-embedding-3-medium');
         config()->set('commonplace.embedding.openai.dimensions', null);
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('text-embedding-3-medium');
-        $this->expectExceptionMessage('OPENAI_EMBEDDING_DIMENSIONS');
-
-        $this->provider->dimensions();
+        try {
+            $this->provider->dimensions();
+            $this->fail('Expected EmbeddingProviderNotConfigured.');
+        } catch (EmbeddingProviderNotConfigured $e) {
+            $this->assertSame("Embedding provider 'openai' is not configured.", $e->getMessage());
+            $this->assertStringNotContainsString('text-embedding-3-medium', $e->getMessage());
+            $this->assertStringNotContainsString('OPENAI_EMBEDDING_DIMENSIONS', $e->getMessage());
+        }
     }
 
     public function test_unknown_v3_model_with_explicit_dimensions_is_allowed(): void
@@ -360,8 +385,8 @@ class OpenAIEmbeddingProviderTest extends TestCase
 
         Http::fake();
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('commonplace.embedding.openai.dimensions');
+        $this->expectException(EmbeddingProviderNotConfigured::class);
+        $this->expectExceptionMessage("Embedding provider 'openai' is not configured.");
 
         $this->provider->embedBatch(['hello']);
     }
