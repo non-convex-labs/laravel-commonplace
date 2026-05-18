@@ -122,7 +122,7 @@ Accepted keys in `$data`:
 | `content` | Replaces content. If the hash changes, a `NoteVersion` is written and `indexed_at` is cleared so the next reindex picks it up. Wikilinks are re-synced. Frontmatter overrides separately-passed `visibility` / `tags`. |
 | `new_path` | Renames the note. Delegates to `moveNote` ([Commonplace.php:210-212](../src/Services/Commonplace.php#L210)), so referencing `[[wikilinks]]` get rewritten via the same async job. Owner-level check applies. |
 | `visibility` | Sets `private` / `public`. Ignored if `content` frontmatter sets `visibility` (frontmatter wins). |
-| `tags` | Replaces the tag set. Ignored if `content` frontmatter sets `tags`. |
+| `tags` | Replaces the tag set. Ignored if `content` frontmatter sets `tags`. When a replacement removes the last reference to a tag, the tag row in `commonplace_tags` is deleted; orphans don't accumulate. The prune runs in a second statement after the detach — under concurrent writes a tag row may briefly survive a detach if a parallel attach lands on it, or be re-created by `Tag::firstOrCreate` on the next attach. Last-writer-wins; no integrity loss. |
 
 ```php
 $note = Commonplace::updateNote(

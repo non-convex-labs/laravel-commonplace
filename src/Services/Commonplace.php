@@ -275,7 +275,15 @@ class Commonplace
             'changed_by' => $user->getAuthIdentifier(),
         ]);
 
+        $tagIds = $note->tags()->pluck('commonplace_tags.id')->all();
+
         $note->delete();
+
+        if (! empty($tagIds)) {
+            Tag::whereIn('id', $tagIds)
+                ->whereDoesntHave('notes')
+                ->delete();
+        }
     }
 
     public function listNotes(
@@ -664,7 +672,17 @@ class Commonplace
             return Tag::firstOrCreate(['name' => trim($name)])->id;
         })->all();
 
+        $previousIds = $note->tags()->pluck('commonplace_tags.id')->all();
+
         $note->tags()->sync($tagIds);
+
+        $detached = array_diff($previousIds, $tagIds);
+
+        if (! empty($detached)) {
+            Tag::whereIn('id', $detached)
+                ->whereDoesntHave('notes')
+                ->delete();
+        }
     }
 
     private function syncWikilinks(Note $note, string $content): void
