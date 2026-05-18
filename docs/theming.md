@@ -33,7 +33,17 @@ php artisan vendor:publish --tag=commonplace-css
 
 This publishes to `resources/css/commonplace/commonplace.css`. Override
 any of the `--commonplace-*` custom properties to retheme without
-touching the layout.
+touching the layout. The package's asset route
+(`GET /commonplace/assets/commonplace.css`) serves the published file
+when it's present and falls back to the bundled copy when it isn't —
+no Vite step required.
+
+> [!NOTE]
+> The override is a hard pin. Once you keep the published file in
+> place, the package's bundled CSS upgrades won't reach you until
+> you re-publish with `--force` or delete the file. Publish to
+> retheme; read the bundled file under `vendor/` if you just want
+> to inspect the defaults.
 
 Here's a stark light/dark with a brand accent color:
 

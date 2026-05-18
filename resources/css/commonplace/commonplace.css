@@ -2,6 +2,14 @@
    Commonplace — self-contained styles for the package HTTP layer.
    All custom properties are namespaced --commonplace-*. Light/dark themes
    resolve via prefers-color-scheme; no toggle required on the consumer side.
+
+   PUBLISHED COPY: if this file lives under resources/css/commonplace/ in
+   a consumer app (via `php artisan vendor:publish --tag=commonplace-css`)
+   the package's AssetController serves it instead of the bundled copy.
+   That means upgrades to the package's bundled CSS will NOT reach the
+   consumer until they re-publish with --force or delete the override.
+   Reach for the override path only when actually retheming; for
+   inspection, read the bundled file under vendor/ instead.
    ========================================================================== */
 
 :root {

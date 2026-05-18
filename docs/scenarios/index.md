@@ -104,9 +104,8 @@ Playwright walk-through of Alice + Bob against `main/` confirmed S-NOTE-01 (crea
 
 _Open divergences from this pass:_
 
-- [#116](https://github.com/non-convex-labs/laravel-commonplace/issues/116) → S-INT-17 (asset routing) — `AssetController` serves the package's bundled CSS regardless of whether the consumer has a published override in `resources/css/commonplace/`. Carried in the log for two passes; now tracked.
 - [#117](https://github.com/non-convex-labs/laravel-commonplace/issues/117) → cross-cutting "Visibility scope" invariant — authenticated web reads return 403 for inaccessible existing notes and 200 (folder fallback) for non-existent paths, so the "Note not found." enumeration defense only holds on the MCP and public-read surfaces. Doc-vs-behavior decision pending.
-- [#118](https://github.com/non-convex-labs/laravel-commonplace/issues/118) → S-AI-25 (info disclosure, broader scope) — the `QueryException` redaction from #115 closes the DB-leak vector, but non-`QueryException` Throwables (`ErrorException` with file paths, HTTP client exceptions with internal URLs, `LockTimeoutException` with cache keys) still pass through verbatim.
+- [#118](https://github.com/non-convex-labs/laravel-commonplace/issues/118) → S-AI-25 (info disclosure, broader scope) — the `QueryException` redaction from #115 closes the DB-leak vector, but non-`QueryException` Throwables (`ErrorException` with file paths, HTTP client exceptions with internal URLs, `LockTimeoutException` with cache keys) still pass through verbatim. Also folds in `DeadlockException` / `LostConnectionException`, which extend `PDOException` / `LogicException` rather than `QueryException` and bypass the #115 branch.
 
 The three issues flagged in the original 2026-05-18 pass (#108 / #109 / #110) are all closed; see below.
 
@@ -118,6 +117,7 @@ Not exercised this pass: Voyage fault injection (S-OPS-24/25 — needs `Http::fa
 - [#109](https://github.com/non-convex-labs/laravel-commonplace/issues/109) → S-NOTE-18a/b/c, S-AI-19, S-AI-20 — Postgres `getNeighborhood` / `getShortestPath` recursive CTEs now cast the seed `note_id` to `bigint`, so the join no longer fails with `operator does not exist: bigint = text`.
 - [#110](https://github.com/non-convex-labs/laravel-commonplace/issues/110) → S-AI-25 — tool `Throwable`s are now caught at the MCP transport boundary and wrapped as a JSON-RPC `result` with `isError:true`. HTTP stays 200 on tool-level failures instead of leaking as a bare 500.
 - [#115](https://github.com/non-convex-labs/laravel-commonplace/issues/115) → S-AI-25 (info disclosure) — the MCP envelope now collapses `QueryException` to `Database error: SQLSTATE[<code>]`, stripping the DB host/port/database segments, the parameterized SQL trace, and PDO's `DETAIL:` row data. Operators still see the full exception via `report()`. Follow-up [#118](https://github.com/non-convex-labs/laravel-commonplace/issues/118) tracks the broader allowlist sanitiser for non-`QueryException` Throwables.
+- [#116](https://github.com/non-convex-labs/laravel-commonplace/issues/116) → S-INT-17 (asset routing) — `AssetController::css` now serves the published override at `resources/css/commonplace/commonplace.css` when one is present, falling back to the bundled copy otherwise. The published stub carries a header warning that the file pins the consumer to the version they published — `--force` re-publishes to pick up bundled upgrades. `js()` stays bundled-only by design (no `commonplace-js` publish tag exists; introducing an override path for an unversioned asset would create a hidden script-injection extension point).
 
 ### Closed in the 2026-05-17 pass
 
