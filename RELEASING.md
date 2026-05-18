@@ -22,8 +22,10 @@ Packagist picks them up automatically via the GitHub webhook.
    `src/Contracts/EmbeddingProvider.php`, or any driver wiring in
    `CommonplaceServiceProvider`.
 
-4. **CHANGELOG / release notes drafted.** Cover behavior changes, new config
-   keys, and any required migrations or reindex steps.
+4. **[CHANGELOG.md](CHANGELOG.md) updated.** Move the relevant entries from
+   `## [Unreleased]` into a new dated section for the version being cut.
+   Cover behavior changes, new config keys, and any required migrations or
+   reindex steps.
 
 ## Live-API smoke test
 
