@@ -85,7 +85,7 @@ class WikilinkParserTest extends TestCase
         $this->assertSame('spaced display', $links[0]['display']);
     }
 
-    public function test_extracts_links_inside_code_blocks(): void
+    public function test_skips_wikilinks_inside_fenced_code_blocks(): void
     {
         $content = <<<'MD'
 Some text.
@@ -99,9 +99,58 @@ MD;
 
         $links = $this->parser->extractLinks($content);
 
-        $this->assertCount(2, $links);
-        $this->assertSame('CodeBlockLink', $links[0]['target']);
-        $this->assertSame('OutsideLink', $links[1]['target']);
+        $this->assertCount(1, $links);
+        $this->assertSame('OutsideLink', $links[0]['target']);
+    }
+
+    public function test_skips_wikilinks_inside_tilde_fenced_code_blocks(): void
+    {
+        $content = <<<'MD'
+~~~
+Inside [[Tilde]].
+~~~
+
+After [[Plain]].
+MD;
+
+        $links = $this->parser->extractLinks($content);
+
+        $this->assertCount(1, $links);
+        $this->assertSame('Plain', $links[0]['target']);
+    }
+
+    public function test_skips_wikilinks_inside_fenced_code_block_with_info_string(): void
+    {
+        $content = <<<'MD'
+Intro.
+
+```text
+Sample [[ExampleLink]] usage.
+```
+
+After [[Real]].
+MD;
+
+        $links = $this->parser->extractLinks($content);
+
+        $this->assertCount(1, $links);
+        $this->assertSame('Real', $links[0]['target']);
+    }
+
+    public function test_skips_wikilinks_inside_inline_code(): void
+    {
+        $links = $this->parser->extractLinks('Use `[[InlineLink]]` syntax and then [[Real]].');
+
+        $this->assertCount(1, $links);
+        $this->assertSame('Real', $links[0]['target']);
+    }
+
+    public function test_skips_wikilinks_inside_double_backtick_inline_code(): void
+    {
+        $links = $this->parser->extractLinks('Use ``[[InlineLink]]`` here and [[Real]] there.');
+
+        $this->assertCount(1, $links);
+        $this->assertSame('Real', $links[0]['target']);
     }
 
     public function test_extracts_link_following_an_escaped_pair_of_brackets(): void

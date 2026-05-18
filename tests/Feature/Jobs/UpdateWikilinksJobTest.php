@@ -283,6 +283,116 @@ class UpdateWikilinksJobTest extends TestCase
      * marks this out of scope; a follow-up should land anchor support
      * and update this test.
      */
+    public function test_does_not_rewrite_wikilinks_inside_fenced_code_block(): void
+    {
+        $this->commonplace->createNote(
+            path: 'projects/alpha/roadmap',
+            content: '# Roadmap',
+            tags: [],
+            visibility: 'private',
+            owner: $this->owner,
+        );
+
+        $source = <<<'MD'
+            Outside [[projects/alpha/roadmap]] should rewrite.
+
+            ```text
+            Inside [[projects/alpha/roadmap]] should not.
+            ```
+
+            Trailing [[projects/alpha/roadmap]] should rewrite.
+            MD;
+
+        $this->commonplace->createNote(
+            path: 'index',
+            content: $source,
+            tags: [],
+            visibility: 'private',
+            owner: $this->owner,
+        );
+
+        $movedId = (int) Note::where('path', 'projects/alpha/roadmap')->value('id');
+        Note::where('id', $movedId)->update(['path' => 'projects/alpha/plan']);
+
+        UpdateWikilinksJob::dispatchSync($movedId, 'projects/alpha/roadmap', 'projects/alpha/plan');
+
+        $rewritten = Note::where('path', 'index')->value('content');
+
+        $this->assertStringContainsString('Outside [[projects/alpha/plan]] should rewrite.', $rewritten);
+        $this->assertStringContainsString('Inside [[projects/alpha/roadmap]] should not.', $rewritten);
+        $this->assertStringContainsString('Trailing [[projects/alpha/plan]] should rewrite.', $rewritten);
+    }
+
+    public function test_does_not_rewrite_wikilinks_inside_tilde_fenced_code_block(): void
+    {
+        $this->commonplace->createNote(
+            path: 'projects/alpha/roadmap',
+            content: '# Roadmap',
+            tags: [],
+            visibility: 'private',
+            owner: $this->owner,
+        );
+
+        $source = <<<'MD'
+            ~~~
+            Inside tilde fence: [[projects/alpha/roadmap]]
+            ~~~
+
+            After: [[projects/alpha/roadmap]].
+            MD;
+
+        $this->commonplace->createNote(
+            path: 'index',
+            content: $source,
+            tags: [],
+            visibility: 'private',
+            owner: $this->owner,
+        );
+
+        $movedId = (int) Note::where('path', 'projects/alpha/roadmap')->value('id');
+        Note::where('id', $movedId)->update(['path' => 'projects/alpha/plan']);
+
+        UpdateWikilinksJob::dispatchSync($movedId, 'projects/alpha/roadmap', 'projects/alpha/plan');
+
+        $rewritten = Note::where('path', 'index')->value('content');
+
+        $this->assertStringContainsString('Inside tilde fence: [[projects/alpha/roadmap]]', $rewritten);
+        $this->assertStringContainsString('After: [[projects/alpha/plan]].', $rewritten);
+    }
+
+    public function test_does_not_rewrite_wikilinks_inside_inline_code(): void
+    {
+        $this->commonplace->createNote(
+            path: 'projects/alpha/roadmap',
+            content: '# Roadmap',
+            tags: [],
+            visibility: 'private',
+            owner: $this->owner,
+        );
+
+        $source = 'Use the form `[[projects/alpha/roadmap]]` to link to [[projects/alpha/roadmap]].';
+
+        $this->commonplace->createNote(
+            path: 'index',
+            content: $source,
+            tags: [],
+            visibility: 'private',
+            owner: $this->owner,
+        );
+
+        $movedId = (int) Note::where('path', 'projects/alpha/roadmap')->value('id');
+        Note::where('id', $movedId)->update(['path' => 'projects/alpha/plan']);
+
+        UpdateWikilinksJob::dispatchSync($movedId, 'projects/alpha/roadmap', 'projects/alpha/plan');
+
+        $rewritten = Note::where('path', 'index')->value('content');
+
+        $this->assertSame(
+            'Use the form `[[projects/alpha/roadmap]]` to link to [[projects/alpha/plan]].',
+            $rewritten,
+        );
+    }
+
     public function test_anchor_suffixed_wikilinks_are_not_rewritten_documented_out_of_scope(): void
     {
         $this->commonplace->createNote(

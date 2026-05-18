@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Log;
 use NonConvexLabs\Commonplace\Models\Link;
 use NonConvexLabs\Commonplace\Models\Note;
 use NonConvexLabs\Commonplace\Services\WikilinkParser;
+use NonConvexLabs\Commonplace\Support\MarkdownCodeRanges;
 use Throwable;
 
 /**
@@ -37,9 +38,10 @@ use Throwable;
  *   - `[[old/path|Display label]]` → `[[new/path|Display label]]`
  *   - `[[basename]]` resolved by trailing-segment match → `[[new/path]]`
  *
- * Anchor handling (`[[a/b#heading]]`) and wikilinks inside code fences
- * remain out of scope here — same behavior as `syncWikilinks` /
- * `WikilinkInlineParser`. See issue #54.
+ * Wikilinks inside fenced or inline code are left untouched — the
+ * renderer treats them as literal sample text, and so do we.
+ * Anchor handling (`[[a/b#heading]]`) remains out of scope here.
+ * See issue #54.
  *
  * Recovery: if the queue worker is down and the job never runs,
  * link rows still resolve correctly because the moved note's
@@ -133,31 +135,40 @@ class UpdateWikilinksJob implements ShouldQueue
      */
     private function rewriteContent(string $content, array $oldTargets, string $toPath): string
     {
-        // preg_replace_callback over the wikilink pattern, then a
-        // string-equality check on the parsed target. Sidesteps the
-        // preg_quote question entirely — paths with regex
-        // metacharacters (`references/c++/notes`, `meetings/2025-05-17`)
-        // never enter a pattern.
-        $result = preg_replace_callback(
-            WikilinkParser::PATTERN,
-            function (array $match) use ($oldTargets, $toPath): string {
-                $inner = $match[1];
-                $parts = explode('|', $inner, 2);
-                $target = trim($parts[0]);
+        // Offset-capturing scan, then filter occurrences that fall
+        // inside fenced or inline code. Sidesteps preg_quote — paths
+        // with regex metacharacters (`references/c++/notes`,
+        // `meetings/2025-05-17`) never enter a pattern.
+        if (! preg_match_all(WikilinkParser::PATTERN, $content, $matches, PREG_OFFSET_CAPTURE)) {
+            return $content;
+        }
 
-                if (! in_array($target, $oldTargets, true)) {
-                    return $match[0];
-                }
+        $codeRanges = MarkdownCodeRanges::find($content);
 
-                if (isset($parts[1])) {
-                    return '[['.$toPath.'|'.$parts[1].']]';
-                }
+        // Walk matches in reverse so earlier offsets stay valid as we
+        // splice replacements in.
+        for ($i = count($matches[0]) - 1; $i >= 0; $i--) {
+            [$full, $offset] = $matches[0][$i];
 
-                return '[['.$toPath.']]';
-            },
-            $content,
-        );
+            if (MarkdownCodeRanges::contains($codeRanges, $offset)) {
+                continue;
+            }
 
-        return $result ?? $content;
+            $inner = $matches[1][$i][0];
+            $parts = explode('|', $inner, 2);
+            $target = trim($parts[0]);
+
+            if (! in_array($target, $oldTargets, true)) {
+                continue;
+            }
+
+            $replacement = isset($parts[1])
+                ? '[['.$toPath.'|'.$parts[1].']]'
+                : '[['.$toPath.']]';
+
+            $content = substr_replace($content, $replacement, $offset, strlen($full));
+        }
+
+        return $content;
     }
 }
