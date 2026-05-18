@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NonConvexLabs\Commonplace\Mcp;
 
+use Illuminate\Database\QueryException;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server;
 use Laravel\Mcp\Server\Attributes\Instructions;
@@ -121,9 +122,7 @@ class CommonplaceMcpServer extends Server
      */
     protected function toolErrorEnvelope(JsonRpcRequest $request, Throwable $throwable): JsonRpcResponse
     {
-        $message = $throwable->getMessage() !== ''
-            ? $throwable->getMessage()
-            : 'The tool failed to complete the request.';
+        $message = $this->publicMessageFor($throwable);
 
         return JsonRpcResponse::result($request->id, [
             'content' => [
@@ -131,5 +130,33 @@ class CommonplaceMcpServer extends Server
             ],
             'isError' => true,
         ]);
+    }
+
+    /**
+     * Sanitise an exception message for the wire (issue #115). The full
+     * Throwable is still available to operators via report(); only the
+     * MCP envelope's text is redacted.
+     *
+     * QueryException is special-cased: its formatted message embeds the
+     * DB connection metadata (Host, Port, Database) and the parameterized
+     * SQL, and its previous PDOException's message embeds the offending
+     * row in a `DETAIL:` line. Both surface to whoever holds the bearer
+     * token. We collapse the message to the bare SQLSTATE category so
+     * callers can still tell a unique-violation from a deadlock without
+     * being handed schema or row data.
+     */
+    protected function publicMessageFor(Throwable $throwable): string
+    {
+        if ($throwable instanceof QueryException) {
+            $sqlState = (string) $throwable->getCode();
+
+            return $sqlState !== ''
+                ? "Database error: SQLSTATE[{$sqlState}]"
+                : 'Database error.';
+        }
+
+        return $throwable->getMessage() !== ''
+            ? $throwable->getMessage()
+            : 'The tool failed to complete the request.';
     }
 }
