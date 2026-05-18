@@ -256,4 +256,54 @@ class NoteTest extends TestCase
 
         $this->assertSame([$stale->id], $results);
     }
+
+    public function test_reindex_picks_up_notes_with_indexed_at_older_than_updated_at(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-01-01 12:00:00'));
+
+        $stale = Note::factory()->create([
+            'indexed_at' => now()->subHours(3),
+            'updated_at' => now()->subHours(2),
+        ]);
+
+        $results = Note::needsReindexing(60)->pluck('id')->all();
+
+        $this->assertSame([$stale->id], $results);
+    }
+
+    public function test_reindex_skips_notes_within_cooldown_even_when_stale(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-01-01 12:00:00'));
+
+        Note::factory()->create([
+            'indexed_at' => now()->subMinutes(30),
+            'updated_at' => now()->subMinutes(10),
+        ]);
+
+        $this->assertSame([], Note::needsReindexing(60)->pluck('id')->all());
+    }
+
+    public function test_reindex_skips_notes_indexed_after_their_last_update(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-01-01 12:00:00'));
+
+        $note = Note::factory()->create([
+            'indexed_at' => now()->subMinutes(30),
+        ]);
+        $note->updated_at = now()->subHours(2);
+        $note->saveQuietly();
+
+        $this->assertSame([], Note::needsReindexing(60)->pluck('id')->all());
+    }
+
+    public function test_reindex_still_picks_up_never_indexed_notes_outside_cooldown(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-01-01 12:00:00'));
+
+        $note = Note::factory()->create(['indexed_at' => null]);
+        $note->updated_at = now()->subHours(2);
+        $note->saveQuietly();
+
+        $this->assertSame([$note->id], Note::needsReindexing(60)->pluck('id')->all());
+    }
 }
