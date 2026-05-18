@@ -222,6 +222,31 @@ class CommonplaceTest extends TestCase
         );
     }
 
+    public function test_update_note_regenerates_title_from_new_basename_on_rename_with_stripped_frontmatter(): void
+    {
+        $this->commonplace->createNote(
+            path: 'projects/launch-plan',
+            content: "---\ntitle: Custom Plan\n---\n\nbody",
+            tags: [],
+            visibility: 'private',
+            owner: $this->owner,
+        );
+
+        $this->commonplace->updateNote(
+            path: 'projects/launch-plan',
+            data: [
+                'content' => "no frontmatter, just body\n",
+                'new_path' => 'projects/q3-roadmap',
+            ],
+            user: $this->owner,
+        );
+
+        $this->assertSame(
+            'Q3 Roadmap',
+            Note::where('path', 'projects/q3-roadmap')->first()->title,
+        );
+    }
+
     public function test_update_note_renames_path_via_new_path(): void
     {
         $this->commonplace->createNote(

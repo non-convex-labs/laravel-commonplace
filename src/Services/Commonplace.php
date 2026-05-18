@@ -172,9 +172,12 @@ class Commonplace
 
             // Symmetric with createNote: frontmatter title wins, otherwise
             // fall back to the basename derivation. Removing a frontmatter
-            // title on update lets the basename derivation reassert.
+            // title on update lets the basename derivation reassert. When
+            // the same call renames the note via `new_path`, derive from
+            // the new basename so the title doesn't lag the rename.
+            $basenameSource = $data['new_path'] ?? $note->path;
             $note->title = $meta['title']
-                ?? Str::title(str_replace('-', ' ', basename($note->path)));
+                ?? Str::title(str_replace('-', ' ', basename($basenameSource)));
 
             if (isset($meta['visibility'])) {
                 $note->visibility = $this->validateVisibility($meta['visibility']);
