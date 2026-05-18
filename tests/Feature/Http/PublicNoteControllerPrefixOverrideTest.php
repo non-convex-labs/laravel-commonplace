@@ -64,4 +64,12 @@ class PublicNoteControllerPrefixOverrideTest extends TestCase
         // the public group is no longer mounted there.
         $this->get('/commonplace/public/notes/welcome')->assertStatus(302);
     }
+
+    public function test_bare_overridden_prefix_returns_404(): void
+    {
+        // The S-PUB-04 / #96 fix follows the active prefix — `/commonplace/share/`
+        // (the overridden public root) is sealed off too, not just the default.
+        $this->get('/commonplace/share/')->assertNotFound();
+        $this->get('/commonplace/share')->assertNotFound();
+    }
 }
