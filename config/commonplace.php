@@ -48,8 +48,16 @@ return [
         // requiring authentication. The rest of the vault remains
         // private and 404's to unauthenticated visitors so the listing
         // of private paths can't be enumerated.
+        //
+        // `prefix` overrides the full path for the public group. Default
+        // (null) computes `{outer_prefix}/public`. Set it if a vault folder
+        // named `public/` (or whichever segment) needs to be reachable
+        // through the authenticated routes — e.g.
+        //   COMMONPLACE_PUBLIC_ROUTES_PREFIX=commonplace/share
+        // Rerun `php artisan route:cache` after changing if you cache routes.
         'public' => [
             'enabled' => (bool) env('COMMONPLACE_PUBLIC_ROUTES_ENABLED', false),
+            'prefix' => env('COMMONPLACE_PUBLIC_ROUTES_PREFIX'),
             'middleware' => array_values(array_filter(array_map(
                 'trim',
                 explode(',', (string) env('COMMONPLACE_PUBLIC_ROUTES_MIDDLEWARE', 'web')),
