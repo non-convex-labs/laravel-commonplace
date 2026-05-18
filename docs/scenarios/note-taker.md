@@ -666,3 +666,25 @@ Link::where('source_note_id', $note->id)->get()->pluck('target_note_id', 'target
 **Verify with.** Browser, after the fix lands.
 
 **Source.** [services.md → getHistory](../services.md#gethistory), [mcp-tools.md → history-tool](../mcp-tools.md#history-tool), [model-relationships.md → NoteVersion](../model-relationships.md#noteversion).
+
+---
+
+### S-NOTE-30 — Note-view UI links resolve to the raw and download endpoints
+
+**Intent.** The action bar on the authenticated note view has "View markdown" and "Download markdown" affordances. Their `href`s must resolve to the endpoints [S-NOTE-21](#s-note-21--raw-view-and-download-share-content-but-differ-on-content-disposition) documents, and clicking each must deliver the documented response. The endpoint contract and the link contract are asserted separately because either can drift without the other noticing — see [#68](https://github.com/non-convex-labs/laravel-commonplace/issues/68) for the canonical failure mode.
+
+**Preconditions.** Alice authenticated, viewing her own note at `projects/launch`.
+
+**Steps.**
+1. Render `GET /commonplace/projects/launch` (the note-show page).
+2. Inspect the rendered HTML for the two action-bar links.
+3. Follow each `href`.
+
+**Expected.**
+- Step 2: a "View markdown" anchor with `href="/commonplace/raw/projects/launch"` (the `commonplace.showRaw` route) appears in the action bar.
+- Step 2: a "Download markdown" anchor with `href="/commonplace/download/projects/launch"` (the `commonplace.downloadRaw` route) appears in the action bar.
+- Step 3: following each `href` delivers the response S-NOTE-21 documents — `text/plain` for raw, `Content-Disposition: attachment` for download.
+
+**Verify with.** Render the view and assert on the two `href` attributes; then `curl -I` each rendered URL.
+
+**Source.** [http-api.md](../http-api.md), `resources/views/show.blade.php`, `NoteController::showRaw` / `downloadRaw`.
