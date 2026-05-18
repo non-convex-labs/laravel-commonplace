@@ -172,6 +172,25 @@ class PublicNoteControllerTest extends TestCase
         $response->assertDontSee('href="/commonplace/raw/', false);
     }
 
+    public function test_bare_public_prefix_with_trailing_slash_returns_404(): void
+    {
+        // Regression for #96 / S-PUB-04. With the public group enabled
+        // and *no* path component, `/{prefix}/public/` should 404 — not
+        // fall through to the auth catch-all (302 to /login), a folder
+        // browser, or render an empty list. The public surface must
+        // not leak the existence of a public catalog.
+        $response = $this->get('/commonplace/public/');
+
+        $response->assertNotFound();
+    }
+
+    public function test_bare_public_prefix_without_trailing_slash_returns_404(): void
+    {
+        $response = $this->get('/commonplace/public');
+
+        $response->assertNotFound();
+    }
+
     public function test_public_show_returns_404_for_private_note_without_leaking_auth_template(): void
     {
         Note::factory()->create([

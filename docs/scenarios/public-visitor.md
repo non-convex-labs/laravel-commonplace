@@ -99,9 +99,6 @@ Assumptions:
 
 **Intent.** Read-by-known-path is intentionally the only operation. There is no way to enumerate which paths exist.
 
-> [!NOTE]
-> Validation 2026-05-17: `/{prefix}/public/` (trailing slash, empty path) currently returns **200** with a folder-browser-like response instead of 404. Other endpoints in this scenario (`/public/search`, `/public/graph`, `/public/api/graph`) correctly return 404. Tracked in [#96](https://github.com/non-convex-labs/laravel-commonplace/issues/96) (follow-up to the closed [#61](https://github.com/non-convex-labs/laravel-commonplace/issues/61), which added the prefix-override knob but didn't tighten the empty-`{path}` match on the default prefix).
-
 **Preconditions.** Public-read enabled.
 
 **Steps.**

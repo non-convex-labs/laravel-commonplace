@@ -44,6 +44,13 @@ if ($publicEnabled) {
         ->prefix($publicPrefix)
         ->as('commonplace.public.')
         ->group(function (): void {
+            // The bare public URL (`/{prefix}/public` and the trailing-slash
+            // variant) is sealed off here. Without this, the empty-path
+            // case doesn't match `/{path}` and falls into the auth
+            // catch-all — leaking a 302 to /login for a route that is
+            // supposed to be public-read only. See S-PUB-04 / #96.
+            Route::get('/', fn () => abort(404))->name('root');
+
             Route::get('/raw/{path}', [PublicNoteController::class, 'showRaw'])
                 ->where('path', '.*')
                 ->name('showRaw');
