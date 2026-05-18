@@ -127,6 +127,7 @@ instead of separate `show`/`browse`/`journal` routes.
 > surfaces, which both canonicalise to "Note not found." See the
 > "Visibility scope" invariant in
 > [scenarios/index.md](scenarios/index.md#cross-cutting-invariants).
+> Behavior fix tracked in [#123](https://github.com/non-convex-labs/laravel-commonplace/issues/123).
 
 ### `POST /` (store) — validation
 
