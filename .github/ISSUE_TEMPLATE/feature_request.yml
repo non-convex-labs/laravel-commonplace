@@ -1,0 +1,57 @@
+name: Feature request
+description: Propose a new feature, API, or behavior change.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For larger changes, please open an issue (this one!) before
+        sending a PR. Pre-1.0 means scope and API shape are still
+        settling — a short discussion saves a long rebase.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: |
+        What are you trying to do? What's getting in the way? Concrete
+        examples beat abstract framings.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: |
+        What would the API, config, or behavior look like? Pseudocode
+        or a sketch of the user-facing surface is welcome.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What other approaches did you weigh? Why are they worse?
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact on existing callers
+      description: |
+        Is this additive? Does it change defaults? Would it require a
+        major version bump? If you're not sure, leave a note and we'll
+        figure it out together.
+
+  - type: input
+    id: reading_verification
+    attributes:
+      label: Reading verification
+      description: |
+        The last word of [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md). 1990s manual-lookup DRM,
+        but for open source — it's a small proof you skimmed the contributing guide. Scroll to
+        the bottom of that file. Capitalization and punctuation don't matter.
+      placeholder: 'the last word of CONTRIBUTING.md'
+    validations:
+      required: true

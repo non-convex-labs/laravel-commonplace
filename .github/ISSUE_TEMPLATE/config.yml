@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and ideas
+    url: https://github.com/non-convex-labs/laravel-commonplace/discussions
+    about: Use GitHub Discussions for questions, ideas, and design conversations.
+  - name: Security disclosure
+    url: https://github.com/non-convex-labs/laravel-commonplace/security/advisories/new
+    about: Do not file a public issue for security reports. Use a private advisory or email aaddrick@gmail.com.

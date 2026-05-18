@@ -1,0 +1,80 @@
+name: Verification timeout sweep
+
+# Daily sweep that closes issues and PRs which have carried the
+# `needs-verification` label for more than 14 days without an update.
+# Friendly close, not punitive — editing the body with the right answer
+# reopens via the regular verification workflows.
+
+on:
+  schedule:
+    - cron: '37 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: verification-timeout-sweep
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    name: Close stale verification cases
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Close
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const LABEL = 'needs-verification';
+            const DAYS = 14;
+            const cutoff = new Date(Date.now() - DAYS * 24 * 60 * 60 * 1000);
+
+            const CLOSE_COMMENT = [
+              `Closing this since the **Reading verification** field hasn't been filled in for ${DAYS} days.`,
+              "",
+              "No hard feelings — this is a soft auto-close, not a verdict on the contribution itself. If you'd still like to engage, edit the body with the last word of [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md) (near the bottom of the file) and the gate will clear and reopen this on its own.",
+            ].join('\n');
+
+            const items = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: LABEL,
+              state: 'open',
+              per_page: 100,
+            });
+
+            core.info(`Found ${items.length} open item(s) with label "${LABEL}"`);
+
+            for (const item of items) {
+              const updated = new Date(item.updated_at);
+              if (updated > cutoff) continue;
+
+              core.info(`Closing #${item.number} (last updated ${item.updated_at})`);
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: item.number,
+                body: CLOSE_COMMENT,
+              });
+
+              if (item.pull_request) {
+                await github.rest.pulls.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: item.number,
+                  state: 'closed',
+                });
+              } else {
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: item.number,
+                  state: 'closed',
+                  state_reason: 'not_planned',
+                });
+              }
+            }

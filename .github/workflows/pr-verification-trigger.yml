@@ -1,0 +1,34 @@
+name: PR verification (trigger)
+
+# Placeholder workflow whose only job is to fire on `pull_request` so
+# that `pr-verification.yml` (which uses `workflow_run`) has something
+# to listen for. This stage runs in fork-controlled context with no
+# write access, by design.
+#
+# All verification logic — fetching CONTRIBUTING.md, computing the
+# verdict, applying labels and comments — lives in pr-verification.yml,
+# which runs in base-repo context with write access.
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-verification-trigger-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  trigger:
+    name: Queue verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Note
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          echo "Queued verification for PR #${PR_NUMBER} at SHA ${HEAD_SHA}"

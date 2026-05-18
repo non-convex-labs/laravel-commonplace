@@ -1,0 +1,194 @@
+name: Issue verification
+
+# Proof-of-reading gate for issues.
+#
+# Issues don't have a fork-controlled head ref, so the two-stage
+# pull_request + workflow_run pattern isn't needed here — this workflow
+# runs in base-repo context with write access directly. CONTRIBUTING.md
+# is read from the default branch.
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  issues: write
+  contents: read
+
+concurrency:
+  group: issue-verification-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify and act
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Verify and act
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          AUTHOR_ASSOCIATION: ${{ github.event.issue.author_association }}
+          SENDER_TYPE: ${{ github.event.sender.type }}
+        with:
+          script: |
+            const issueBody = process.env.ISSUE_BODY || '';
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER, 10);
+            const authorAssoc = process.env.AUTHOR_ASSOCIATION || '';
+            const senderType = process.env.SENDER_TYPE || '';
+
+            const LABEL = 'needs-verification';
+            const EXEMPT_ASSOC = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
+
+            const COMMENTS = {
+              missing: [
+                "Welcome, and thanks for opening this.",
+                "",
+                "We run a small \"proof of reading\" gate on contributions, in the spirit of 1990s manual-lookup DRM (\"turn to page 47 and type the second word\"). The issue template asks for the last word of [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md), which is near the bottom of that file.",
+                "",
+                "Edit the issue body and put the answer on its own line under the `### Reading verification` section. The label will drop on its own. (Note: GitHub doesn't let you re-open the original form — you'll be editing the raw markdown body.)",
+              ].join('\n'),
+
+              mismatch: [
+                "Thanks for filling in the **Reading verification** field — that answer doesn't quite match what the gate is looking for, though.",
+                "",
+                "It's the last word of [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md), near the bottom of the file. Capitalization and punctuation don't matter; the last alphabetic word does.",
+                "",
+                "Edit the issue body with the right answer and this label will drop on its own.",
+              ].join('\n'),
+
+              cleared: "Verification cleared. Thanks for reading the contributing guide.",
+            };
+
+            if (EXEMPT_ASSOC.has(authorAssoc) || senderType === 'Bot') return;
+
+            function normalize(token) {
+              return (token || '')
+                .replace(/^[^A-Za-z0-9]+/, '')
+                .replace(/[^A-Za-z0-9]+$/, '')
+                .toLowerCase();
+            }
+
+            function lastWord(text) {
+              const trimmed = text.replace(/\s+$/, '');
+              const tokens = trimmed.split(/\s+/);
+              return normalize(tokens[tokens.length - 1]);
+            }
+
+            function extractAnswer(body) {
+              let stripped = body.replace(/```[\s\S]*?```/g, '');
+              stripped = stripped.replace(/~~~[\s\S]*?~~~/g, '');
+              stripped = stripped.replace(/<!--[\s\S]*?-->/g, '');
+
+              const lines = stripped.split(/\r?\n/);
+              let headingIndex = -1;
+              for (let i = lines.length - 1; i >= 0; i--) {
+                if (/^#{2,6}\s+Reading verification\s*$/i.test(lines[i])) {
+                  headingIndex = i;
+                  break;
+                }
+              }
+              if (headingIndex === -1) return null;
+
+              const collected = [];
+              for (let i = headingIndex + 1; i < lines.length && !/^#{1,6}\s/.test(lines[i]); i++) {
+                collected.push(lines[i].trim());
+              }
+              const line = collected.find(s =>
+                s && s !== '_No response_' && s !== 'your-answer-here'
+              );
+              if (!line) return null;
+              const normalized = normalize(line);
+              return normalized || null;
+            }
+
+            const defaultBranch =
+              (context.payload.repository && context.payload.repository.default_branch) || 'main';
+
+            let contributing;
+            try {
+              const resp = await github.rest.repos.getContent({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                path: 'CONTRIBUTING.md',
+                ref: defaultBranch,
+              });
+              if (Array.isArray(resp.data) || resp.data.type !== 'file') {
+                throw new Error('CONTRIBUTING.md is not a file on the default branch');
+              }
+              contributing = Buffer.from(resp.data.content, resp.data.encoding).toString('utf-8');
+            } catch (e) {
+              core.warning(`Could not fetch CONTRIBUTING.md from ${defaultBranch}: ${e.message}`);
+              return;
+            }
+
+            const expected = lastWord(contributing);
+            const actual = extractAnswer(issueBody);
+
+            if (!expected) {
+              core.warning('Could not derive expected last-word from CONTRIBUTING.md');
+              return;
+            }
+
+            const issueResp = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+            });
+            const issue = issueResp.data;
+            const labels = (issue.labels || []).map(l => typeof l === 'string' ? l : l.name);
+            const hasLabel = labels.includes(LABEL);
+
+            if (!actual || actual !== expected) {
+              if (hasLabel) return;
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                labels: [LABEL],
+              });
+              const body = !actual ? COMMENTS.missing : COMMENTS.mismatch;
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body,
+              });
+              return;
+            }
+
+            let didSomething = false;
+            if (hasLabel) {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  name: LABEL,
+                });
+                didSomething = true;
+              } catch (e) {
+                if (e.status !== 404) throw e;
+              }
+            }
+
+            if (issue.state === 'closed' && hasLabel) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                state: 'open',
+              });
+              didSomething = true;
+            }
+
+            if (didSomething) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: COMMENTS.cleared,
+              });
+            }

@@ -1,0 +1,92 @@
+name: Bug report
+description: Report something that doesn't work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. A short reproduction
+        is worth more than a long description. Anything you can show — a
+        failing test, a minimal Tinker session, a stack trace — speeds
+        triage.
+
+  - type: input
+    id: laravel_version
+    attributes:
+      label: Laravel version
+      description: Output of `php artisan --version`.
+      placeholder: 'e.g. Laravel Framework 13.4.0'
+    validations:
+      required: true
+
+  - type: input
+    id: php_version
+    attributes:
+      label: PHP version
+      description: Output of `php -v` (first line).
+      placeholder: 'e.g. PHP 8.4.3'
+    validations:
+      required: true
+
+  - type: input
+    id: package_version
+    attributes:
+      label: laravel-commonplace version
+      description: From your `composer.lock` or `composer show non-convex-labs/laravel-commonplace`.
+      placeholder: 'e.g. 0.6.1 or dev-main@abc1234'
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: |
+        Minimal steps to reproduce the bug. A failing test is gold;
+        a Tinker snippet is great; copy-pasted prose is fine if that's
+        all you have.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include stack traces, logs, or error output verbatim if relevant.
+    validations:
+      required: true
+
+  - type: textarea
+    id: driver_config
+    attributes:
+      label: Relevant driver configuration
+      description: |
+        Embedding driver, vector backend, MCP transport, anything in
+        `config/commonplace.php` that's not the default.
+      placeholder: |
+        - Embedding driver: openai (text-embedding-3-small)
+        - Vector backend: pgvector on Postgres 17
+        - MCP transport: stdio
+
+  - type: input
+    id: reading_verification
+    attributes:
+      label: Reading verification
+      description: |
+        The last word of [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md). 1990s manual-lookup DRM,
+        but for open source — it's a small proof you skimmed the contributing guide. Scroll to
+        the bottom of that file. Capitalization and punctuation don't matter.
+      placeholder: 'the last word of CONTRIBUTING.md'
+    validations:
+      required: true
