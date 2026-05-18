@@ -12,6 +12,7 @@ use Aws\Result;
 use GuzzleHttp\Promise\Create;
 use GuzzleHttp\Psr7\Utils;
 use NonConvexLabs\Commonplace\Drivers\Embedding\BedrockEmbeddingProvider;
+use NonConvexLabs\Commonplace\Exceptions\EmbeddingProviderUnavailable;
 use NonConvexLabs\Commonplace\Exceptions\PartialBatchEmbeddingException;
 use NonConvexLabs\Commonplace\Tests\TestCase;
 use RuntimeException;
@@ -94,10 +95,20 @@ class BedrockEmbeddingProviderTest extends TestCase
             'body' => Utils::streamFor('{"unexpected":"shape"}'),
         ]));
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Bedrock returned an unexpected payload');
-
-        $this->provider->embed('hello');
+        try {
+            $this->provider->embed('hello');
+            $this->fail('Expected EmbeddingProviderUnavailable.');
+        } catch (EmbeddingProviderUnavailable $e) {
+            $this->assertSame('bedrock', $e->provider);
+            $this->assertSame('unexpected_payload', $e->reason);
+            $this->assertSame(
+                "Embedding provider 'bedrock' returned an unexpected payload.",
+                $e->getMessage(),
+            );
+            // Pre-#132 the message interpolated $this->model(). Pin
+            // that it no longer does.
+            $this->assertStringNotContainsString($this->model, $e->getMessage());
+        }
     }
 
     public function test_embed_batch_invokes_model_once_per_text(): void
@@ -208,6 +219,9 @@ class BedrockEmbeddingProviderTest extends TestCase
             $this->assertArrayHasKey(0, $e->completed);
             $this->assertSame([1.0], $e->completed[0]);
             $this->assertArrayNotHasKey(1, $e->completed);
+            // #132 invariant: cause is curated end-to-end. The AWS
+            // SDK exception lives as the doubled previous.
+            $this->assertInstanceOf(EmbeddingProviderUnavailable::class, $e->getPrevious());
         }
     }
 

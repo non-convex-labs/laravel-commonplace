@@ -9,9 +9,10 @@ use Illuminate\Http\Client\Factory as HttpClient;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Sleep;
 use NonConvexLabs\Commonplace\Drivers\Embedding\VoyageEmbeddingProvider;
+use NonConvexLabs\Commonplace\Exceptions\EmbeddingProviderNotConfigured;
+use NonConvexLabs\Commonplace\Exceptions\EmbeddingProviderUnavailable;
 use NonConvexLabs\Commonplace\Exceptions\PartialBatchEmbeddingException;
 use NonConvexLabs\Commonplace\Tests\TestCase;
-use RuntimeException;
 
 class VoyageEmbeddingProviderTest extends TestCase
 {
@@ -101,22 +102,33 @@ class VoyageEmbeddingProviderTest extends TestCase
 
         Http::fake();
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Voyage API key is not configured');
+        $this->expectException(EmbeddingProviderNotConfigured::class);
+        $this->expectExceptionMessage("Embedding provider 'voyage' is not configured.");
 
         $this->provider->embed('hello');
     }
 
     public function test_embed_throws_when_response_is_not_successful(): void
     {
+        // 500 → reason 'transport'. The fake body echoes the user's
+        // note content as a stand-in for the provider's request-payload
+        // echo — pin that it never lands in the wire-visible message.
         Http::fake([
-            self::VOYAGE_URL => Http::response('upstream failure', 500),
+            self::VOYAGE_URL => Http::response('user note content echoed back', 500),
         ]);
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Voyage AI API error: upstream failure');
-
-        $this->provider->embed('hello');
+        try {
+            $this->provider->embed('hello');
+            $this->fail('Expected EmbeddingProviderUnavailable.');
+        } catch (EmbeddingProviderUnavailable $e) {
+            $this->assertSame('voyage', $e->provider);
+            $this->assertSame('transport', $e->reason);
+            $this->assertSame(
+                "Embedding provider 'voyage' is unavailable (transport error). Retry with backoff.",
+                $e->getMessage(),
+            );
+            $this->assertStringNotContainsString('user note content', $e->getMessage());
+        }
     }
 
     public function test_embed_batch_returns_vectors_in_input_order(): void
@@ -192,8 +204,8 @@ class VoyageEmbeddingProviderTest extends TestCase
 
         Http::fake();
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Voyage API key is not configured');
+        $this->expectException(EmbeddingProviderNotConfigured::class);
+        $this->expectExceptionMessage("Embedding provider 'voyage' is not configured.");
 
         $this->provider->embedBatch(['hello']);
     }
@@ -204,8 +216,10 @@ class VoyageEmbeddingProviderTest extends TestCase
             self::VOYAGE_URL => Http::response('boom', 500),
         ]);
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Voyage AI API error: boom');
+        $this->expectException(EmbeddingProviderUnavailable::class);
+        $this->expectExceptionMessage(
+            "Embedding provider 'voyage' is unavailable (transport error). Retry with backoff."
+        );
 
         $this->provider->embedBatch(['hello']);
     }
@@ -255,8 +269,10 @@ class VoyageEmbeddingProviderTest extends TestCase
             self::VOYAGE_URL => Http::response('throttled', 429),
         ]);
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Voyage AI API error: throttled');
+        $this->expectException(EmbeddingProviderUnavailable::class);
+        $this->expectExceptionMessage(
+            "Embedding provider 'voyage' is unavailable (rate-limited). Retry with backoff."
+        );
 
         try {
             $this->provider->embedBatch(['hello']);
@@ -275,8 +291,10 @@ class VoyageEmbeddingProviderTest extends TestCase
             self::VOYAGE_URL => Http::response('boom', 500),
         ]);
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Voyage AI API error: boom');
+        $this->expectException(EmbeddingProviderUnavailable::class);
+        $this->expectExceptionMessage(
+            "Embedding provider 'voyage' is unavailable (transport error). Retry with backoff."
+        );
 
         try {
             $this->provider->embedBatch(['hello']);
@@ -345,11 +363,14 @@ class VoyageEmbeddingProviderTest extends TestCase
             $this->assertSame([1.5], $e->completed[0]);
             $this->assertSame([128.5], $e->completed[127]);
             $this->assertSame(128, $e->failedIndex);
-            $this->assertInstanceOf(RuntimeException::class, $e->getPrevious());
+            // #132 invariant: the previous chain stays PublicMessage
+            // end-to-end so any future caller that walks getPrevious()
+            // can't reach an unsanitised provider response body.
+            $this->assertInstanceOf(EmbeddingProviderUnavailable::class, $e->getPrevious());
         }
     }
 
-    public function test_embed_batch_throws_runtime_when_first_chunk_fails_with_no_progress(): void
+    public function test_embed_batch_throws_unavailable_when_first_chunk_fails_with_no_progress(): void
     {
         config()->set('commonplace.embedding.voyage.retry_max', 0);
 
@@ -357,10 +378,14 @@ class VoyageEmbeddingProviderTest extends TestCase
             self::VOYAGE_URL => Http::response('throttled', 429),
         ]);
 
-        // No prior chunk succeeded — surface the underlying RuntimeException,
-        // not a PartialBatchEmbeddingException (which would lie about progress).
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Voyage AI API error: throttled');
+        // No prior chunk succeeded — surface the underlying
+        // EmbeddingProviderUnavailable, not a
+        // PartialBatchEmbeddingException (which would lie about
+        // progress).
+        $this->expectException(EmbeddingProviderUnavailable::class);
+        $this->expectExceptionMessage(
+            "Embedding provider 'voyage' is unavailable (rate-limited). Retry with backoff."
+        );
 
         $this->provider->embedBatch(['hello']);
     }
