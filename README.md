@@ -28,6 +28,12 @@ Commonplace::semanticSearch('q2 planning topics', $user);
 
 Set `COMMONPLACE_MCP_ENABLED=true` and the same vault is reachable to any MCP-compatible AI client, scoped to the authenticated user.
 
+## What's in a name?
+
+A commonplace book is a personal notebook for copying down quotes, ideas, observations, and references so you can find them again later. Marcus Aurelius kept one. So did Locke, Jefferson, and a long list of readers and thinkers who needed somewhere to put the bits worth keeping. This package is the same idea, scoped to a single user inside your Laravel app and backed by your database instead of a leather-bound notebook.
+
+For more on the practice itself, see [Journal like a Renaissance Philosopher](https://youtu.be/2HCmv6aDYbQ) by ParkNotes (Parker Settecase).
+
 ## Install
 
 ```bash
