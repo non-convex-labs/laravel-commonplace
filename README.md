@@ -44,7 +44,7 @@ See [docs/design.md](docs/design.md) for the full comparison against Obsidian, L
 
 ## Status
 
-Pre-1.0. APIs may shift between minor versions until 1.0 ships. Behavior changes between releases live in [CHANGELOG.md](CHANGELOG.md).
+Pre-1.0. APIs may shift between minor versions until 1.0 ships.
 
 ## License
 
