@@ -18,6 +18,7 @@ use NonConvexLabs\Commonplace\Jobs\UpdateWikilinksJob;
 use NonConvexLabs\Commonplace\Models\Link;
 use NonConvexLabs\Commonplace\Models\Note;
 use NonConvexLabs\Commonplace\Models\NoteVersion;
+use NonConvexLabs\Commonplace\Models\Share;
 use NonConvexLabs\Commonplace\Models\Tag;
 
 class Commonplace
@@ -637,6 +638,92 @@ class Commonplace
                 'distance' => round((float) $n->distance, 4),
             ])
             ->all();
+    }
+
+    /**
+     * Grant (or update) a share row that lets `$recipient` access `$note`.
+     *
+     * Pass `$owner` to verify the caller is the note's owner before writing
+     * — recommended for any caller that doesn't already own the share row's
+     * write path. Idempotent: a second call with a different `$permission`
+     * updates the existing row instead of inserting a duplicate.
+     */
+    public function grantShare(
+        Note|string $noteOrPath,
+        Authenticatable $recipient,
+        string $permission,
+        ?Authenticatable $owner = null,
+    ): Share {
+        $note = $this->resolveNote($noteOrPath);
+
+        if ($owner !== null) {
+            $this->checkAccess($note, $owner, 'owner');
+        }
+
+        if (! in_array($permission, ['read', 'write'], true)) {
+            throw new \InvalidArgumentException(
+                "Invalid share permission '{$permission}'. Expected one of: read, write."
+            );
+        }
+
+        return Share::updateOrCreate(
+            [
+                'note_id' => $note->id,
+                'user_id' => $recipient->getAuthIdentifier(),
+            ],
+            [
+                'permission' => $permission,
+            ],
+        );
+    }
+
+    /**
+     * Revoke the share row, if any, for `$recipient` on `$note`. Returns
+     * `true` when a row was deleted, `false` when no matching row existed.
+     */
+    public function revokeShare(
+        Note|string $noteOrPath,
+        Authenticatable $recipient,
+        ?Authenticatable $owner = null,
+    ): bool {
+        $note = $this->resolveNote($noteOrPath);
+
+        if ($owner !== null) {
+            $this->checkAccess($note, $owner, 'owner');
+        }
+
+        $deleted = Share::where('note_id', $note->id)
+            ->where('user_id', $recipient->getAuthIdentifier())
+            ->delete();
+
+        return $deleted > 0;
+    }
+
+    /**
+     * List the share rows on `$note`, eager-loading each share's recipient.
+     *
+     * @return Collection<int, Share>
+     */
+    public function listShares(
+        Note|string $noteOrPath,
+        ?Authenticatable $owner = null,
+    ): Collection {
+        $note = $this->resolveNote($noteOrPath);
+
+        if ($owner !== null) {
+            $this->checkAccess($note, $owner, 'owner');
+        }
+
+        return $note->shares()->with('user')->get();
+    }
+
+    private function resolveNote(Note|string $noteOrPath): Note
+    {
+        if ($noteOrPath instanceof Note) {
+            return $noteOrPath;
+        }
+
+        return Note::where('path', $this->normalizePath($noteOrPath))->firstOrFail();
     }
 
     private function checkAccess(Note $note, Authenticatable $user, string $level = 'read'): void
