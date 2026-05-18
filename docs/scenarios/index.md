@@ -104,7 +104,7 @@ Playwright walk-through of Alice + Bob against `main/` confirmed S-NOTE-01 (crea
 
 _Open divergences from this pass:_
 
-- [#118](https://github.com/non-convex-labs/laravel-commonplace/issues/118) → S-AI-25 (info disclosure, broader scope) — the `QueryException` redaction from #115 closes the DB-leak vector, but non-`QueryException` Throwables (`ErrorException` with file paths, HTTP client exceptions with internal URLs, `LockTimeoutException` with cache keys) still pass through verbatim. Also folds in `DeadlockException` / `LostConnectionException`, which extend `PDOException` / `LogicException` rather than `QueryException` and bypass the #115 branch.
+- [#118](https://github.com/non-convex-labs/laravel-commonplace/issues/118) → S-AI-25 (info disclosure, broader scope, *partially resolved*) — `LostConnectionException` and bare `PDOException` (including `DeadlockException`) are now redacted to generic strings ("Database connection lost." / "Database error.") so the sibling DB exception classes the #115 `QueryException` branch missed no longer leak. Open: non-DB Throwables (`ErrorException` with file paths, HTTP client exceptions with internal URLs, `LockTimeoutException` with cache keys) still pass `getMessage()` through verbatim — closing this requires an allowlist-sanitiser design that opts tool-thrown user-facing messages in.
 
 The three issues flagged in the original 2026-05-18 pass (#108 / #109 / #110) are all closed; see below.
 

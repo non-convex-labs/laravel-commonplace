@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NonConvexLabs\Commonplace\Mcp;
 
+use Illuminate\Database\LostConnectionException;
 use Illuminate\Database\QueryException;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server;
@@ -30,6 +31,7 @@ use NonConvexLabs\Commonplace\Mcp\Tools\SemanticSearchTool;
 use NonConvexLabs\Commonplace\Mcp\Tools\ShortestPathTool;
 use NonConvexLabs\Commonplace\Mcp\Tools\SuggestedLinksTool;
 use NonConvexLabs\Commonplace\Mcp\Tools\UpdateNoteTool;
+use PDOException;
 use Throwable;
 
 #[Name('commonplace')]
@@ -133,17 +135,32 @@ class CommonplaceMcpServer extends Server
     }
 
     /**
-     * Sanitise an exception message for the wire (issue #115). The full
-     * Throwable is still available to operators via report(); only the
-     * MCP envelope's text is redacted.
+     * Sanitise an exception message for the wire. The full Throwable is
+     * still available to operators via report(); only the MCP envelope's
+     * text is redacted.
      *
-     * QueryException is special-cased: its formatted message embeds the
-     * DB connection metadata (Host, Port, Database) and the parameterized
-     * SQL, and its previous PDOException's message embeds the offending
-     * row in a `DETAIL:` line. Both surface to whoever holds the bearer
-     * token. We collapse the message to the bare SQLSTATE category so
-     * callers can still tell a unique-violation from a deadlock without
-     * being handed schema or row data.
+     * Database-layer exceptions are redacted because their formatted
+     * messages embed connection metadata (Host, Port, Database), the
+     * parameterized SQL, and PDO's `DETAIL:` row data:
+     *
+     * - `QueryException` (#115) — preserve the SQLSTATE category so
+     *   callers can still tell unique-violation from deadlock from
+     *   connection error, but drop everything else.
+     * - `LostConnectionException` (#118) — extends `LogicException`,
+     *   message text typically embeds the connection name. Replace with
+     *   a generic "Database connection lost." string.
+     * - bare `PDOException` (#118) — covers `DeadlockException` (which
+     *   extends `PDOException` directly, NOT `QueryException`) and any
+     *   raw PDO errors that escape Laravel's wrapping. Replace with a
+     *   generic "Database error." string.
+     *
+     * Other Throwables (RuntimeException, InvalidArgumentException, etc.)
+     * pass through verbatim — tools rely on their messages for actionable
+     * caller-facing errors. Tool authors must keep file paths, internal
+     * URLs, env values, cache keys, etc. out of those messages; the MCP
+     * envelope cannot defend against arbitrary stdlib exception types
+     * without breaking the tool-error contract. See [#118] for the
+     * broader allowlist-sanitiser design discussion.
      */
     protected function publicMessageFor(Throwable $throwable): string
     {
@@ -153,6 +170,14 @@ class CommonplaceMcpServer extends Server
             return $sqlState !== ''
                 ? "Database error: SQLSTATE[{$sqlState}]"
                 : 'Database error.';
+        }
+
+        if ($throwable instanceof LostConnectionException) {
+            return 'Database connection lost.';
+        }
+
+        if ($throwable instanceof PDOException) {
+            return 'Database error.';
         }
 
         return $throwable->getMessage() !== ''
