@@ -42,7 +42,7 @@ Assumptions:
 1. `Commonplace::revokeShare('references/shared-doc', $bob, $alice);` (or `Share::where(['note_id' => $note->id, 'user_id' => $bob->id])->delete();`).
 2. As Bob: `Commonplace::readNote('references/shared-doc', $bob);`.
 
-**Expected.** Step 2 throws `Illuminate\Auth\Access\AuthorizationException` (\"You do not have access to this note.\"). The note still exists, so the service raises the access-denied class, not `ModelNotFoundException`. The MCP boundary collapses both into `Note not found.` per [S-AI-07](ai-agent.md#s-ai-07--read-note-tool-returns-full-content-absent-or-inaccessible-notes-both-say-note-not-found); the service layer is informative because in-process callers are trusted. See [S-NOTE-03](note-taker.md#s-note-03--read-a-note-requires-visibility-access) for the same two-tier model.
+**Expected.** Step 2 throws `Illuminate\Auth\Access\AuthorizationException` (\"You do not have access to this note.\"). The note still exists, so the service raises the access-denied class, not `ModelNotFoundException`. The service layer is informative because in-process callers are trusted. The MCP read tools and the public-read route both collapse "inaccessible" and "missing" into `Note not found.` per [S-AI-07](ai-agent.md#s-ai-07--read-note-tool-returns-full-content-absent-or-inaccessible-notes-both-say-note-not-found); the authenticated web surface is asymmetric (403 for inaccessible, 200 folder-fallback for missing) — see the "Visibility scope" invariant in [scenarios/index.md](index.md#cross-cutting-invariants) and [S-NOTE-03](note-taker.md#s-note-03--read-a-note-requires-visibility-access) for the surface matrix.
 
 **Verify with.** Tinker — assert the exception class explicitly.
 

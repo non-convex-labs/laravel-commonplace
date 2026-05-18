@@ -108,16 +108,26 @@ can publish them via `commonplace-views`. See
 
 ### `GET /{path}` fallback chain
 
-[`NoteController::show()`](../src/Http/Controllers/NoteController.php#L41) handles three cases
+[`NoteController::show()`](../src/Http/Controllers/NoteController.php#L41) handles four cases
 in order:
 
 1. If a note exists at `{path}` and the user can read it, render it.
-2. If the note is missing and `{path}` is `journal` or `journal/*`,
+2. If a note exists at `{path}` but the user cannot read it, `abort(403)`.
+3. If the note is missing and `{path}` is `journal` or `journal/*`,
    render the journal calendar for the requested `?year`/`?month`/`?date`.
-3. Otherwise treat `{path}` as a folder and render the folder browser.
+4. Otherwise treat `{path}` as a folder and render the folder browser.
 
 That's why the package only registers one catch-all `GET {path}` route
 instead of separate `show`/`browse`/`journal` routes.
+
+> [!NOTE]
+> Cases 2 and 4 mean an authenticated caller can tell "exists but I can't
+> read it" (403) from "doesn't exist" (200, folder fallback) by status
+> code. That's an enumeration leak relative to the MCP and public-read
+> surfaces, which both canonicalise to "Note not found." See the
+> "Visibility scope" invariant in
+> [scenarios/index.md](scenarios/index.md#cross-cutting-invariants).
+> Behavior fix tracked in [#123](https://github.com/non-convex-labs/laravel-commonplace/issues/123).
 
 ### `POST /` (store) — validation
 
