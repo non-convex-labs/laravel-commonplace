@@ -6,6 +6,7 @@ namespace NonConvexLabs\Commonplace\Mcp;
 
 use Illuminate\Database\LostConnectionException;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Log;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server;
 use Laravel\Mcp\Server\Attributes\Instructions;
@@ -15,6 +16,7 @@ use Laravel\Mcp\Server\Exceptions\JsonRpcException;
 use Laravel\Mcp\Server\ServerContext;
 use Laravel\Mcp\Server\Transport\JsonRpcRequest;
 use Laravel\Mcp\Server\Transport\JsonRpcResponse;
+use NonConvexLabs\Commonplace\Exceptions\PublicMessage;
 use NonConvexLabs\Commonplace\Mcp\Tools\BacklinksTool;
 use NonConvexLabs\Commonplace\Mcp\Tools\CreateNoteTool;
 use NonConvexLabs\Commonplace\Mcp\Tools\DeleteNoteTool;
@@ -112,6 +114,18 @@ class CommonplaceMcpServer extends Server
             // JSON-RPC tool error envelope (HTTP 200, isError: true).
             report($throwable);
 
+            // Operator breadcrumb: under fail-closed sanitisation, the
+            // agent client sees the generic "tool failed" string for any
+            // unmarked Throwable. Without this log line an operator
+            // would have to trawl the full exception trail to figure out
+            // which class needs a `PublicMessage` opt-in. The class name
+            // alone is safe to log — message + stack are already in
+            // report().
+            Log::warning('mcp.envelope.redacted', [
+                'class' => $throwable::class,
+                'tool' => $request->params['name'] ?? null,
+            ]);
+
             return $this->toolErrorEnvelope($request, $throwable);
         }
     }
@@ -139,9 +153,23 @@ class CommonplaceMcpServer extends Server
      * still available to operators via report(); only the MCP envelope's
      * text is redacted.
      *
-     * Database-layer exceptions are redacted because their formatted
-     * messages embed connection metadata (Host, Port, Database), the
-     * parameterized SQL, and PDO's `DETAIL:` row data.
+     * The sanitiser is **fail-closed**: a Throwable's `getMessage()` only
+     * passes through if (a) it's a database-layer class handled by an
+     * explicit SQLSTATE-preserving branch, or (b) it opts in by
+     * implementing the [[PublicMessage]] marker interface. Everything
+     * else collapses to a fixed generic string. This closes the
+     * pass-through leak surface for stdlib / Laravel / Symfony classes
+     * whose messages embed file paths (`ErrorException` from
+     * `file_get_contents`), internal URLs and bearer tokens (HTTP
+     * client exceptions), env values (Symfony's config
+     * `InvalidArgumentException`), cache keys (`LockTimeoutException`),
+     * model class names (`ModelNotFoundException`), or any Doctrine
+     * DBAL exception a consumer pulls in.
+     *
+     * Database-layer branches come first because their messages embed
+     * connection metadata (Host, Port, Database), the parameterized
+     * SQL, and PDO's `DETAIL:` row data — they need the SQLSTATE
+     * collapse regardless of whether they implement `PublicMessage`.
      *
      * Branch order matters: `QueryException` and `DeadlockException`
      * both extend `PDOException`, so the more specific checks have to
@@ -161,14 +189,12 @@ class CommonplaceMcpServer extends Server
      *   raw PDO errors that escape Laravel's wrapping. Preserve the
      *   SQLSTATE on the `getCode()` so retry-aware clients can still
      *   discriminate; everything else collapses.
-     *
-     * Other Throwables (RuntimeException, InvalidArgumentException,
-     * ModelNotFoundException, etc.) pass through verbatim — tools rely
-     * on their messages for actionable caller-facing errors. That
-     * includes a known leak surface for stdlib classes whose messages
-     * embed file paths, internal URLs, env values, cache keys, model
-     * class names — closing those requires the allowlist-sanitiser
-     * design tracked in #118.
+     * - `PublicMessage` implementers — pass `getMessage()` through.
+     *   Tool authors opt their own exceptions in when the message is
+     *   agent-actionable and free of PII / internal surface area.
+     * - Everything else — collapse to the fixed generic string.
+     *   Operators still see the full exception via `report()` at the
+     *   catch site, and the redacted-class breadcrumb logged there.
      */
     protected function publicMessageFor(Throwable $throwable): string
     {
@@ -184,9 +210,11 @@ class CommonplaceMcpServer extends Server
             return $this->databaseErrorWithSqlState((string) $throwable->getCode());
         }
 
-        return $throwable->getMessage() !== ''
-            ? $throwable->getMessage()
-            : 'The tool failed to complete the request.';
+        if ($throwable instanceof PublicMessage && $throwable->getMessage() !== '') {
+            return $throwable->getMessage();
+        }
+
+        return 'The tool failed to complete the request.';
     }
 
     private function databaseErrorWithSqlState(string $sqlState): string

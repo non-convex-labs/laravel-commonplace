@@ -78,6 +78,47 @@ class PgvectorDriverTest extends TestCase
         $driver->store(1, [0.1, 0.2]);
     }
 
+    /**
+     * #118 invariant: `PgvectorDriverNotReady` is the first in-package
+     * exception marked `PublicMessage`, so its messages land verbatim
+     * in the MCP envelope (and the public HTTP error body when those
+     * paths reach the same sanitiser). Today the message references
+     * only `$this->db->getDriverName()` — the framework-owned driver
+     * string (`sqlite`, `mysql`, `pgsql`) — and never the userland
+     * connection name (`getName()`), host, or database. Pin that
+     * contract: if a future change to `notReadyMessage()` quietly
+     * splices in the connection name (e.g. `tenant_42_replica` in a
+     * multi-tenant app) or any host config field, this test fails CI.
+     */
+    public function test_not_ready_message_uses_driver_name_not_connection_name(): void
+    {
+        // Default testbench connection name is `testing`. Drive the
+        // not-ready path against it and assert the connection name
+        // never lands in the message.
+        $this->assertSame('testing', $this->app['db']->getDefaultConnection());
+
+        $driver = $this->app->make(PgvectorDriver::class);
+
+        try {
+            $driver->search(Note::query(), [0.1, 0.2], 10);
+            $this->fail('expected PgvectorDriverNotReady to be thrown');
+        } catch (PgvectorDriverNotReady $e) {
+            $this->assertStringContainsString(
+                "'sqlite'",
+                $e->getMessage(),
+                'message should reference the framework-owned driver name',
+            );
+            $this->assertStringNotContainsString(
+                "'testing'",
+                $e->getMessage(),
+                'message must not reference the userland connection name',
+            );
+            $this->assertStringNotContainsString('host', strtolower($e->getMessage()));
+            $this->assertStringNotContainsString('port', strtolower($e->getMessage()));
+            $this->assertStringNotContainsString('password', strtolower($e->getMessage()));
+        }
+    }
+
     public function test_driver_resolves_without_a_working_embedder(): void
     {
         // Read-only workers (replicas, health checks, search-only cron) must
