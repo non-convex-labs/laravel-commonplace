@@ -303,7 +303,7 @@ Assumptions:
 
 **Intent.** First-class API for owners to extend access. Idempotent on `(note_id, user_id)`: a second call with a different `permission` updates the existing row rather than inserting a duplicate.
 
-**Preconditions.** Alice owns `references/shared-doc`. Bob has no share on it. A third user `$carol` is authenticated.
+**Preconditions.** Alice owns `references/shared-doc`. A third user `$carol` is authenticated. Bob's existing share on the note (per S-COL-01) is irrelevant — this scenario tests the grant operation against Carol.
 
 **Steps.**
 1. As Alice: `Commonplace::grantShare('references/shared-doc', $carol, 'read', $alice);`.
