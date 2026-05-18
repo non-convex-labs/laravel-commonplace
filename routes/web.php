@@ -9,10 +9,16 @@ use NonConvexLabs\Commonplace\Http\Controllers\NoteController;
 use NonConvexLabs\Commonplace\Http\Controllers\PublicNoteController;
 use NonConvexLabs\Commonplace\Http\Controllers\SearchController;
 
-if (! (bool) config('commonplace.routes.enabled', true)) {
+$authEnabled = (bool) config('commonplace.routes.enabled', true);
+$publicEnabled = (bool) config('commonplace.routes.public.enabled', false);
+
+if (! $authEnabled && ! $publicEnabled) {
     return;
 }
 
+// Asset routes register whenever any group is active. A public-only
+// deployment (auth disabled, public-read enabled) still needs the CSS
+// link the rendered template points at.
 Route::middleware(['web'])
     ->prefix((string) config('commonplace.routes.prefix', 'commonplace'))
     ->as('commonplace.')
@@ -25,7 +31,7 @@ Route::middleware(['web'])
 // `/{prefix}/public/foo` matches `commonplace.public.show` instead of
 // being caught by the authenticated `{path}` catch-all (which would
 // 302 the visitor to login).
-if ((bool) config('commonplace.routes.public.enabled', false)) {
+if ($publicEnabled) {
     Route::middleware(config('commonplace.routes.public.middleware', ['web']))
         ->prefix((string) config('commonplace.routes.prefix', 'commonplace').'/public')
         ->as('commonplace.public.')
@@ -38,6 +44,10 @@ if ((bool) config('commonplace.routes.public.enabled', false)) {
                 ->where('path', '.*')
                 ->name('show');
         });
+}
+
+if (! $authEnabled) {
+    return;
 }
 
 Route::middleware(config('commonplace.routes.middleware', ['web', 'auth']))

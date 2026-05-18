@@ -31,13 +31,9 @@ class PublicNoteController extends Controller
     {
         $note = $this->resolvePublicNote($path);
 
-        return view('commonplace::show', [
+        return view('commonplace::public.show', [
             'note' => $note,
             'renderedContent' => $this->markdown->renderNote($note->content),
-            // View calls $backlinks->isNotEmpty(); pass a Collection
-            // rather than an array so the same template renders.
-            'backlinks' => collect(),
-            'breadcrumbs' => [],
         ]);
     }
 

@@ -17,7 +17,7 @@ Assumptions:
 **Intent.** Public visitors get an HTML view of any `visibility=public` note, with the same Blade layout the authenticated views use.
 
 > [!NOTE]
-> Validation 2026-05-17: the response renders 200 with the note's content, but the surrounding chrome is **the authenticated owner's template** — Edit/Delete/Download buttons, a nav bar pointing at auth-gated routes, and a "View markdown" link that points at the wrong (auth-gated) URL. Tracked in [#68](https://github.com/non-convex-labs/laravel-commonplace/issues/68); see also [S-PUB-01b](#s-pub-01b--public-template-does-not-expose-authenticated-only-chrome) below for the precise template requirements.
+> Validation 2026-05-17: fixed in [#88](https://github.com/non-convex-labs/laravel-commonplace/pull/88) — the public route now renders the minimal `commonplace::public.show` template instead of the authenticated owner's template. See [S-PUB-01b](#s-pub-01b--public-template-does-not-expose-authenticated-only-chrome) below for the precise template contract that is now enforced by tests.
 
 **Preconditions.** `public/handbook` is public.
 
@@ -55,6 +55,9 @@ Assumptions:
 ---
 
 ### S-PUB-01b — Public template does not expose authenticated-only chrome
+
+> [!NOTE]
+> Validation 2026-05-17: fixed in [#88](https://github.com/non-convex-labs/laravel-commonplace/pull/88). The public route now renders a separate `commonplace::public.show` template with no Edit / Delete / Download / nav affordances, and "View markdown" points at `commonplace.public.showRaw`. Enforced by tests in `tests/Feature/Http/PublicNoteControllerTest.php`.
 
 **Intent.** The public-read view is for unauthenticated readers. Affordances that require login (Edit, Delete, Download, the top-nav links to Search / Graph / New / Notes-index) should not appear on a public page. The "View markdown" link must point at the public-raw URL, not the auth-gated one.
 
