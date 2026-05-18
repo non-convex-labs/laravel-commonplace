@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NonConvexLabs\Commonplace\Tests\Feature\Mcp;
 
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route;
@@ -509,5 +510,85 @@ class CommonplaceMcpServerTest extends TestCase
         $this->assertTrue($raw['result']['isError']);
         $this->assertSame('text', $raw['result']['content'][0]['type']);
         $this->assertStringContainsString('simulated query failure', $raw['result']['content'][0]['text']);
+    }
+
+    /**
+     * Issue #115 regression: a QueryException reaching the MCP envelope
+     * must not leak DB connection metadata (Host/Port/Database), the
+     * parameterized SQL, the offending row from PDO's `DETAIL:` line, or
+     * constraint names. The envelope keeps just the SQLSTATE category so
+     * callers can still tell apart "unique violation" from "deadlock".
+     * Operators still see the full exception via report().
+     */
+    public function test_query_exception_redacts_connection_and_sql_details(): void
+    {
+        $pdoMessage = 'SQLSTATE[23505]: Unique violation: 7 ERROR:  '
+            .'duplicate key value violates unique constraint "commonplace_notes_path_unique"'."\n"
+            .'DETAIL:  Key (path)=(public/handbook) already exists.';
+
+        // SQLSTATE codes can be alphanumeric (e.g. "23505", "HY000"). PDO
+        // stores them as a string on $code; Exception's constructor takes
+        // int. Use an anonymous subclass to set the code to the SQLSTATE
+        // string the real PDO driver would emit.
+        $pdoException = new class($pdoMessage) extends \PDOException
+        {
+            public function __construct(string $message)
+            {
+                parent::__construct($message, 0);
+                $this->code = '23505';
+            }
+        };
+
+        $queryException = new QueryException(
+            connectionName: 'pgsql',
+            sql: 'insert into "commonplace_notes" ("path") values (?) returning "id"',
+            bindings: ['public/handbook'],
+            previous: $pdoException,
+        );
+
+        // Sanity-check the fixture: the raw QueryException really does
+        // carry the SQL and DETAIL row we expect to redact. Host/Port/
+        // Database segments are appended by Laravel's formatMessage only
+        // when those config keys exist on the connection, so they're
+        // present in the wild Postgres case (per #115) but not in the
+        // SQLite test driver. The fix strips them all regardless.
+        $this->assertStringContainsString('SQL: insert into', $queryException->getMessage());
+        $this->assertStringContainsString('DETAIL', $queryException->getMessage());
+
+        $mock = Mockery::mock(Commonplace::class);
+        $mock->shouldReceive('createNote')
+            ->once()
+            ->andThrow($queryException);
+
+        $this->app->instance(Commonplace::class, $mock);
+
+        $response = CommonplaceMcpServer::actingAs($this->owner)->tool(CreateNoteTool::class, [
+            'path' => 'public/handbook',
+            'content' => 'dup',
+            'visibility' => 'private',
+        ]);
+
+        $raw = (fn (): array => $this->response->toArray())
+            ->call($response);
+
+        $envelopeText = $raw['result']['content'][0]['text'];
+
+        $this->assertTrue($raw['result']['isError']);
+
+        // No connection metadata, no SQL trace, no DETAIL row data, no
+        // constraint name leaks.
+        $this->assertStringNotContainsString('Host:', $envelopeText);
+        $this->assertStringNotContainsString('Port:', $envelopeText);
+        $this->assertStringNotContainsString('Database:', $envelopeText);
+        $this->assertStringNotContainsString('Connection:', $envelopeText);
+        $this->assertStringNotContainsString('SQL:', $envelopeText);
+        $this->assertStringNotContainsString('DETAIL', $envelopeText);
+        $this->assertStringNotContainsString('public/handbook', $envelopeText);
+        $this->assertStringNotContainsString('commonplace_notes_path_unique', $envelopeText);
+        $this->assertStringNotContainsString('127.0.0.1', $envelopeText);
+
+        // Callers still get the SQLSTATE category so unique-violation vs
+        // deadlock vs check-constraint stays distinguishable.
+        $this->assertStringContainsString('SQLSTATE[23505]', $envelopeText);
     }
 }
