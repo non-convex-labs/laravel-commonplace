@@ -170,9 +170,11 @@ class Commonplace
                 $note->indexed_at = null;
             }
 
-            if (isset($meta['title'])) {
-                $note->title = $meta['title'];
-            }
+            // Symmetric with createNote: frontmatter title wins, otherwise
+            // fall back to the basename derivation. Removing a frontmatter
+            // title on update lets the basename derivation reassert.
+            $note->title = $meta['title']
+                ?? Str::title(str_replace('-', ' ', basename($note->path)));
 
             if (isset($meta['visibility'])) {
                 $note->visibility = $this->validateVisibility($meta['visibility']);
