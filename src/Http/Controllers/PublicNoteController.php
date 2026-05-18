@@ -47,6 +47,28 @@ class PublicNoteController extends Controller
         abort(404);
     }
 
+    /**
+     * Method-not-allowed trap for non-GET verbs on the public prefix.
+     * Bound on a no-middleware route so CSRF / auth don't fire before
+     * the abort runs (otherwise PUT/DELETE would 419, GET 302). See
+     * S-PUB-05 / #97.
+     */
+    public function methodNotAllowed(): Response
+    {
+        abort(405);
+    }
+
+    /**
+     * 404 trap mounted at the default public prefix when the public
+     * group is disabled. Prevents the URL from falling into the auth
+     * catch-all and 302-redirecting unauthenticated visitors to login.
+     * See S-PUB-06 / #97.
+     */
+    public function disabled(): Response
+    {
+        abort(404);
+    }
+
     public function showRaw(Request $request, string $path): Response
     {
         $note = $this->resolvePublicNote($path);

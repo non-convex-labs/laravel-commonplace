@@ -172,6 +172,30 @@ class PublicNoteControllerTest extends TestCase
         $response->assertDontSee('href="/commonplace/raw/', false);
     }
 
+    public function test_put_on_public_url_returns_405_not_419(): void
+    {
+        // Regression for #97 / S-PUB-05. PUT on a public URL must not
+        // reach the authenticated catch-all's CSRF middleware — that
+        // would 419. The no-middleware method trap inside the public
+        // group returns 405 from a clean boundary.
+        $this->put('/commonplace/public/public/handbook')->assertStatus(405);
+    }
+
+    public function test_delete_on_public_url_returns_405_not_419(): void
+    {
+        $this->delete('/commonplace/public/public/handbook')->assertStatus(405);
+    }
+
+    public function test_patch_on_public_url_returns_405(): void
+    {
+        $this->patch('/commonplace/public/public/handbook')->assertStatus(405);
+    }
+
+    public function test_post_on_public_url_returns_405(): void
+    {
+        $this->post('/commonplace/public/public/handbook')->assertStatus(405);
+    }
+
     public function test_bare_public_prefix_with_trailing_slash_returns_404(): void
     {
         // Regression for #96 / S-PUB-04. With the public group enabled
