@@ -15,6 +15,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use NonConvexLabs\Commonplace\Enums\Visibility;
 use NonConvexLabs\Commonplace\Models\Note;
+use NonConvexLabs\Commonplace\Models\NoteVersion;
 use NonConvexLabs\Commonplace\Services\Commonplace;
 use NonConvexLabs\Commonplace\Services\JournalCalendar;
 use NonConvexLabs\Commonplace\Services\MarkdownRenderer;
@@ -210,6 +211,57 @@ class NoteController extends Controller
         return redirect()
             ->route('commonplace.index')
             ->with('success', 'Note deleted successfully.');
+    }
+
+    public function history(Request $request, string $path): View
+    {
+        $user = $request->user();
+
+        try {
+            $versions = $this->commonplace->getHistory($path, $user);
+        } catch (AuthorizationException) {
+            abort(403);
+        }
+
+        $note = Note::where('path', $path)->first();
+
+        if ($versions->isEmpty() && $note === null) {
+            abort(404);
+        }
+
+        return view('commonplace::history.index', [
+            'path' => $path,
+            'note' => $note,
+            'versions' => $versions,
+            'breadcrumbs' => $this->buildBreadcrumbs($path),
+        ]);
+    }
+
+    public function historyVersion(Request $request, string $path, int $version): View
+    {
+        $user = $request->user();
+
+        try {
+            $versions = $this->commonplace->getHistory($path, $user);
+        } catch (AuthorizationException) {
+            abort(403);
+        }
+
+        $noteVersion = $versions->firstWhere('id', $version);
+
+        if (! $noteVersion instanceof NoteVersion) {
+            abort(404);
+        }
+
+        $note = Note::where('path', $path)->first();
+
+        return view('commonplace::history.show', [
+            'path' => $path,
+            'note' => $note,
+            'version' => $noteVersion,
+            'renderedContent' => $this->markdown->renderNote($noteVersion->content),
+            'breadcrumbs' => $this->buildBreadcrumbs($path),
+        ]);
     }
 
     private function browseFolder(string $folder, Request $request): View

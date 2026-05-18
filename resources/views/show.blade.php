@@ -42,6 +42,7 @@
             <a href="{{ route('commonplace.edit', ['path' => $note->path]) }}">Edit</a>
             <a href="{{ route('commonplace.showRaw', ['path' => $note->path]) }}">View markdown</a>
             <a href="{{ route('commonplace.downloadRaw', ['path' => $note->path]) }}">Download markdown</a>
+            <a href="{{ route('commonplace.history', ['path' => $note->path]) }}">History</a>
 
             <form method="POST" action="{{ route('commonplace.destroy', ['path' => $note->path]) }}" class="cp-delete-form" onsubmit="return confirm('Delete this note? This cannot be undone.');">
                 @csrf

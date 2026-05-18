@@ -404,6 +404,8 @@ foreach ($versions as $v) {
 
 Source: [Commonplace.php:416](../src/Services/Commonplace.php#L416). Versions are written automatically by `updateNote` (on content change) and `deleteNote` (final snapshot). See [`model-relationships.md`](./model-relationships.md) for the `NoteVersion` schema.
 
+Surfaced in the web UI at `/commonplace/history/{path}` (route name `commonplace.history`), with per-revision detail at `/commonplace/history/{path}/{version}` (`commonplace.historyVersion`). Both work for deleted notes — the index falls back to `note_path` lookups when no live row exists.
+
 ## Markdown extension hooks
 
 Three methods let your application's service provider register CommonMark extensions without forking the package. The renderer builds its converter once on first use and freezes the extender registry. Register from `boot()`, not per request.
