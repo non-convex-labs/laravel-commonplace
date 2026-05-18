@@ -36,6 +36,17 @@ VOYAGE_EMBEDDING_MODEL=voyage-3.5
 VOYAGE_EMBEDDING_DIMENSIONS=1024
 ```
 
+### Rate limits and failure modes
+
+The driver does not retry 429s. Any failed HTTP call — rate limit, timeout, 5xx — throws `RuntimeException` immediately. `embedBatch()` splits inputs into chunks of 128; a failure mid-iteration aborts the rest of the call and discards every chunk that already succeeded. The caller receives nothing.
+
+Queue-level retry catches the next attempt: `ReindexNotes` carries `#[Tries(3)]` and `#[Backoff([10, 30, 120])]`. That retries the *entire batch* and is not 429-aware — a 500 looks the same as a rate-limit hit.
+
+> [!WARNING]
+> `php artisan commonplace:doctor` checks config and calls `dimensions()`, but never hits the Voyage API. A misconfigured key or a quota-exhausted account passes the doctor check and fails on the first real embed.
+
+The only knob is `COMMONPLACE_REINDEX_BATCH_DELAY` (default `25`), a flat pause between batches in the reindex job. There is no token-per-minute awareness. On a free-tier or low-quota account, lower `COMMONPLACE_REINDEX_BATCH_SIZE` so a single 429 loses fewer in-flight chunks, and raise `COMMONPLACE_REINDEX_BATCH_DELAY` to keep average RPM under your limit.
+
 ## OpenAI
 
 ```dotenv
