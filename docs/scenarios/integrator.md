@@ -425,14 +425,16 @@ Commonplace::extendMarkdown(function (Environment $env): void {
 4. Web UI: `GET /commonplace/cross/surface` — inspect the note view's tag list.
 5. MCP `move-tool`: `{from_path: 'cross/surface', to_path: 'renamed/here'}`.
 6. Web UI: `GET /commonplace/renamed/here`.
+7. Web UI: `GET /commonplace/cross/surface` (the old, post-move path).
 
 **Expected.**
 - After (2): the tag set on the row is `['initial', 'mcp-edit']`. No version row is added (tag-only update does not change `content_hash`).
 - (3): the folder browser shows the note with the new tag list.
 - (4): the rendered note view shows both tags.
 - (5): the move succeeds; `commonplace_notes.path` is `renamed/here`.
-- (6): the renamed path renders 200 with the note's content; the old path 404s.
+- (6): the renamed path renders 200 with the note's content.
+- (7): the old path is no longer reachable *as a note*. Per the catch-all chain in [S-NOTE-20](note-taker.md#s-note-20--get-commonplacepath-falls-through-to-journal-and-folder-browser) it falls through to the folder browser (the `cross/` folder is now empty under `surface/`) — a 200 with the browse template, not a 404 and not the old note body. To confirm the move took effect, assert the rendered template is the folder browser, not the note-show template.
 
-**Verify with.** Tinker for the DB state; Playwright or curl for the web steps.
+**Verify with.** Tinker for the DB state; Playwright or curl for the web steps. For step 7, assert the response's `<title>` or template marker matches the folder browser, not the note-show view.
 
 **Source.** [services.md](../services.md), [mcp-tools.md](../mcp-tools.md), [http-api.md](../http-api.md).

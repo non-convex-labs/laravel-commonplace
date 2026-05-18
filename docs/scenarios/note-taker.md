@@ -79,19 +79,22 @@ $n = Note::where('path','projects/vault-cli')->first();
 
 ### S-NOTE-03 — Read a note requires visibility access
 
-**Intent.** Alice can read her own note. A request for someone else's private note returns `Note not found.` rather than a 403 — path enumeration is not allowed.
+**Intent.** Alice can read her own note. A non-owner's read is rejected, with the error class depending on the surface: the service layer is informative; the MCP / HTTP boundaries are not.
 
 **Preconditions.** Alice owns `projects/launch`. A second user `$bob` is authenticated.
 
 **Steps.**
 1. As Alice: `Commonplace::readNote('projects/launch', $alice)`.
 2. As Bob: `Commonplace::readNote('projects/launch', $bob)`.
+3. As Bob: `Commonplace::readNote('never-existed', $bob)`.
 
 **Expected.**
 - Step 1 returns the `Note` with `tags` and `owner` eager-loaded.
-- Step 2 throws `ModelNotFoundException` (same error as if the note did not exist).
+- Step 2 throws `Illuminate\Auth\Access\AuthorizationException` ("You do not have access to this note.") — the service distinguishes "exists but you can't see it" from "doesn't exist" because in-process callers are trusted.
+- Step 3 throws `Illuminate\Database\Eloquent\ModelNotFoundException` — different class than step 2.
+- The MCP and HTTP surfaces collapse steps 2 and 3 into a single response (`Note not found.` for MCP read tools; 404 for `GET /commonplace/{path}`) so an attacker can't enumerate paths. See [S-AI-07](ai-agent.md#s-ai-07--read-note-tool-returns-full-content-absent-or-inaccessible-notes-both-say-note-not-found) for the MCP boundary.
 
-**Verify with.** Tinker the two calls. The HTTP equivalent is `GET /commonplace/projects/launch` as each user; the second returns 404 not 403.
+**Verify with.** Tinker the three calls and assert exception classes. The HTTP equivalent is `GET /commonplace/projects/launch` as each user; the second returns 404 not 403.
 
 **Source.** [services.md → readNote](../services.md#readnote), [mcp-tools.md → Visibility model](../mcp-tools.md#visibility-model).
 
@@ -643,10 +646,7 @@ Link::where('source_note_id', $note->id)->get()->pluck('target_note_id', 'target
 
 ### S-NOTE-29 — View version history via the web UI
 
-**Intent.** A note-taker editing in the browser can inspect prior revisions: who changed it, when, and what the content looked like at the time. The same data the MCP `history-tool` exposes is reachable from the note view.
-
-> [!NOTE]
-> Validation 2026-05-17: fixed in [#92](https://github.com/non-convex-labs/laravel-commonplace/pull/92). The web view lives at `/commonplace/history/{path}` (route name `commonplace.history`) with per-revision detail at `/commonplace/history/{path}/{version}` (`commonplace.historyVersion`).
+**Intent.** A note-taker editing in the browser can inspect prior revisions: who changed it, when, and what the content looked like at the time. The same data the MCP `history-tool` exposes is reachable from the note view. The web view lives at `/commonplace/history/{path}` (route name `commonplace.history`) with per-revision detail at `/commonplace/history/{path}/{version}` (`commonplace.historyVersion`).
 
 **Preconditions.** Alice owns `projects/launch` and has updated it at least twice (so the history is non-trivial). At least one update has a `changed_by` user other than Alice would be ideal but not required.
 
@@ -688,3 +688,55 @@ Link::where('source_note_id', $note->id)->get()->pluck('target_note_id', 'target
 **Verify with.** Render the view and assert on the two `href` attributes; then `curl -I` each rendered URL.
 
 **Source.** [http-api.md](../http-api.md), `resources/views/show.blade.php`, `NoteController::showRaw` / `downloadRaw`.
+
+---
+
+### S-NOTE-31 — Deleting a note prunes orphaned tags
+
+**Intent.** Tags exist as their own rows in `commonplace_tags`. When the last note carrying a tag is deleted, that tag row is removed — the tag dropdown / index doesn't carry around stale "ghost" labels that don't apply to any visible note.
+
+**Preconditions.** Alice owns two notes:
+- `personal/notes-A` tagged `solo` and `shared-tag`.
+- `personal/notes-B` tagged `shared-tag`.
+
+So `commonplace_tags` has rows for `solo` and `shared-tag`. The `note_tag` pivot has three rows.
+
+**Steps.**
+1. `Commonplace::deleteNote('personal/notes-A', $alice);`.
+2. Inspect `commonplace_tags` and `commonplace_note_tag`.
+3. `Commonplace::deleteNote('personal/notes-B', $alice);`.
+4. Inspect again.
+
+**Expected.**
+- After (1): the `solo` tag row is **removed** (no remaining notes have it). The `shared-tag` row is kept (B still uses it). Pivot rows for A are gone.
+- After (3): the `shared-tag` row is also removed (now orphaned).
+- The pruning runs in the same transaction as the delete — there's no `commonplace:prune-tags` cleanup command because none is needed.
+
+**Verify with.** Tinker:
+```php
+NonConvexLabs\Commonplace\Models\Tag::pluck('name')->sort()->values()->all();
+```
+
+**Source.** [services.md → deleteNote](../services.md#deletenote), `Commonplace::deleteNote()` (tag-prune block).
+
+---
+
+### S-NOTE-32 — Updating tags prunes any tag the change orphaned
+
+**Intent.** Same invariant applies to `updateNote` (and the MCP `update-note-tool`). Removing the last reference to a tag — by re-tagging the note that held it — drops the tag row.
+
+**Preconditions.** Alice owns one note `personal/notes-A` tagged `solo`. No other note carries `solo`.
+
+**Steps.**
+1. `Commonplace::updateNote('personal/notes-A', ['tags' => ['replacement']], $alice);`.
+
+**Expected.**
+- After (1): `commonplace_tags` has a row for `replacement` and **no** row for `solo`. Pivot reflects the new association.
+- If a different note had also been tagged `solo`, the row would have been kept. The prune is `whereDoesntHave('notes')`-scoped.
+
+**Verify with.** Tinker:
+```php
+NonConvexLabs\Commonplace\Models\Tag::pluck('name')->sort()->values()->all();
+```
+
+**Source.** [services.md → updateNote](../services.md#updatenote), `Commonplace::syncTags()`.
