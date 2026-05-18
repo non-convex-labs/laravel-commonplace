@@ -90,7 +90,7 @@ The note's `content_hash` (sha256) is set and `indexed_at` is left null so the r
 
 The `title` column is derived from frontmatter `title:` if present, otherwise from the basename of `$path` with dashes swapped for spaces and run through `Str::title()` ([Commonplace.php:105](../src/Services/Commonplace.php#L105)). There is no H1 parsing. So `journal/2026-05-16-notes` with no frontmatter becomes `2026 05 16 Notes`. See [model-relationships.md → Note](./model-relationships.md#note) for the column definition.
 
-`updateNote` only rewrites `title` when the new content carries a frontmatter `title:`. Without it, the existing title is preserved — the basename fallback does not re-run on update. So removing a frontmatter `title:` from an existing note leaves the old title in place. Filed as a bug; see [#81](https://github.com/non-convex-labs/laravel-commonplace/issues/81).
+`updateNote` applies the same precedence on every content change: frontmatter `title:` wins, otherwise the title regenerates from the basename. Removing a frontmatter `title:` on an existing note lets the basename derivation reassert; the previous title doesn't stick.
 
 `createNote` does **not** write a `NoteVersion` row. The live `Note` row is the original content; `NoteVersion` only captures content that has been *displaced* by an update or removed by a delete (see [model-relationships.md → NoteVersion](./model-relationships.md#noteversion)). Calling `getHistory()` on a never-updated note returns an empty collection — read the live note for the original content.
 

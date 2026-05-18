@@ -178,6 +178,75 @@ class CommonplaceTest extends TestCase
         $this->assertSame(0, NoteVersion::where('note_id', $note->id)->count());
     }
 
+    public function test_update_note_regenerates_title_from_basename_when_frontmatter_title_removed(): void
+    {
+        $this->commonplace->createNote(
+            path: 'projects/launch-plan',
+            content: "---\ntitle: Custom Plan\n---\n\nbody",
+            tags: [],
+            visibility: 'private',
+            owner: $this->owner,
+        );
+
+        $this->commonplace->updateNote(
+            path: 'projects/launch-plan',
+            data: ['content' => "no frontmatter, just body\n"],
+            user: $this->owner,
+        );
+
+        $this->assertSame(
+            'Launch Plan',
+            Note::where('path', 'projects/launch-plan')->first()->title,
+        );
+    }
+
+    public function test_update_note_preserves_frontmatter_title_when_present(): void
+    {
+        $this->commonplace->createNote(
+            path: 'projects/v1',
+            content: "---\ntitle: First\n---\n\nbody",
+            tags: [],
+            visibility: 'private',
+            owner: $this->owner,
+        );
+
+        $this->commonplace->updateNote(
+            path: 'projects/v1',
+            data: ['content' => "---\ntitle: Second\n---\n\nbody"],
+            user: $this->owner,
+        );
+
+        $this->assertSame(
+            'Second',
+            Note::where('path', 'projects/v1')->first()->title,
+        );
+    }
+
+    public function test_update_note_regenerates_title_from_new_basename_on_rename_with_stripped_frontmatter(): void
+    {
+        $this->commonplace->createNote(
+            path: 'projects/launch-plan',
+            content: "---\ntitle: Custom Plan\n---\n\nbody",
+            tags: [],
+            visibility: 'private',
+            owner: $this->owner,
+        );
+
+        $this->commonplace->updateNote(
+            path: 'projects/launch-plan',
+            data: [
+                'content' => "no frontmatter, just body\n",
+                'new_path' => 'projects/q3-roadmap',
+            ],
+            user: $this->owner,
+        );
+
+        $this->assertSame(
+            'Q3 Roadmap',
+            Note::where('path', 'projects/q3-roadmap')->first()->title,
+        );
+    }
+
     public function test_update_note_renames_path_via_new_path(): void
     {
         $this->commonplace->createNote(
