@@ -656,7 +656,9 @@ class Commonplace
     ): Share {
         $note = $this->resolveNote($noteOrPath);
 
-        $this->assertOwner($note, $owner);
+        if ($owner !== null) {
+            $this->checkAccess($note, $owner, 'owner');
+        }
 
         if (! in_array($permission, ['read', 'write'], true)) {
             throw new \InvalidArgumentException(
@@ -686,7 +688,9 @@ class Commonplace
     ): bool {
         $note = $this->resolveNote($noteOrPath);
 
-        $this->assertOwner($note, $owner);
+        if ($owner !== null) {
+            $this->checkAccess($note, $owner, 'owner');
+        }
 
         $deleted = Share::where('note_id', $note->id)
             ->where('user_id', $recipient->getAuthIdentifier())
@@ -706,7 +710,9 @@ class Commonplace
     ): Collection {
         $note = $this->resolveNote($noteOrPath);
 
-        $this->assertOwner($note, $owner);
+        if ($owner !== null) {
+            $this->checkAccess($note, $owner, 'owner');
+        }
 
         return $note->shares()->with('user')->get();
     }
@@ -718,17 +724,6 @@ class Commonplace
         }
 
         return Note::where('path', $this->normalizePath($noteOrPath))->firstOrFail();
-    }
-
-    private function assertOwner(Note $note, ?Authenticatable $owner): void
-    {
-        if ($owner === null) {
-            return;
-        }
-
-        if ((int) $note->user_id !== (int) $owner->getAuthIdentifier()) {
-            throw new AuthorizationException('Only the note owner can perform this action.');
-        }
     }
 
     private function checkAccess(Note $note, Authenticatable $user, string $level = 'read'): void

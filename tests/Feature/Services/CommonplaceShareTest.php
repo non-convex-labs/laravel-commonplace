@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NonConvexLabs\Commonplace\Tests\Feature\Services;
 
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use InvalidArgumentException;
 use NonConvexLabs\Commonplace\Models\Note;
@@ -131,6 +132,29 @@ class CommonplaceShareTest extends TestCase
         $result = $this->commonplace->revokeShare($note, $recipient, $this->owner);
 
         $this->assertFalse($result);
+    }
+
+    public function test_grant_share_accepts_path_string_and_resolves_note(): void
+    {
+        $recipient = User::factory()->create();
+        Note::factory()->create([
+            'path' => 'shared/by-path',
+            'user_id' => $this->owner->id,
+            'visibility' => 'private',
+        ]);
+
+        $share = $this->commonplace->grantShare('shared/by-path', $recipient, 'read', $this->owner);
+
+        $this->assertSame($recipient->id, $share->user_id);
+        $this->assertSame('read', $share->permission);
+    }
+
+    public function test_grant_share_throws_when_path_does_not_exist(): void
+    {
+        $this->expectException(ModelNotFoundException::class);
+
+        $recipient = User::factory()->create();
+        $this->commonplace->grantShare('does/not/exist', $recipient, 'read');
     }
 
     public function test_list_shares_returns_shares_for_note(): void
