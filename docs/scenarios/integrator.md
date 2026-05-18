@@ -70,9 +70,6 @@ Assumptions:
 
 **Intent.** Migrations are loaded from the package directly — no separate publish step needed. Running `migrate` brings up the full schema.
 
-> [!NOTE]
-> Validation 2026-05-17: `migrate` alone is currently **insufficient**. The service provider uses Spatie's `hasMigrations([...])` with an explicit list of 6 file names, which works as a `vendor:publish --tag=commonplace-migrations` source but does not auto-load the migrations into `migrate`. Worse, the list is out of sync with `database/migrations/`: 2 of the 8 files on disk (`add_indexes_to_commonplace_links_table`, `normalize_commonplace_notes_visibility`) are missing from the array. Tracked in [#64](https://github.com/non-convex-labs/laravel-commonplace/issues/64).
-
 **Preconditions.** S-INT-01 done. Default DB connection configured.
 
 **Steps.**
