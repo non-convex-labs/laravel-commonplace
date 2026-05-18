@@ -71,7 +71,7 @@
     @isset ($recentNotes)
         @if ($recentNotes->isNotEmpty())
             <section class="cp-recent" aria-labelledby="cp-recent-heading">
-                <h2 id="cp-recent-heading">Recent</h2>
+                <h2 id="cp-recent-heading">Recent in folders</h2>
                 <ul class="cp-note-list" role="list">
                     @foreach ($recentNotes as $note)
                         <li class="cp-note-card">

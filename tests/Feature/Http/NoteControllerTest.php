@@ -369,6 +369,27 @@ class NoteControllerTest extends TestCase
         $response->assertDontSee('cp-delete-form');
     }
 
+    public function test_index_does_not_double_render_root_level_notes_in_recent_block(): void
+    {
+        // The loose-root list already shows notes whose path has no `/`.
+        // The Recent block is scoped to subfolder paths so it doesn't
+        // duplicate them. Pin the contract.
+        Note::factory()->create([
+            'user_id' => $this->owner->id,
+            'path' => 'root-note',
+            'title' => 'Root Note',
+            'visibility' => 'private',
+        ]);
+
+        $response = $this->actingAs($this->owner)->get(route('commonplace.index'));
+
+        $response->assertOk();
+        $response->assertSeeText('Root Note');
+        // Title appears exactly once on the page (loose-root list only).
+        $body = $response->getContent() ?: '';
+        $this->assertSame(1, substr_count($body, '>Root Note<'));
+    }
+
     public function test_index_lists_recent_owned_shared_and_public_notes_for_collaborator(): void
     {
         // Regression for #98 / S-COL-14. Bob authenticated; sees his own

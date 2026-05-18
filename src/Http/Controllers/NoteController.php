@@ -299,10 +299,14 @@ class NoteController extends Controller
 
         if ($folder === '' && $user !== null) {
             // The root index shows folders + a flat "Recent" list across
-            // all accessible notes. Without this, a collaborator whose
-            // notes all live in subfolders sees an empty page even though
-            // their `accessibleBy` set is non-empty. See S-COL-14 / #98.
+            // all accessible notes IN SUBFOLDERS. Notes at the vault root
+            // already render in `$notes`, so the Recent block is scoped
+            // to subfolder paths to avoid double-rendering. Without this
+            // block, a collaborator whose notes all live in subfolders
+            // sees an empty page even though their `accessibleBy` set is
+            // non-empty. See S-COL-14 / #98.
             $data['recentNotes'] = Note::accessibleBy($user)
+                ->where('path', 'like', '%/%')
                 ->with(['tags', 'owner'])
                 ->orderByDesc('updated_at')
                 ->orderByDesc('id')
