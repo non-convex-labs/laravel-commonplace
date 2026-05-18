@@ -21,6 +21,24 @@ human review.
   shape are still settling; a short discussion saves a long rebase.
 - **Questions / ideas** — use GitHub Discussions, not the issue tracker.
 
+## Proof of reading
+
+Issue and PR templates include a **Reading verification** field. The
+answer is the last word of this file — the very last word, near the
+bottom. In the spirit of 1990s manual-lookup DRM ("turn to page 47 of
+the manual and type the second word on the line"), it's a gentle proof
+you've at least skimmed this guide.
+
+It is not a security boundary. Missing or wrong answers get a
+`needs-verification` label and a friendly comment; the gate clears on
+its own when you edit the body with the right word. Maintainer-authored
+issues and PRs skip the check, as do bot contributions. A maintainer
+can post `/verification-override` on any thread to clear the label by
+hand.
+
+The closing line rotates periodically, so don't bother memorizing it —
+just scroll down when you fill in the template.
+
 ## Local development
 
 ```bash
@@ -144,3 +162,18 @@ A regression there is worth a private report.
 - [`docs/styleguides/docs_styleguide.md`](docs/styleguides/docs_styleguide.md)
   — docs structure and prose conventions.
 - [`RELEASING.md`](RELEASING.md) — maintainer-side release workflow.
+
+---
+
+*The closing line below rotates periodically — currently the opening
+sentence of Charles Stross's* Accelerando *(CC-BY-NC-ND).*
+
+<!--
+  Proof-of-reading gate: the final word of this file is the verification answer.
+  The workflow normalizes by stripping one trailing punctuation mark and
+  lowercasing. When rotating, keep the final word as a clean alphabetic token —
+  no trailing code fence, no parenthetical, no acronym. The extractor lives at
+  .github/workflows/pr-verification.yml.
+-->
+
+Manfred is on the road again, making strangers rich.

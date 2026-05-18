@@ -1,0 +1,91 @@
+name: Verification override
+
+# Maintainer escape valve: posting `/verification-override` on its own
+# line at the top of an issue or PR comment removes the
+# `needs-verification` label and reopens the thread if it was
+# auto-closed. Only OWNER / MEMBER / COLLABORATOR can trigger this.
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  override:
+    name: Clear verification gate
+    if: |
+      startsWith(github.event.comment.body, '/verification-override') &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Override
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        with:
+          script: |
+            const body = process.env.COMMENT_BODY || '';
+            const firstLine = (body.split(/\r?\n/)[0] || '').trim();
+            if (firstLine !== '/verification-override') {
+              core.info(`First line was "${firstLine}", not exactly "/verification-override"; skipping`);
+              return;
+            }
+
+            const LABEL = 'needs-verification';
+            const issueNumber = context.payload.issue.number;
+            const isPullRequest = !!context.payload.issue.pull_request;
+
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                name: LABEL,
+              });
+              core.info(`Removed ${LABEL} from #${issueNumber}`);
+            } catch (e) {
+              if (e.status !== 404) throw e;
+              core.info(`#${issueNumber} did not have the ${LABEL} label`);
+            }
+
+            if (context.payload.issue.state === 'closed') {
+              let canReopen = true;
+              if (isPullRequest) {
+                const pr = await github.rest.pulls.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: issueNumber,
+                });
+                if (pr.data.merged) canReopen = false;
+              }
+
+              if (canReopen) {
+                if (isPullRequest) {
+                  await github.rest.pulls.update({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    pull_number: issueNumber,
+                    state: 'open',
+                  });
+                } else {
+                  await github.rest.issues.update({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    state: 'open',
+                  });
+                }
+                core.info(`Reopened #${issueNumber}`);
+              }
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: 'Verification override applied. Carry on.',
+            });
