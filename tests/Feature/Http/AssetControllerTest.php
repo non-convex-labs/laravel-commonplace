@@ -70,6 +70,66 @@ class AssetControllerTest extends TestCase
         );
     }
 
+    public function test_css_route_emits_no_store_when_app_debug_is_on(): void
+    {
+        // Issue #121: with debug on (local dev, staging chasing a
+        // prod-shaped bug, etc.) the consumer is iterating on theme
+        // variables. The route must opt out of caching so refreshes
+        // actually re-fetch — filenames are unversioned, so the
+        // consumer can't add a query-string buster on their side.
+        //
+        // Symfony's HeaderBag normalises Cache-Control: it alphabetises
+        // the directives and adds `private` when `no-store` is set.
+        // Assert on directive *presence* rather than exact string match
+        // so changes in normalisation don't fail the test.
+        config(['app.debug' => true]);
+
+        $response = $this->get('/commonplace/assets/commonplace.css');
+
+        $response->assertOk();
+        $header = (string) $response->headers->get('Cache-Control');
+        $this->assertStringContainsString('no-store', $header);
+        $this->assertStringNotContainsString('max-age', $header);
+        $this->assertStringNotContainsString('public', $header);
+    }
+
+    public function test_css_route_emits_long_cache_when_app_debug_is_off(): void
+    {
+        config(['app.debug' => false]);
+
+        $response = $this->get('/commonplace/assets/commonplace.css');
+
+        $response->assertOk();
+        $header = (string) $response->headers->get('Cache-Control');
+        $this->assertStringContainsString('max-age=3600', $header);
+        $this->assertStringContainsString('public', $header);
+        $this->assertStringNotContainsString('no-store', $header);
+    }
+
+    public function test_css_cache_header_is_the_same_for_published_and_bundled(): void
+    {
+        // Regression guard: the no-store / max-age decision is keyed on
+        // app.debug, not on whether an override is present. A consumer
+        // editing the published file must see the same caching policy
+        // they'd see if no override existed.
+        config(['app.debug' => false]);
+
+        $bundledHeader = (string) $this->get('/commonplace/assets/commonplace.css')
+            ->headers->get('Cache-Control');
+
+        $this->writePublishedOverride("/* override */\n");
+
+        $publishedResponse = $this->get('/commonplace/assets/commonplace.css');
+        $publishedHeader = (string) $publishedResponse->headers->get('Cache-Control');
+
+        $this->assertSame($bundledHeader, $publishedHeader);
+        $this->assertStringContainsString('max-age=3600', $bundledHeader);
+        // Also prove the second request actually ran the controller
+        // against the freshly-written override (and wasn't memoised
+        // from the first call), so the assertSame above isn't a tautology.
+        $this->assertStringContainsString('/* override */', (string) $publishedResponse->getContent());
+    }
+
     public function test_js_route_ignores_resource_path_and_serves_bundled_copy(): void
     {
         // JS is not a published asset (no `commonplace-js` publish tag
