@@ -104,7 +104,7 @@ class ReindexNotes implements ShouldQueue
                     Log::warning('Commonplace reindex received stray embedding indices', [
                         'batch' => $batchIndex + 1,
                         'stray_indices' => $strayIndices,
-                        'expected_keys' => array_keys($batchNotes),
+                        'expected_keys' => $batchNotes->keys()->all(),
                     ]);
                 }
 

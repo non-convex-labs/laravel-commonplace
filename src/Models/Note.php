@@ -121,6 +121,9 @@ class Note extends Model
         return $this->hasMany(Link::class, 'target_note_id');
     }
 
+    /**
+     * @return HasMany<Share, $this>
+     */
     public function shares(): HasMany
     {
         return $this->hasMany(Share::class, 'note_id');
