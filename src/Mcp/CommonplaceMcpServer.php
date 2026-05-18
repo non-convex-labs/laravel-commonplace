@@ -123,7 +123,7 @@ class CommonplaceMcpServer extends Server
             // report().
             Log::warning('mcp.envelope.redacted', [
                 'class' => $throwable::class,
-                'tool' => is_array($request->params) ? ($request->params['name'] ?? null) : null,
+                'tool' => $request->params['name'] ?? null,
             ]);
 
             return $this->toolErrorEnvelope($request, $throwable);
