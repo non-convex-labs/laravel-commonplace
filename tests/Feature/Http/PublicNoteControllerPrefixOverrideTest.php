@@ -42,6 +42,13 @@ class PublicNoteControllerPrefixOverrideTest extends TestCase
         $this->get('/commonplace/share/raw/notes/welcome')
             ->assertOk()
             ->assertHeader('Content-Type', 'text/plain; charset=UTF-8');
+
+        // The named route picks up the override too — view templates that
+        // call route('commonplace.public.showRaw', ...) stay correct.
+        $this->assertSame(
+            url('/commonplace/share/raw/notes/welcome'),
+            route('commonplace.public.showRaw', ['path' => 'notes/welcome']),
+        );
     }
 
     public function test_default_public_prefix_is_not_registered_when_overridden(): void
