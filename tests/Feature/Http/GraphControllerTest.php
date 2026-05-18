@@ -109,4 +109,22 @@ class GraphControllerTest extends TestCase
 
         $response->assertNotFound();
     }
+
+    public function test_neighborhood_endpoint_returns_404_for_inaccessible_note(): void
+    {
+        // #123: an inaccessible-but-existing path must respond with the
+        // same 404 status as a never-existed path so an authenticated
+        // caller can't tell them apart by status code.
+        $stranger = User::factory()->create();
+        Note::factory()->create([
+            'user_id' => $stranger->id,
+            'path' => 'private/foreign',
+            'visibility' => 'private',
+        ]);
+
+        $response = $this->actingAs($this->owner)
+            ->getJson(route('commonplace.neighborhood', ['path' => 'private/foreign']));
+
+        $response->assertNotFound();
+    }
 }

@@ -93,9 +93,9 @@ $n = Note::where('path','projects/vault-cli')->first();
 - Step 2 throws `Illuminate\Auth\Access\AuthorizationException` ("You do not have access to this note.") — the service distinguishes "exists but you can't see it" from "doesn't exist" because in-process callers are trusted.
 - Step 3 throws `Illuminate\Database\Eloquent\ModelNotFoundException` — different class than step 2.
 - The MCP read tools collapse steps 2 and 3 into a single response (`Note not found.`) so an MCP caller can't enumerate paths. See [S-AI-07](ai-agent.md#s-ai-07--read-note-tool-returns-full-content-absent-or-inaccessible-notes-both-say-note-not-found).
-- The **authenticated web surface** is asymmetric: `GET /commonplace/projects/launch` as Bob returns **403** (inaccessible existing note), while `GET /commonplace/never-existed` returns **200** with the folder-browser fallback (non-existent path). A logged-in caller can therefore tell the two cases apart from status code alone. See the "Visibility scope" invariant in [scenarios/index.md](index.md#cross-cutting-invariants) for the surface-by-surface matrix.
+- The **authenticated web surface** also collapses after [#123](https://github.com/non-convex-labs/laravel-commonplace/issues/123): `GET /commonplace/projects/launch` as Bob and `GET /commonplace/never-existed` as Bob both return 200 with the folder-browser fallback — same shape, no enumeration distinction. The raw / download / history / graph / suggested-links routes 404 in both cases for the same reason. See the "Visibility scope" invariant in [scenarios/index.md](index.md#cross-cutting-invariants) for the full matrix.
 
-**Verify with.** Tinker the three calls and assert exception classes. The HTTP equivalent is `GET /commonplace/projects/launch` as Bob (expect 403) versus `GET /commonplace/never-existed` as Bob (expect 200 with the folder browser).
+**Verify with.** Tinker the three calls and assert exception classes. The HTTP equivalent is `GET /commonplace/projects/launch` as Bob (expect 200, folder browser) versus `GET /commonplace/never-existed` as Bob (expect 200, folder browser) — same status code, same body shape.
 
 **Source.** [services.md → readNote](../services.md#readnote), [mcp-tools.md → Visibility model](../mcp-tools.md#visibility-model).
 

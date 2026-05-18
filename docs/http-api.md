@@ -99,8 +99,13 @@ tag. See [theming.md](theming.md#publishing-the-css-source).
 Owns the vault browse/show/edit surface. Most actions take a `{path}`
 parameter, which is the note's slash-delimited path within the vault
 (e.g. `projects/2026/launch-plan`). Authorization runs through the
-`Note::accessibleBy()` scope. `ModelNotFoundException` returns 404 and
-`AuthorizationException` returns 403.
+`Note::accessibleBy()` scope. **Read** actions (`show`, `showRaw`,
+`downloadRaw`, `history`, `historyVersion`) collapse "missing" and
+"inaccessible" into a single response shape — `show` falls through
+to the folder browser (HTTP 200), the others 404. **Write** actions
+(`edit`, `update`, `destroy`) return 403 on inaccessible because the
+caller has already proven path knowledge; the explicit error is more
+useful than a forged 404 there.
 
 All read/edit actions render Blade views from `resources/views/`. You
 can publish them via `commonplace-views`. See
@@ -112,22 +117,26 @@ can publish them via `commonplace-views`. See
 in order:
 
 1. If a note exists at `{path}` and the user can read it, render it.
-2. If a note exists at `{path}` but the user cannot read it, `abort(403)`.
-3. If the note is missing and `{path}` is `journal` or `journal/*`,
-   render the journal calendar for the requested `?year`/`?month`/`?date`.
-4. Otherwise treat `{path}` as a folder and render the folder browser.
+2. If the note is missing **or** the user can't read it, and `{path}` is `journal`
+   or `journal/*`, render the journal calendar for the requested
+   `?year`/`?month`/`?date`.
+3. If the note is missing **or** the user can't read it, fall through to the
+   folder browser. The folder browser is `accessibleBy`-scoped, so the response
+   shape is the same in both cases — no status-code enumeration.
+4. (No 403 case.) The catch-all show route deliberately collapses inaccessible
+   into folder-browser fallthrough as of [#123](https://github.com/non-convex-labs/laravel-commonplace/issues/123).
+
+The other authenticated read routes (`/raw/{path}`, `/download/{path}`,
+`/history/{path}`, `/graph/neighborhood/{path}`, `/suggested-links/{path}`)
+also collapse missing and inaccessible into a single response — they 404 in
+both cases.
+
+Write actions (`/edit/{path}`, `/{path}` PUT, `/{path}` DELETE) keep returning
+403 on inaccessible by design — those callers have already proven path
+knowledge.
 
 That's why the package only registers one catch-all `GET {path}` route
 instead of separate `show`/`browse`/`journal` routes.
-
-> [!NOTE]
-> Cases 2 and 4 mean an authenticated caller can tell "exists but I can't
-> read it" (403) from "doesn't exist" (200, folder fallback) by status
-> code. That's an enumeration leak relative to the MCP and public-read
-> surfaces, which both canonicalise to "Note not found." See the
-> "Visibility scope" invariant in
-> [scenarios/index.md](scenarios/index.md#cross-cutting-invariants).
-> Behavior fix tracked in [#123](https://github.com/non-convex-labs/laravel-commonplace/issues/123).
 
 ### `POST /` (store) — validation
 

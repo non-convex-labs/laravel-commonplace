@@ -90,8 +90,11 @@ class NoteControllerTest extends TestCase
         $response->assertSee('Notes on LLMs');
     }
 
-    public function test_show_forbids_access_to_private_note_owned_by_another_user(): void
+    public function test_show_falls_through_to_folder_browser_for_inaccessible_note(): void
     {
+        // #123: an authenticated caller hitting a foreign-private note
+        // must get the same response shape as a never-existed path —
+        // otherwise the status code (403 vs 200) leaks existence.
         $stranger = User::factory()->create();
         Note::factory()->create([
             'user_id' => $stranger->id,
@@ -99,10 +102,42 @@ class NoteControllerTest extends TestCase
             'visibility' => 'private',
         ]);
 
-        $response = $this->actingAs($this->owner)
+        $inaccessible = $this->actingAs($this->owner)
             ->get(route('commonplace.show', ['path' => 'private/secret']));
+        $missing = $this->actingAs($this->owner)
+            ->get(route('commonplace.show', ['path' => 'never/existed']));
 
-        $response->assertForbidden();
+        $inaccessible->assertOk();
+        $missing->assertOk();
+
+        // Neither response renders the note view (`commonplace::show`)
+        // or edit/delete affordances; both fall into the folder browser
+        // (`commonplace::browse`). Asserting on the visible class hooks
+        // tracks the regression without binding to specific copy.
+        $inaccessible->assertDontSee('cp-show', false);
+        $missing->assertDontSee('cp-show', false);
+        $inaccessible->assertDontSee('/commonplace/edit/', false);
+        $missing->assertDontSee('/commonplace/edit/', false);
+    }
+
+    public function test_show_does_not_render_edit_or_delete_affordances_for_inaccessible_note(): void
+    {
+        // #123: prove canEdit/canDelete are NOT computed (and the view
+        // partial doesn't accidentally render their buttons) when the
+        // catch-all falls through to the folder browser.
+        $stranger = User::factory()->create();
+        Note::factory()->create([
+            'user_id' => $stranger->id,
+            'path' => 'private/leak-probe',
+            'visibility' => 'private',
+        ]);
+
+        $response = $this->actingAs($this->owner)
+            ->get(route('commonplace.show', ['path' => 'private/leak-probe']));
+
+        $response->assertOk();
+        $response->assertDontSee('cp-delete-form', false);
+        $response->assertDontSee('Edit note', false);
     }
 
     public function test_show_allows_access_to_shared_note(): void

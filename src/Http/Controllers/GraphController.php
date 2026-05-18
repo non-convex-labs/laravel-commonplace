@@ -72,7 +72,10 @@ class GraphController extends Controller
         } catch (ModelNotFoundException) {
             abort(404);
         } catch (AuthorizationException) {
-            abort(403);
+            // #123: collapse inaccessible into 404 so the neighborhood
+            // JSON endpoint can't be used to enumerate paths the caller
+            // can't read.
+            abort(404);
         }
 
         return response()->json([

@@ -85,8 +85,11 @@ class HistoryViewTest extends TestCase
         $response->assertSee('Version history');
     }
 
-    public function test_history_index_403s_for_deleted_notes_authored_by_someone_else(): void
+    public function test_history_index_404s_for_deleted_notes_authored_by_someone_else(): void
     {
+        // #123: history / historyVersion no longer 403 on inaccessible —
+        // they 404, matching the missing-path branch and the canonical
+        // "indistinguishable shape" the read surfaces converged on.
         $intruder = User::factory()->create();
 
         $this->commonplace->createNote(
@@ -101,7 +104,7 @@ class HistoryViewTest extends TestCase
 
         $this->actingAs($intruder)
             ->get(route('commonplace.history', ['path' => 'projects/private-tombstone']))
-            ->assertForbidden();
+            ->assertNotFound();
 
         // The version-detail route inherits the same gate.
         $version = NoteVersion::where('note_path', 'projects/private-tombstone')
@@ -110,7 +113,7 @@ class HistoryViewTest extends TestCase
 
         $this->actingAs($intruder)
             ->get(route('commonplace.historyVersion', ['path' => 'projects/private-tombstone', 'version' => $version->id]))
-            ->assertForbidden();
+            ->assertNotFound();
     }
 
     public function test_history_link_appears_on_note_show_page(): void
