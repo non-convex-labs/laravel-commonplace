@@ -4,10 +4,15 @@ declare(strict_types=1);
 
 namespace NonConvexLabs\Commonplace\Mcp;
 
+use Laravel\Mcp\Response;
 use Laravel\Mcp\Server;
 use Laravel\Mcp\Server\Attributes\Instructions;
 use Laravel\Mcp\Server\Attributes\Name;
 use Laravel\Mcp\Server\Attributes\Version;
+use Laravel\Mcp\Server\Exceptions\JsonRpcException;
+use Laravel\Mcp\Server\ServerContext;
+use Laravel\Mcp\Server\Transport\JsonRpcRequest;
+use Laravel\Mcp\Server\Transport\JsonRpcResponse;
 use NonConvexLabs\Commonplace\Mcp\Tools\BacklinksTool;
 use NonConvexLabs\Commonplace\Mcp\Tools\CreateNoteTool;
 use NonConvexLabs\Commonplace\Mcp\Tools\DeleteNoteTool;
@@ -24,6 +29,7 @@ use NonConvexLabs\Commonplace\Mcp\Tools\SemanticSearchTool;
 use NonConvexLabs\Commonplace\Mcp\Tools\ShortestPathTool;
 use NonConvexLabs\Commonplace\Mcp\Tools\SuggestedLinksTool;
 use NonConvexLabs\Commonplace\Mcp\Tools\UpdateNoteTool;
+use Throwable;
 
 #[Name('commonplace')]
 #[Version('0.1.0')]
@@ -72,4 +78,58 @@ class CommonplaceMcpServer extends Server
         OrphanNotesTool::class,
         SuggestedLinksTool::class,
     ];
+
+    /**
+     * Wrap `tools/call` dispatch so any unhandled exception inside a tool
+     * handler is surfaced as a JSON-RPC `result.isError` envelope (per
+     * S-AI-25 in docs/scenarios/ai-agent.md) instead of a transport-level
+     * error or HTTP 500. Protocol-level errors (parse errors, unknown
+     * method, malformed params) still propagate as `JsonRpcException` so
+     * the framework can return a proper JSON-RPC `error` response.
+     *
+     * @return iterable<JsonRpcResponse>|JsonRpcResponse
+     *
+     * @throws JsonRpcException
+     */
+    protected function runMethodHandle(JsonRpcRequest $request, ServerContext $context): iterable|JsonRpcResponse
+    {
+        if ($request->method !== 'tools/call') {
+            return parent::runMethodHandle($request, $context);
+        }
+
+        try {
+            return parent::runMethodHandle($request, $context);
+        } catch (JsonRpcException $jsonRpcException) {
+            // Protocol-level error (missing/invalid params, unknown tool, etc.).
+            // Keep as a JSON-RPC error so the transport can surface it correctly.
+            throw $jsonRpcException;
+        } catch (Throwable $throwable) {
+            // Tool handler crashed (e.g. QueryException, RuntimeException).
+            // Report so operators still see the stack, then convert to a
+            // JSON-RPC tool error envelope (HTTP 200, isError: true).
+            report($throwable);
+
+            return $this->toolErrorEnvelope($request, $throwable);
+        }
+    }
+
+    /**
+     * Build a `tools/call` response envelope that mirrors the shape
+     * produced by Laravel\Mcp\Server\Methods\CallTool when a tool returns
+     * Response::error(...). The agent client gets a single text content
+     * item with the message and `isError: true`.
+     */
+    protected function toolErrorEnvelope(JsonRpcRequest $request, Throwable $throwable): JsonRpcResponse
+    {
+        $message = $throwable->getMessage() !== ''
+            ? $throwable->getMessage()
+            : 'The tool failed to complete the request.';
+
+        return JsonRpcResponse::result($request->id, [
+            'content' => [
+                Response::error($message)->content()->toArray(),
+            ],
+            'isError' => true,
+        ]);
+    }
 }
