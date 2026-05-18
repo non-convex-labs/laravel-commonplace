@@ -646,7 +646,7 @@ Link::where('source_note_id', $note->id)->get()->pluck('target_note_id', 'target
 **Intent.** A note-taker editing in the browser can inspect prior revisions: who changed it, when, and what the content looked like at the time. The same data the MCP `history-tool` exposes is reachable from the note view.
 
 > [!NOTE]
-> Validation 2026-05-17: this scenario is **not yet implementable** — no web view exists. Service (`Commonplace::getHistory`) and MCP (`history-tool`) both expose the data; the UI surface is the gap. Tracked in [#69](https://github.com/non-convex-labs/laravel-commonplace/issues/69).
+> Validation 2026-05-17: fixed in [#92](https://github.com/non-convex-labs/laravel-commonplace/pull/92). The web view lives at `/commonplace/history/{path}` (route name `commonplace.history`) with per-revision detail at `/commonplace/history/{path}/{version}` (`commonplace.historyVersion`).
 
 **Preconditions.** Alice owns `projects/launch` and has updated it at least twice (so the history is non-trivial). At least one update has a `changed_by` user other than Alice would be ideal but not required.
 
