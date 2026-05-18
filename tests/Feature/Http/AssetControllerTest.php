@@ -146,10 +146,18 @@ class AssetControllerTest extends TestCase
 
             $response->assertOk();
             $response->assertHeader('Content-Type', 'application/javascript; charset=UTF-8');
+            $body = (string) $response->getContent();
             $this->assertStringNotContainsString(
                 'PUBLISHED-JS-MARKER',
-                (string) $response->getContent(),
+                $body,
                 'JS must always serve the bundled copy; published JS overrides are not a supported extension point.',
+            );
+            // Issue #122: positive marker so an empty body or whitespace-
+            // only response can't slip past the negative-only assertion.
+            $this->assertStringContainsString(
+                'Commonplace — knowledge graph renderer',
+                $body,
+                'The bundled JS header must be present — proves the controller served the bundled file rather than nothing at all.',
             );
         } finally {
             @unlink($jsPath);
