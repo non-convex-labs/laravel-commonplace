@@ -11,6 +11,7 @@ use Laravel\Mcp\Server\McpServiceProvider;
 use Laravel\Mcp\Server\Methods\ListTools;
 use Laravel\Mcp\Server\Transport\FakeTransporter;
 use Laravel\Mcp\Server\Transport\JsonRpcRequest;
+use Mockery;
 use NonConvexLabs\Commonplace\Mcp\CommonplaceMcpServer;
 use NonConvexLabs\Commonplace\Mcp\Tools\BacklinksTool;
 use NonConvexLabs\Commonplace\Mcp\Tools\CreateNoteTool;
@@ -33,6 +34,7 @@ use NonConvexLabs\Commonplace\Services\Commonplace;
 use NonConvexLabs\Commonplace\Tests\Fixtures\InteractsWithCommonplaceDatabase;
 use NonConvexLabs\Commonplace\Tests\Fixtures\User;
 use NonConvexLabs\Commonplace\Tests\TestCase;
+use RuntimeException;
 
 class CommonplaceMcpServerTest extends TestCase
 {
@@ -470,5 +472,42 @@ class CommonplaceMcpServerTest extends TestCase
     public function test_suggested_links_tool_requires_pgvector(): void
     {
         $this->markTestSkipped('requires pgvector — issue #1 (depends on vector distance operator)');
+    }
+
+    /**
+     * S-AI-25 regression: any Throwable escaping a tool handler — not just
+     * the domain exceptions individual tools opt to catch — must be
+     * surfaced as a JSON-RPC `result.isError` envelope at the transport
+     * level, never as an HTTP 500 / generic JSON-RPC error. See
+     * docs/scenarios/ai-agent.md → S-AI-25 and issue #110.
+     */
+    public function test_unhandled_throwable_in_tool_is_converted_to_is_error_envelope(): void
+    {
+        $mock = Mockery::mock(Commonplace::class);
+        $mock->shouldReceive('listNotes')
+            ->once()
+            ->andThrow(new RuntimeException('simulated query failure'));
+
+        $this->app->instance(Commonplace::class, $mock);
+
+        $response = CommonplaceMcpServer::actingAs($this->owner)->tool(ListTool::class, []);
+
+        // The agent client sees a structured tool error envelope, not a
+        // transport error and not a 500. The operator still gets the
+        // original exception via report() / Laravel's exception logger.
+        $response->assertHasErrors(['simulated query failure']);
+
+        // Peek at the raw JSON-RPC payload to confirm the exact envelope
+        // shape required by S-AI-25 — a `result` with `isError: true` and
+        // a single text content item, not a top-level JSON-RPC `error`.
+        $raw = (fn (): array => $this->response->toArray())
+            ->call($response);
+
+        $this->assertSame('2.0', $raw['jsonrpc']);
+        $this->assertArrayHasKey('result', $raw);
+        $this->assertArrayNotHasKey('error', $raw);
+        $this->assertTrue($raw['result']['isError']);
+        $this->assertSame('text', $raw['result']['content'][0]['type']);
+        $this->assertStringContainsString('simulated query failure', $raw['result']['content'][0]['text']);
     }
 }

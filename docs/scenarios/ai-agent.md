@@ -486,20 +486,24 @@ No mutation. No version row added.
 
 ---
 
-### S-AI-25 — Tool errors are JSON-RPC `error` responses, not 500s
+### S-AI-25 — Tool errors are JSON-RPC `result.isError` envelopes, not 500s
 
-**Intent.** Domain errors (collision, ambiguous edit, missing note, auth failure inside a write check) surface as structured tool errors. The transport stays 200 with an error payload.
+**Intent.** Both domain errors (collision, ambiguous edit, missing note, auth failure inside a write check) and unhandled tool-handler exceptions (e.g. `Illuminate\Database\QueryException`) surface as structured tool errors. The transport stays 200 with `result.isError: true` and the message in `result.content[0].text`. Operators still get the original stack via Laravel's exception reporter — only the wire response is converted.
 
-**Preconditions.** Any error-producing call (e.g. move into occupied path).
+**Preconditions.** Any error-producing call. Two flavors to cover:
+
+- Domain case: a `move-tool` call into an occupied path.
+- Unhandled case: a tool method raises a non-domain `Throwable` (use the `Commonplace` service mock in `tests/Feature/Mcp/CommonplaceMcpServerTest.php::test_unhandled_throwable_in_tool_is_converted_to_is_error_envelope` to simulate).
 
 **Steps.**
-1. Call `move-tool` into a path that already exists.
+1. Call `move-tool` into a path that already exists, then inspect the response.
+2. Force an unhandled exception inside a tool (mock the service, or hit a flavor-specific bug like the PostgreSQL recursive-CTE path from [#109](https://github.com/non-convex-labs/laravel-commonplace/issues/109)).
 
-**Expected.** JSON-RPC response with an `error` object, not a 500.
+**Expected.** Both calls return HTTP 200 with a body shaped like `{"jsonrpc":"2.0","id":"...","result":{"content":[{"type":"text","text":"<msg>"}],"isError":true}}`. Never a top-level JSON-RPC `error` object, never a 500.
 
-**Verify with.** Inspect response status + body.
+**Verify with.** Inspect response status + body. Confirm the operator log captured the original exception for the unhandled case.
 
-**Source.** `laravel/mcp` transport behavior; observed in the tests at `tests/Feature/Mcp/`.
+**Source.** `laravel/mcp` transport behavior plus `CommonplaceMcpServer::runMethodHandle()` which wraps `tools/call`; observed in the tests at `tests/Feature/Mcp/`.
 
 ---
 
