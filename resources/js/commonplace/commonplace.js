@@ -3,6 +3,9 @@
    Self-contained vanilla JS that progressively enhances the graph page.
    Requires D3 v7 to be loaded on the page (the graph view <script> tag does
    this). Reads configuration from data-* attributes on the .cp-graph root.
+
+   Sentinel: CP_JS_BUNDLED_MARKER (test-load-bearing; do not rename without
+   updating AssetControllerTest).
    ========================================================================== */
 
 (function () {

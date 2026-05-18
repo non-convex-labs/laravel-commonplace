@@ -146,10 +146,21 @@ class AssetControllerTest extends TestCase
 
             $response->assertOk();
             $response->assertHeader('Content-Type', 'application/javascript; charset=UTF-8');
+            $body = (string) $response->getContent();
             $this->assertStringNotContainsString(
                 'PUBLISHED-JS-MARKER',
-                (string) $response->getContent(),
+                $body,
                 'JS must always serve the bundled copy; published JS overrides are not a supported extension point.',
+            );
+            // Issue #122: positive sentinel so an empty body or
+            // whitespace-only response can't slip past the negative-only
+            // assertion. The sentinel string lives in a comment block
+            // labelled `Sentinel: CP_JS_BUNDLED_MARKER` in the source
+            // file specifically to be load-bearing for this test.
+            $this->assertStringContainsString(
+                'CP_JS_BUNDLED_MARKER',
+                $body,
+                'The bundled JS sentinel must be present — proves the controller served the bundled file rather than an empty body.',
             );
         } finally {
             @unlink($jsPath);
