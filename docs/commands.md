@@ -87,20 +87,20 @@ commonplace:reindex
 
 | Flag | Type | Default | Purpose |
 |---|---|---|---|
-| `--force` | bool | `false` | `UPDATE commonplace_notes SET indexed_at = NULL` on every row, then skips the cooldown filter — the job sees every note as a candidate. Required after switching driver or model. Without it, the default scope is `indexed_at IS NULL AND updated_at < now - cooldown`. |
+| `--force` | bool | `false` | `UPDATE commonplace_notes SET indexed_at = NULL` on every row, then skips the cooldown filter — the job sees every note as a candidate. Required after switching driver or model. Without it, the default scope is `(indexed_at IS NULL OR indexed_at < updated_at) AND updated_at < now - cooldown`. |
 | `--sync` | bool | `false` | Dispatch via `dispatchSync()` so the job runs inline in the current process. Without it, the job is queued and a worker must be running. |
 
 ### What gets picked up by default
 
 Without `--force`, the job only embeds notes that:
 
-- Have never been indexed (`indexed_at IS NULL`), **and**
+- Have never been indexed (`indexed_at IS NULL`) **or** have an embedding older than the content (`indexed_at < updated_at`), **and**
 - Were last touched at least `commonplace.reindex.cooldown_minutes` ago (default 60, env `COMMONPLACE_REINDEX_COOLDOWN`).
 
 The cooldown is a save-debounce. A note created or edited within the cooldown window is skipped until it settles, so a burst of saves doesn't burn one embedding request per keystroke. If you need to embed a just-created note immediately, use `--force` or wait out the cooldown.
 
 > [!NOTE]
-> A note that was already indexed and then edited (`updated_at > indexed_at`) is **not** picked up by the default invocation — the scope keys on `indexed_at IS NULL` only. Use `--force` to bring stale embeddings up to date in the meantime. Tracked in [#85](https://github.com/non-convex-labs/laravel-commonplace/issues/85).
+> The default scope catches both never-indexed notes (`indexed_at IS NULL`) and notes whose embedding has fallen behind the content (`indexed_at < updated_at`), subject to the cooldown. So an edit after first index *is* picked up on the next reindex run, once the cooldown window passes.
 
 ### Exit codes
 

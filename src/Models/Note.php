@@ -153,7 +153,11 @@ class Note extends Model
 
     public function scopeNeedsReindexing(Builder $query, int $cooldownMinutes = 60): Builder
     {
-        return $query->whereNull('indexed_at')
+        return $query
+            ->where(function (Builder $q) {
+                $q->whereNull('indexed_at')
+                    ->orWhereColumn('indexed_at', '<', 'updated_at');
+            })
             ->where('updated_at', '<', now()->subMinutes($cooldownMinutes));
     }
 
