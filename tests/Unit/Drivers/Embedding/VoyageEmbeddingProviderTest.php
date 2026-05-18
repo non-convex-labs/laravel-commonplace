@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace NonConvexLabs\Commonplace\Tests\Unit\Drivers\Embedding;
 
+use Carbon\CarbonInterval;
 use Illuminate\Http\Client\Factory as HttpClient;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Sleep;
 use NonConvexLabs\Commonplace\Drivers\Embedding\VoyageEmbeddingProvider;
+use NonConvexLabs\Commonplace\Exceptions\PartialBatchEmbeddingException;
 use NonConvexLabs\Commonplace\Tests\TestCase;
 use RuntimeException;
 
@@ -26,6 +29,11 @@ class VoyageEmbeddingProviderTest extends TestCase
 
         config()->set('commonplace.embedding.voyage.api_key', $this->apiKey);
         config()->set('commonplace.embedding.voyage.model', $this->model);
+
+        // Sleep::fake() short-circuits the retry backoff so the test
+        // suite stays fast while still asserting on the schedule of
+        // recorded sleeps below.
+        Sleep::fake();
 
         $this->provider = new VoyageEmbeddingProvider($this->app->make(HttpClient::class));
     }
@@ -217,5 +225,156 @@ class VoyageEmbeddingProviderTest extends TestCase
         ]);
 
         $this->assertSame(1024, $this->provider->dimensions());
+    }
+
+    public function test_embed_batch_retries_on_429_then_succeeds(): void
+    {
+        config()->set('commonplace.embedding.voyage.retry_max', 3);
+        config()->set('commonplace.embedding.voyage.retry_base_delay', 1.0);
+
+        Http::fake([
+            self::VOYAGE_URL => Http::sequence()
+                ->push('throttled', 429)
+                ->push('throttled', 429)
+                ->push(['data' => [['embedding' => [0.1, 0.2]]]], 200),
+        ]);
+
+        $result = $this->provider->embedBatch(['hello']);
+
+        $this->assertSame([[0.1, 0.2]], $result);
+        Http::assertSentCount(3);
+        Sleep::assertSleptTimes(2);
+    }
+
+    public function test_embed_batch_gives_up_after_retry_max_429s(): void
+    {
+        config()->set('commonplace.embedding.voyage.retry_max', 2);
+        config()->set('commonplace.embedding.voyage.retry_base_delay', 1.0);
+
+        Http::fake([
+            self::VOYAGE_URL => Http::response('throttled', 429),
+        ]);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Voyage AI API error: throttled');
+
+        try {
+            $this->provider->embedBatch(['hello']);
+        } finally {
+            // First attempt + 2 retries = 3 total requests, 2 sleeps.
+            Http::assertSentCount(3);
+            Sleep::assertSleptTimes(2);
+        }
+    }
+
+    public function test_embed_batch_does_not_retry_on_500(): void
+    {
+        config()->set('commonplace.embedding.voyage.retry_max', 3);
+
+        Http::fake([
+            self::VOYAGE_URL => Http::response('boom', 500),
+        ]);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Voyage AI API error: boom');
+
+        try {
+            $this->provider->embedBatch(['hello']);
+        } finally {
+            Http::assertSentCount(1);
+            Sleep::assertSleptTimes(0);
+        }
+    }
+
+    public function test_embed_batch_backoff_is_exponential_with_jitter(): void
+    {
+        config()->set('commonplace.embedding.voyage.retry_max', 3);
+        config()->set('commonplace.embedding.voyage.retry_base_delay', 1.0);
+
+        Http::fake([
+            self::VOYAGE_URL => Http::sequence()
+                ->push('throttled', 429)
+                ->push('throttled', 429)
+                ->push('throttled', 429)
+                ->push(['data' => [['embedding' => [0.9]]]], 200),
+        ]);
+
+        $this->provider->embedBatch(['hello']);
+
+        Http::assertSentCount(4);
+        Sleep::assertSleptTimes(3);
+
+        // Verify each recorded sleep falls in the expected exponential
+        // window: base * 2^attempt up to base * 2^attempt + 200ms jitter,
+        // rounded to the nearest millisecond by the driver. One assertion
+        // per attempt because Sleep::assertSlept matches per-interval.
+        Sleep::assertSlept(
+            static fn (CarbonInterval $i) => $i->totalMilliseconds >= 1000 && $i->totalMilliseconds <= 1200,
+        );
+        Sleep::assertSlept(
+            static fn (CarbonInterval $i) => $i->totalMilliseconds >= 2000 && $i->totalMilliseconds <= 2200,
+        );
+        Sleep::assertSlept(
+            static fn (CarbonInterval $i) => $i->totalMilliseconds >= 4000 && $i->totalMilliseconds <= 4200,
+        );
+    }
+
+    public function test_embed_batch_surfaces_partial_progress_when_second_chunk_fails(): void
+    {
+        config()->set('commonplace.embedding.voyage.retry_max', 1);
+        config()->set('commonplace.embedding.voyage.retry_base_delay', 0.001);
+
+        $texts = array_map(fn (int $i) => "text-{$i}", range(1, 130));
+        $firstChunkData = array_map(
+            fn (int $i) => ['embedding' => [$i + 0.5]],
+            range(1, 128),
+        );
+
+        Http::fake([
+            self::VOYAGE_URL => Http::sequence()
+                ->push(['data' => $firstChunkData], 200)
+                ->push('throttled', 429)
+                ->push('throttled', 429),
+        ]);
+
+        try {
+            $this->provider->embedBatch($texts);
+            $this->fail('Expected PartialBatchEmbeddingException.');
+        } catch (PartialBatchEmbeddingException $e) {
+            $this->assertCount(128, $e->completed);
+            $this->assertSame([1.5], $e->completed[0]);
+            $this->assertSame([128.5], $e->completed[127]);
+            $this->assertSame(128, $e->failedIndex);
+            $this->assertInstanceOf(RuntimeException::class, $e->getPrevious());
+        }
+    }
+
+    public function test_embed_batch_throws_runtime_when_first_chunk_fails_with_no_progress(): void
+    {
+        config()->set('commonplace.embedding.voyage.retry_max', 0);
+
+        Http::fake([
+            self::VOYAGE_URL => Http::response('throttled', 429),
+        ]);
+
+        // No prior chunk succeeded — surface the underlying RuntimeException,
+        // not a PartialBatchEmbeddingException (which would lie about progress).
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Voyage AI API error: throttled');
+
+        $this->provider->embedBatch(['hello']);
+    }
+
+    public function test_embed_batch_does_not_sleep_on_success(): void
+    {
+        Http::fake([
+            self::VOYAGE_URL => Http::response([
+                'data' => [['embedding' => [0.0]]],
+            ], 200),
+        ]);
+
+        $this->provider->embedBatch(['hello']);
+
+        Sleep::assertSleptTimes(0);
     }
 }

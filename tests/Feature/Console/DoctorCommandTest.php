@@ -375,4 +375,80 @@ class DoctorCommandTest extends TestCase
         $this->assertStringContainsString('MCP middleware', $output);
         $this->assertStringContainsString('auth', $output);
     }
+
+    public function test_embedding_provider_probe_skipped_by_default(): void
+    {
+        $recorder = new RecordingEmbeddingProvider;
+        $this->app->instance(EmbeddingProvider::class, $recorder);
+
+        Artisan::call('commonplace:doctor');
+        $output = Artisan::output();
+
+        $this->assertStringContainsString('Embedding provider probe', $output);
+        $this->assertStringContainsString('disabled', $output);
+        $this->assertSame([], $recorder->queryEmbeds);
+    }
+
+    public function test_embedding_provider_probe_runs_with_live_flag(): void
+    {
+        $recorder = new RecordingEmbeddingProvider;
+        $this->app->instance(EmbeddingProvider::class, $recorder);
+
+        Artisan::call('commonplace:doctor', ['--live' => true]);
+        $output = Artisan::output();
+
+        $this->assertSame(['doctor probe'], $recorder->queryEmbeds);
+        $this->assertStringContainsString('Embedding provider probe', $output);
+        $this->assertStringContainsString('embedQuery() returned a 3-dim vector', $output);
+    }
+
+    public function test_embedding_provider_probe_runs_when_config_flag_set(): void
+    {
+        config(['commonplace.doctor.probe_embedding_provider' => true]);
+
+        $recorder = new RecordingEmbeddingProvider;
+        $this->app->instance(EmbeddingProvider::class, $recorder);
+
+        Artisan::call('commonplace:doctor');
+        $output = Artisan::output();
+
+        $this->assertSame(['doctor probe'], $recorder->queryEmbeds);
+        $this->assertStringContainsString('embedQuery() returned a 3-dim vector', $output);
+    }
+
+    public function test_embedding_provider_probe_fails_when_provider_throws(): void
+    {
+        $throwing = new class implements EmbeddingProvider
+        {
+            public function embed(string $text): array
+            {
+                throw new \RuntimeException('upstream 401');
+            }
+
+            public function embedQuery(string $text): array
+            {
+                throw new \RuntimeException('upstream 401');
+            }
+
+            public function embedBatch(array $texts): array
+            {
+                return [];
+            }
+
+            public function dimensions(): int
+            {
+                return 1024;
+            }
+        };
+
+        $this->app->instance(EmbeddingProvider::class, $throwing);
+
+        $exit = Artisan::call('commonplace:doctor', ['--live' => true, '--exit-code' => true]);
+        $output = Artisan::output();
+
+        $this->assertSame(1, $exit);
+        $this->assertStringContainsString('Embedding provider probe', $output);
+        $this->assertStringContainsString('upstream 401', $output);
+        $this->assertStringContainsString('Live embedQuery() probe failed', $output);
+    }
 }

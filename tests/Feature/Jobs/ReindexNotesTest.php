@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
+use NonConvexLabs\Commonplace\Exceptions\PartialBatchEmbeddingException;
 use NonConvexLabs\Commonplace\Jobs\ReindexNotes;
 use NonConvexLabs\Commonplace\Models\Note;
 use NonConvexLabs\Commonplace\Tests\Fixtures\InteractsWithCommonplaceDatabase;
@@ -168,6 +169,71 @@ class ReindexNotesTest extends TestCase
                     && ($context['job'] ?? null) === ReindexNotes::class
                     && ($context['exception'] ?? null) === RuntimeException::class
                     && ($context['message'] ?? null) === 'boom';
+            });
+    }
+
+    public function test_partial_batch_exception_checkpoints_completed_notes(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-01-01 12:00:00'));
+        Log::spy();
+
+        config()->set('commonplace.reindex.batch_size', 3);
+
+        for ($i = 0; $i < 3; $i++) {
+            Note::factory()->create([
+                'updated_at' => now()->subMinutes(120),
+                'indexed_at' => null,
+            ]);
+        }
+
+        // Embedder fails on the third note after embedding the first two.
+        // The completed vectors must land on disk and the third note
+        // must keep indexed_at NULL so the next run picks it up.
+        $this->app->instance(EmbeddingProvider::class, new class implements EmbeddingProvider
+        {
+            public function embed(string $text): array
+            {
+                return [0.0];
+            }
+
+            public function embedQuery(string $text): array
+            {
+                return [0.0];
+            }
+
+            public function embedBatch(array $texts): array
+            {
+                throw new PartialBatchEmbeddingException(
+                    completed: [
+                        0 => [0.11, 0.22, 0.33],
+                        1 => [0.44, 0.55, 0.66],
+                    ],
+                    failedIndex: 2,
+                    cause: new RuntimeException('rate limited'),
+                );
+            }
+
+            public function dimensions(): int
+            {
+                return 3;
+            }
+        });
+
+        Bus::dispatchSync(new ReindexNotes);
+
+        $notes = Note::orderBy('id')->get();
+        $this->assertNotNull($notes[0]->indexed_at);
+        $this->assertNotNull($notes[1]->indexed_at);
+        $this->assertNull($notes[2]->indexed_at);
+        $this->assertSame([0.11, 0.22, 0.33], $notes[0]->embedding);
+        $this->assertSame([0.44, 0.55, 0.66], $notes[1]->embedding);
+
+        Log::shouldHaveReceived('warning')
+            ->once()
+            ->withArgs(function (string $message, array $context): bool {
+                return $message === 'Commonplace reindex batch partially failed'
+                    && ($context['completed'] ?? null) === 2
+                    && ($context['remaining'] ?? null) === 1;
             });
     }
 

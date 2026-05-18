@@ -28,6 +28,7 @@ Diagnoses your install across four areas: vector search (driver wiring, schema, 
 ```
 commonplace:doctor
     {--exit-code : Return a non-zero exit code if any check fails}
+    {--live : Exercise the embedding provider with a real embedQuery call (burns paid API quota; off by default)}
     {--pgvector-migration-precheck : Scan commonplace_notes.embedding for rows that would break the pgvector ALTER and exit}
 ```
 
@@ -36,6 +37,7 @@ commonplace:doctor
 | Flag | Type | Default | Purpose |
 |---|---|---|---|
 | `--exit-code` | bool | `false` | Return exit code 1 when any check has `fail` status. Without this, doctor always returns 0 so casual runs don't break CI. |
+| `--live` | bool | `false` | Exercise the configured embedding provider with a real `embedQuery('doctor probe')` call. Verifies API key / quota / network on top of the config-only checks. Off by default because routine doctor runs would otherwise burn paid quota. Can also be enabled globally via `COMMONPLACE_DOCTOR_PROBE_EMBEDDING=true` (config key `commonplace.doctor.probe_embedding_provider`). |
 | `--pgvector-migration-precheck` | bool | `false` | Skip the standard checks; instead scan `commonplace_notes.embedding` for rows whose value would crash the `ALTER ... USING embedding::vector(N)` cast. Lists up to 100 offending row ids. |
 
 ### Exit codes

@@ -16,6 +16,7 @@ class DoctorCommand extends Command
 {
     protected $signature = 'commonplace:doctor '
         .'{--exit-code : Return a non-zero exit code if any check fails} '
+        .'{--live : Exercise the embedding provider with a real embedQuery call (burns paid API quota; off by default)} '
         .'{--pgvector-migration-precheck : Scan commonplace_notes.embedding for rows that would break the pgvector ALTER and exit}';
 
     protected $description = 'Diagnose the Commonplace install: vector search, multi-user posture, wikilink graph, MCP auth.';
@@ -32,6 +33,7 @@ class DoctorCommand extends Command
         $checks = [
             $this->checkConfiguredDriver(),
             $this->checkEmbeddingProvider(),
+            $this->checkEmbeddingProviderProbe(),
             $this->checkDatabaseDriver($db),
             $this->checkSchema(),
             $this->checkPgvectorExtension($db),
@@ -166,6 +168,60 @@ class DoctorCommand extends Command
                 status: 'fail',
                 detail: $e->getMessage(),
                 recommendation: 'Verify commonplace.embedding.driver and provider-specific config.',
+            );
+        }
+    }
+
+    /**
+     * Live probe of the configured embedding provider. Opt-in via
+     * `--live` or `commonplace.doctor.probe_embedding_provider` because
+     * a routine doctor run would otherwise burn paid API quota on every
+     * invocation. When skipped, the row is `[SKIP]` (not absent) so the
+     * "probe disabled" state is visible. A success message includes the
+     * returned vector's length so a misconfigured driver returning
+     * empty payloads is visible without combing logs.
+     *
+     * @return array{label: string, status: string, detail: string, recommendation?: string}
+     */
+    private function checkEmbeddingProviderProbe(): array
+    {
+        $enabled = (bool) $this->option('live')
+            || (bool) config('commonplace.doctor.probe_embedding_provider', false);
+
+        if (! $enabled) {
+            return $this->report(
+                label: 'Embedding provider probe',
+                status: 'skip',
+                detail: 'disabled (pass --live or set commonplace.doctor.probe_embedding_provider=true)',
+            );
+        }
+
+        try {
+            $provider = app(EmbeddingProvider::class);
+        } catch (\Throwable $e) {
+            return $this->report(
+                label: 'Embedding provider probe',
+                status: 'fail',
+                detail: $e->getMessage(),
+                recommendation: 'Verify commonplace.embedding.driver and provider-specific config.',
+            );
+        }
+
+        try {
+            $vector = $provider->embedQuery('doctor probe');
+            $length = count($vector);
+
+            return $this->report(
+                label: 'Embedding provider probe',
+                status: 'ok',
+                detail: "embedQuery() returned a {$length}-dim vector",
+            );
+        } catch (\Throwable $e) {
+            return $this->report(
+                label: 'Embedding provider probe',
+                status: 'fail',
+                detail: $e->getMessage(),
+                recommendation: 'Live embedQuery() probe failed. Verify API key / quota / network access for the configured provider.',
             );
         }
     }

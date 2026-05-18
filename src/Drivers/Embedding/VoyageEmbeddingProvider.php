@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace NonConvexLabs\Commonplace\Drivers\Embedding;
 
 use Illuminate\Http\Client\Factory as HttpClient;
+use Illuminate\Http\Client\Response;
+use Illuminate\Support\Sleep;
 use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
+use NonConvexLabs\Commonplace\Exceptions\PartialBatchEmbeddingException;
 use RuntimeException;
 
 class VoyageEmbeddingProvider implements EmbeddingProvider
@@ -21,16 +24,7 @@ class VoyageEmbeddingProvider implements EmbeddingProvider
 
     public function embed(string $text): array
     {
-        $response = $this->http
-            ->withToken($this->apiKey())
-            ->post('https://api.voyageai.com/v1/embeddings', [
-                'input' => [$text],
-                'model' => $this->model(),
-            ]);
-
-        if ($response->failed()) {
-            throw new RuntimeException('Voyage AI API error: '.$response->body());
-        }
+        $response = $this->postWithRetry([$text]);
 
         return $response->json('data.0.embedding');
     }
@@ -39,16 +33,24 @@ class VoyageEmbeddingProvider implements EmbeddingProvider
     {
         $embeddings = [];
 
-        foreach (array_chunk($texts, 128) as $chunk) {
-            $response = $this->http
-                ->withToken($this->apiKey())
-                ->post('https://api.voyageai.com/v1/embeddings', [
-                    'input' => $chunk,
-                    'model' => $this->model(),
-                ]);
+        // We chunk in 128s and treat each chunk as its own retry unit.
+        // If a chunk still fails after retries AND prior chunks
+        // succeeded, surface them via PartialBatchEmbeddingException so
+        // the caller can checkpoint completed work instead of re-billing
+        // tokens for it on the next attempt.
+        foreach (array_chunk($texts, 128) as $chunkIndex => $chunk) {
+            try {
+                $response = $this->postWithRetry($chunk);
+            } catch (RuntimeException $e) {
+                if ($embeddings !== []) {
+                    throw new PartialBatchEmbeddingException(
+                        completed: $embeddings,
+                        failedIndex: count($embeddings),
+                        cause: $e,
+                    );
+                }
 
-            if ($response->failed()) {
-                throw new RuntimeException('Voyage AI API error: '.$response->body());
+                throw $e;
             }
 
             foreach ($response->json('data') as $item) {
@@ -62,6 +64,47 @@ class VoyageEmbeddingProvider implements EmbeddingProvider
     public function dimensions(): int
     {
         return (int) config('commonplace.embedding.voyage.dimensions', 1024);
+    }
+
+    /**
+     * @param  array<int, string>  $input
+     */
+    private function postWithRetry(array $input): Response
+    {
+        $maxRetries = (int) config('commonplace.embedding.voyage.retry_max', 3);
+        $baseDelay = (float) config('commonplace.embedding.voyage.retry_base_delay', 1.0);
+
+        $attempt = 0;
+
+        while (true) {
+            $response = $this->http
+                ->withToken($this->apiKey())
+                ->post('https://api.voyageai.com/v1/embeddings', [
+                    'input' => $input,
+                    'model' => $this->model(),
+                ]);
+
+            if (! $response->failed()) {
+                return $response;
+            }
+
+            // Only 429s are retried. Other failures (5xx, timeouts) are
+            // not necessarily transient on the same timescale and would
+            // burn quota retrying — surface them immediately so the
+            // queue-level retry on ReindexNotes handles the next attempt.
+            if ($response->status() !== 429 || $attempt >= $maxRetries) {
+                throw new RuntimeException('Voyage AI API error: '.$response->body());
+            }
+
+            $delay = min(
+                $baseDelay * (2 ** $attempt) + random_int(0, 200) / 1000,
+                30.0,
+            );
+
+            Sleep::for((int) round($delay * 1000))->milliseconds();
+
+            $attempt++;
+        }
     }
 
     private function apiKey(): string

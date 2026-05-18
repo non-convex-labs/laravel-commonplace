@@ -14,6 +14,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
 use NonConvexLabs\Commonplace\Contracts\VectorStorage;
+use NonConvexLabs\Commonplace\Exceptions\PartialBatchEmbeddingException;
 use NonConvexLabs\Commonplace\Models\Note;
 
 #[Tries(3)]
@@ -62,11 +63,12 @@ class ReindexNotes implements ShouldQueue
             }
 
             $texts = $batch->map(fn (Note $note) => $note->title."\n\n".$note->content)->all();
+            $batchNotes = $batch->values();
 
             try {
                 $embeddings = $embedder->embedBatch(array_values($texts));
 
-                foreach ($batch->values() as $index => $note) {
+                foreach ($batchNotes as $index => $note) {
                     $vector->store($note->id, $embeddings[$index]);
                     $note->forceFill(['indexed_at' => now()])->save();
                 }
@@ -74,6 +76,43 @@ class ReindexNotes implements ShouldQueue
                 Log::info('Commonplace reindex batch complete', [
                     'batch' => $batchIndex + 1,
                     'notes' => $batch->count(),
+                ]);
+            } catch (PartialBatchEmbeddingException $e) {
+                // Checkpoint what the driver did manage to embed before
+                // it gave up. The remaining notes keep `indexed_at IS
+                // NULL` so the next ReindexNotes run picks them up
+                // (queue-level Tries(3)/Backoff handles re-dispatch).
+                $strayIndices = [];
+
+                foreach ($e->completed as $index => $embedding) {
+                    if (! isset($batchNotes[$index])) {
+                        $strayIndices[] = $index;
+
+                        continue;
+                    }
+
+                    $note = $batchNotes[$index];
+                    $vector->store($note->id, $embedding);
+                    $note->forceFill(['indexed_at' => now()])->save();
+                }
+
+                if ($strayIndices !== []) {
+                    // Embeddings whose indices don't map to a batch note are
+                    // paid-for and discarded — almost certainly a driver bug
+                    // (off-by-one or wrong index basis). Log loudly so the
+                    // discrepancy is investigable instead of silently dropped.
+                    Log::warning('Commonplace reindex received stray embedding indices', [
+                        'batch' => $batchIndex + 1,
+                        'stray_indices' => $strayIndices,
+                        'expected_keys' => array_keys($batchNotes),
+                    ]);
+                }
+
+                Log::warning('Commonplace reindex batch partially failed', [
+                    'batch' => $batchIndex + 1,
+                    'completed' => count($e->completed),
+                    'remaining' => $batch->count() - count($e->completed),
+                    'error' => $e->getMessage(),
                 ]);
             } catch (\RuntimeException $e) {
                 Log::error('Commonplace reindexing failed', [
