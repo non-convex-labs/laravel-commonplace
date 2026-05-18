@@ -477,9 +477,14 @@ class Commonplace
         $note = Note::where('path', $path)->firstOrFail();
         $this->checkAccess($note, $user);
 
+        // The seed `?` and the seed inside `ARRAY[?]` must both be cast to
+        // bigint. PDO binds integer parameters as text by default, so without
+        // the cast Postgres types the recursive `note_id` column as text and
+        // the join `vl.source_note_id = g.note_id` becomes `bigint = text`,
+        // which has no operator. See issue #109.
         $results = DB::select(<<<'SQL'
             WITH RECURSIVE graph AS (
-                SELECT ? AS note_id, 0 AS depth, ARRAY[?::bigint] AS visited
+                SELECT ?::bigint AS note_id, 0 AS depth, ARRAY[?::bigint] AS visited
                 UNION ALL
                 SELECT
                     CASE
@@ -537,9 +542,13 @@ class Commonplace
         $this->checkAccess($from, $user);
         $this->checkAccess($to, $user);
 
+        // See note in getNeighborhood() — the seed `?` needs `::bigint` so the
+        // recursive `note_id` column types as bigint instead of text, otherwise
+        // the join with `commonplace_links.source_note_id` fails with
+        // `operator does not exist: bigint = text`. See issue #109.
         $results = DB::select(<<<'SQL'
             WITH RECURSIVE graph AS (
-                SELECT ? AS note_id, ARRAY[?::bigint] AS path, 0 AS depth
+                SELECT ?::bigint AS note_id, ARRAY[?::bigint] AS path, 0 AS depth
                 UNION ALL
                 SELECT
                     CASE
