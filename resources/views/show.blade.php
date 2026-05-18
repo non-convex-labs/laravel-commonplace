@@ -39,16 +39,20 @@
         </div>
 
         <div class="cp-note-actions">
-            <a href="{{ route('commonplace.edit', ['path' => $note->path]) }}">Edit</a>
+            @if ($canEdit)
+                <a href="{{ route('commonplace.edit', ['path' => $note->path]) }}">Edit</a>
+            @endif
             <a href="{{ route('commonplace.showRaw', ['path' => $note->path]) }}">View markdown</a>
             <a href="{{ route('commonplace.downloadRaw', ['path' => $note->path]) }}">Download markdown</a>
             <a href="{{ route('commonplace.history', ['path' => $note->path]) }}">History</a>
 
-            <form method="POST" action="{{ route('commonplace.destroy', ['path' => $note->path]) }}" class="cp-delete-form" onsubmit="return confirm('Delete this note? This cannot be undone.');">
-                @csrf
-                @method('DELETE')
-                <button type="submit" class="cp-delete-btn">Delete</button>
-            </form>
+            @if ($canDelete)
+                <form method="POST" action="{{ route('commonplace.destroy', ['path' => $note->path]) }}" class="cp-delete-form" onsubmit="return confirm('Delete this note? This cannot be undone.');">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="cp-delete-btn">Delete</button>
+                </form>
+            @endif
         </div>
     </header>
 

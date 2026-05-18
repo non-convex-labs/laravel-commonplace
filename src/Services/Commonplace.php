@@ -751,6 +751,39 @@ class Commonplace
         return Note::where('path', $this->normalizePath($noteOrPath))->firstOrFail();
     }
 
+    /**
+     * Public-facing wrapper around `checkAccess(..., 'write')` so views
+     * and controllers can pre-flight the same predicate the service
+     * uses to gate `updateNote`. Used to drive UI affordances without
+     * re-implementing the rule. See [[issue-98]].
+     */
+    public function canEdit(Note $note, Authenticatable $user): bool
+    {
+        try {
+            $this->checkAccess($note, $user, 'write');
+
+            return true;
+        } catch (AuthorizationException) {
+            return false;
+        }
+    }
+
+    /**
+     * Public-facing wrapper around `checkAccess(..., 'owner')`. Same
+     * rationale as `canEdit`; used by the show view to gate the Delete
+     * affordance.
+     */
+    public function canDelete(Note $note, Authenticatable $user): bool
+    {
+        try {
+            $this->checkAccess($note, $user, 'owner');
+
+            return true;
+        } catch (AuthorizationException) {
+            return false;
+        }
+    }
+
     private function checkAccess(Note $note, Authenticatable $user, string $level = 'read'): void
     {
         if ($note->user_id === $user->getAuthIdentifier()) {
