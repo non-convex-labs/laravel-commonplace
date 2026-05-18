@@ -163,11 +163,12 @@ A unique index on `(note_id, user_id)` enforces one share row per (note, user) p
 | `note()` | `BelongsTo<Note>` | The shared note. |
 | `user()` | `BelongsTo` user model | The recipient. |
 
+Use the `Commonplace` service to grant, revoke, and list shares — see [`services.md → Sharing notes`](./services.md#sharing-notes). The methods enforce permission validation and an optional owner-check before writing to `commonplace_shares`.
+
 ```php
-Share::firstOrCreate(
-    ['note_id' => $note->id, 'user_id' => $teammate->id],
-    ['permission' => 'read'],
-);
+use NonConvexLabs\Commonplace\Facades\Commonplace;
+
+Commonplace::grantShare($note, $teammate, 'read', $owner);
 ```
 
 ## Tag

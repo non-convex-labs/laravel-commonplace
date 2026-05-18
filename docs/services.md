@@ -4,7 +4,7 @@ The `Commonplace` service is the PHP API for this package. Every controller, MCP
 
 **Source files:**
 
-- [`src/Services/Commonplace.php`](../src/Services/Commonplace.php) — the main service (20 public methods + constructor)
+- [`src/Services/Commonplace.php`](../src/Services/Commonplace.php) — the main service (23 public methods + constructor)
 - [`src/Facades/Commonplace.php`](../src/Facades/Commonplace.php) — facade accessor (`commonplace` alias)
 - [`src/Services/MarkdownRenderer.php`](../src/Services/MarkdownRenderer.php)
 - [`src/Services/WikilinkParser.php`](../src/Services/WikilinkParser.php)
@@ -383,6 +383,52 @@ $suggestions = Commonplace::getSuggestedLinks(
 ```
 
 `distance` follows the driver's convention (lower = more similar for cosine). See [`vector-storage.md`](./vector-storage.md).
+
+## Sharing notes
+
+Three methods manage `Share` rows so adopters don't have to reach into the `Share` model directly.
+
+| Method | Source | Returns |
+|---|---|---|
+| `grantShare` | [Commonplace.php](../src/Services/Commonplace.php) | `Share` (idempotent — updates an existing row in place) |
+| `revokeShare` | [Commonplace.php](../src/Services/Commonplace.php) | `bool` (true if a row was deleted) |
+| `listShares` | [Commonplace.php](../src/Services/Commonplace.php) | `Collection<Share>` with the `user` relation eager-loaded |
+
+```php
+public function grantShare(
+    Note|string $noteOrPath,
+    Authenticatable $recipient,
+    string $permission,
+    ?Authenticatable $owner = null,
+): Share
+
+public function revokeShare(
+    Note|string $noteOrPath,
+    Authenticatable $recipient,
+    ?Authenticatable $owner = null,
+): bool
+
+public function listShares(
+    Note|string $noteOrPath,
+    ?Authenticatable $owner = null,
+): Collection
+```
+
+`$permission` must be `read` or `write`; anything else throws `InvalidArgumentException`. Pass `$owner` so the service verifies the caller owns the note before mutating — when `$owner` is `null` the check is skipped, which is the right shape for trusted server-side callers but the wrong shape for anything taking external input.
+
+```php
+use NonConvexLabs\Commonplace\Facades\Commonplace;
+
+Commonplace::grantShare('projects/vault-cli', $teammate, 'read', auth()->user());
+
+foreach (Commonplace::listShares('projects/vault-cli', auth()->user()) as $share) {
+    echo "{$share->user->name}: {$share->permission}\n";
+}
+
+Commonplace::revokeShare('projects/vault-cli', $teammate, auth()->user());
+```
+
+`grantShare` is idempotent: calling it twice with different `$permission` values updates the existing row rather than inserting a duplicate. The unique `(note_id, user_id)` index on `commonplace_shares` enforces the same invariant at the database layer. See [`model-relationships.md → Share`](./model-relationships.md#share) for the row schema.
 
 ## Versioning
 
