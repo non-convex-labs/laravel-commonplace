@@ -11,7 +11,7 @@ name: PR verification (trigger)
 
 on:
   pull_request:
-    types: [opened, edited]
+    types: [opened, edited, synchronize, reopened]
 
 permissions:
   contents: read
