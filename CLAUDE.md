@@ -166,9 +166,10 @@ for what to mark next.
   in nav config.
 - **Real domain nouns over `foo`/`bar`.** This is a "commonplace book" —
   use notes, vaults, references, citations.
-- **CHANGELOG entries are concrete.** A reader should be able to learn the
-  what, the why, and the impact-on-callers from one entry without clicking
-  through to the PR. Match the existing voice in [`CHANGELOG.md`](CHANGELOG.md).
+- **CHANGELOG follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/).**
+  One bullet per change, grouped under Added / Changed / Deprecated /
+  Removed / Fixed / Security. Brief — link the PR for the deep dive. Mark
+  breaking changes with an inline **BREAKING** prefix.
 
 ## Attribution for AI-assisted PRs
 
