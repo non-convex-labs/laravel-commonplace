@@ -125,6 +125,36 @@ class MarkdownCodeRangesTest extends TestCase
         $this->assertCount(1, MarkdownCodeRanges::find($content));
     }
 
+    public function test_tilde_fence_accepts_backticks_in_info_string(): void
+    {
+        // CommonMark §4.5: only backtick fences forbid backticks in info string.
+        // A `~~~ \`foo\`` opener is valid and content between fences must be masked.
+        $content = "~~~ `lang`\n[[Inside]]\n~~~\n[[Outside]]\n";
+        $ranges = MarkdownCodeRanges::find($content);
+
+        $insideOffset = (int) strpos($content, '[[Inside]]');
+        $outsideOffset = (int) strpos($content, '[[Outside]]');
+
+        $this->assertTrue(MarkdownCodeRanges::contains($ranges, $insideOffset));
+        $this->assertFalse(MarkdownCodeRanges::contains($ranges, $outsideOffset));
+    }
+
+    public function test_wikilink_immediately_after_fence_close_is_not_masked(): void
+    {
+        $content = "```\nfenced\n```\n[[Adjacent]]";
+        $ranges = MarkdownCodeRanges::find($content);
+
+        $this->assertFalse(MarkdownCodeRanges::contains($ranges, (int) strpos($content, '[[')));
+    }
+
+    public function test_wikilink_immediately_before_fence_open_is_not_masked(): void
+    {
+        $content = "[[Adjacent]]\n```\nfenced\n```\n";
+        $ranges = MarkdownCodeRanges::find($content);
+
+        $this->assertFalse(MarkdownCodeRanges::contains($ranges, (int) strpos($content, '[[')));
+    }
+
     public function test_fence_with_backtick_in_info_string_does_not_open_at_first_marker(): void
     {
         // CommonMark §4.5: backtick fences can't have backticks in info string.

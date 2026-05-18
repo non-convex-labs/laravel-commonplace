@@ -100,14 +100,15 @@ final class MarkdownCodeRanges
      */
     private static function openingFence(string $line): ?array
     {
-        // ≤3 leading spaces allowed per CommonMark §4.5.
-        if (! preg_match('/^ {0,3}(`{3,}|~{3,})([^`]*)$/u', $line, $m)) {
+        // ≤3 leading spaces allowed per CommonMark §4.5. Tilde fences
+        // accept any info string; backtick fences may not contain
+        // backticks in theirs.
+        if (! preg_match('/^ {0,3}(`{3,}|~{3,})(.*)$/u', $line, $m)) {
             return null;
         }
 
         $marker = $m[1];
 
-        // Backtick fences may not contain backticks in the info string.
         if ($marker[0] === '`' && str_contains($m[2], '`')) {
             return null;
         }

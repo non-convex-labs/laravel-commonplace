@@ -273,16 +273,6 @@ class UpdateWikilinksJobTest extends TestCase
         $this->assertSame(0, Link::count());
     }
 
-    /**
-     * Anchor-suffixed wikilinks (`[[a/b#heading]]`) are a pre-existing
-     * limitation in `WikilinkParser::resolveTarget` — they don't
-     * resolve, so the link row's `target_note_id` is NULL and the
-     * rewrite job's "links where `target_note_id = movedNoteId`" query
-     * skips them. This pins the current behavior so a future change
-     * doesn't silently start rewriting them. Issue #54 explicitly
-     * marks this out of scope; a follow-up should land anchor support
-     * and update this test.
-     */
     public function test_does_not_rewrite_wikilinks_inside_fenced_code_block(): void
     {
         $this->commonplace->createNote(
@@ -393,6 +383,16 @@ class UpdateWikilinksJobTest extends TestCase
         );
     }
 
+    /**
+     * Anchor-suffixed wikilinks (`[[a/b#heading]]`) are a pre-existing
+     * limitation in `WikilinkParser::resolveTarget` — they don't
+     * resolve, so the link row's `target_note_id` is NULL and the
+     * rewrite job's "links where `target_note_id = movedNoteId`" query
+     * skips them. This pins the current behavior so a future change
+     * doesn't silently start rewriting them. Issue #54 explicitly
+     * marks this out of scope; a follow-up should land anchor support
+     * and update this test.
+     */
     public function test_anchor_suffixed_wikilinks_are_not_rewritten_documented_out_of_scope(): void
     {
         $this->commonplace->createNote(
