@@ -86,19 +86,39 @@ When adding a new feature, write the scenarios first, then the docs, then the im
 
 Scenarios in this folder are the **spec** — they describe what the package should do. When validation against a running install finds a divergence, the scenario stays as-is and the divergence is tracked in a GitHub issue. The table below links scenarios with known gaps to the issues that own the fix.
 
-Last full pass: **2026-05-17**, against `main` (commit `bf6d762`), Laravel 13.9 + SQLite + `in_php_cosine` + Voyage (`voyage-3.5`, 1024 dim). Sandbox: [commonplace-sandbox/scripts/](https://github.com/non-convex-labs/commonplace-sandbox/tree/main/scripts) — `scenarios-note-taker.php`, `scenarios-web.py`, `scenarios-mcp.py`, `scenarios-sharing-public.py`.
+Last full pass: **2026-05-18**, against `main` (commit `541fd35`), Laravel 13.9 + Voyage (`voyage-3.5`, 1024 dim). Sandbox lives at [commonplace-sandbox](https://github.com/non-convex-labs/commonplace-sandbox) and now runs under **flavor subfolders** so we can exercise the env-flip and Postgres-only scenarios alongside the default config without disturbing it.
 
-_No known divergences as of 2026-05-18._
+| Sandbox flavor | Stack | Scenarios covered | Server |
+|---|---|---|---|
+| `main/` | SQLite + `in_php_cosine` + Voyage + MCP `auth:sanctum` + public-read on | All baseline: `scenarios-note-taker.php`, `scenarios-web.py`, `scenarios-mcp.py`, `scenarios-sharing-public.py`, `scenarios-gaps.php` (S-NOTE-19/31/32, S-COL-02/04/08/12/16-18, S-AI-06/22, S-INT-04/05/21), `scenarios-gaps2.py` (S-NOTE-01/29/30, S-AI-03/17/18/25/26, S-COL-14/15, S-PUB-01b/05/08/09). Operator scenarios S-OPS-01/02/09/10/12/13/14/26 spot-verified via artisan. | :8123 |
+| `mcp-disabled/` | `COMMONPLACE_MCP_ENABLED=false` | S-AI-02 — `POST /mcp/commonplace` returns 404 (not 405). | ephemeral :8124 |
+| `mcp-misconfig/` | `COMMONPLACE_MCP_MIDDLEWARE=""` | S-AI-05 / S-OPS-06 — doctor `[FAIL]` on MCP middleware empty; `--exit-code` exits 1. | n/a (CLI only) |
+| `public-disabled/` | `COMMONPLACE_PUBLIC_ROUTES_ENABLED=false` | S-PUB-06 — `/commonplace/public/*` returns 404 from the framework. | ephemeral :8124 |
+| `public-throttled/` | `COMMONPLACE_PUBLIC_ROUTES_MIDDLEWARE=web,throttle:30` (see [#108](https://github.com/non-convex-labs/laravel-commonplace/issues/108)) | S-PUB-07 — 30× 200, 31st 429. | ephemeral :8124 |
+| `public-prefix-share/` | `COMMONPLACE_PUBLIC_ROUTES_PREFIX=commonplace/share` | S-PUB-10 — public group moves to `/share`; the auth catch-all now reaches notes under `public/` for the owner. | ephemeral :8124 |
+| `sanctum-removed/` | `composer remove laravel/sanctum` | S-OPS-07 — doctor `[FAIL]` "auth:sanctum in stack but Laravel\\Sanctum\\Sanctum class is not loaded". | n/a |
+| `postgres/` | Postgres 17 + pgvector 0.8.2 (`podman run docker.io/pgvector/pgvector:pg17`); `COMMONPLACE_VECTOR_DRIVER=pgvector` | S-NOTE-18d / S-AI-21 / S-COL-11 — hub-notes works. S-NOTE-18a/b/c / S-AI-19 / S-AI-20 — blocked by [#109](https://github.com/non-convex-labs/laravel-commonplace/issues/109) (recursive-CTE PDO param sent as `text`); MCP transport leaks the SQLException as HTTP 500 instead of a JSON-RPC error envelope, [#110](https://github.com/non-convex-labs/laravel-commonplace/issues/110). Doctor reports all `[OK]` on pgvector wiring + dimension drift. | ephemeral :8125 |
+| `integrator-extensions/` | Published views + CSS; custom `AppServiceProvider` with extender bindings | S-INT-13 (`HeadingPermalinkExtension` in config — `heading-permalink` class lands in HTML), S-INT-14 (`Commonplace::extendMarkdown` callback runs — `[MENTION:alice]` appears), S-INT-15 (rebound `WikilinkResolver` — wikilinks render with `href="/docs/..."`), S-INT-16 (HTML-comment marker survives the override), S-INT-18 (custom `@section('commonplace.nav')` replaces topbar). S-INT-17 partial — the published CSS at `resources/css/commonplace/commonplace.css` accepts the override but the `AssetController` (`src/Http/Controllers/AssetController.php:14`) serves CSS from the **package's** `__DIR__/../../../resources/css/...`, so the published file only takes effect if the consumer builds and serves it themselves; the spec wording is misleading on this point. S-INT-19 — custom `BackupDestination` bound under a name and invoked: `RecordingDestination::push()` wrote a marker file for a 45-note bundle. S-INT-20 (custom user model) — deferred; requires a fresh schema. | ephemeral :8126 |
 
-### Closed since the last pass
+Playwright walk-through of Alice + Bob against `main/` confirmed S-NOTE-22/24, S-PUB-01b, S-COL-15 visually.
+
+_Two divergences found this pass:_
+
+- [#108](https://github.com/non-convex-labs/laravel-commonplace/issues/108) → S-PUB-07 (env parsing) — `config/commonplace.php` splits `COMMONPLACE_PUBLIC_ROUTES_MIDDLEWARE` on `,` which mangles `throttle:30,1`. Same parser is used for `COMMONPLACE_ROUTES_MIDDLEWARE` and `COMMONPLACE_MCP_MIDDLEWARE`. Workaround: drop the second arg.
+- [#109](https://github.com/non-convex-labs/laravel-commonplace/issues/109) → S-NOTE-18a/b/c, S-AI-19, S-AI-20 (Postgres) — `getNeighborhood` and `getShortestPath` send the seed `note_id` as a text PDO param, so the recursive CTE fails with `operator does not exist: bigint = text`. Fix: cast as `?::bigint`. `getHubNotes` is unaffected.
+- [#110](https://github.com/non-convex-labs/laravel-commonplace/issues/110) → S-AI-25 (MCP transport) — sister to #109. Unhandled `QueryException` in a tool implementation leaks as HTTP 500 with a bare body instead of a JSON-RPC error envelope. Discovered while exercising the failing graph tools on Postgres.
+
+Not exercised this pass: Voyage fault injection (S-OPS-24/25 — needs `Http::fake` in a feature test), backup to real GitHub (S-OPS-16/17/19), Octane (S-OPS-21 — Octane not installed), S-INT-20 (custom user model — deferred).
+
+### Closed in the 2026-05-17 pass
 
 - [#95](https://github.com/non-convex-labs/laravel-commonplace/issues/95) → S-AI-17 — `move-tool` no longer rewrites wikilinks inside code fences ([#103](https://github.com/non-convex-labs/laravel-commonplace/pull/103)).
 - [#96](https://github.com/non-convex-labs/laravel-commonplace/issues/96) → S-PUB-04 — bare `/{prefix}/public/` now 404s ([#105](https://github.com/non-convex-labs/laravel-commonplace/pull/105)).
 - [#97](https://github.com/non-convex-labs/laravel-commonplace/issues/97) → S-PUB-05, S-PUB-06 — PUT/DELETE on public URL now 405; toggle-off 404s instead of redirecting ([#106](https://github.com/non-convex-labs/laravel-commonplace/pull/106)).
-- [#98](https://github.com/non-convex-labs/laravel-commonplace/issues/98) → S-COL-14, S-COL-15 — index lists recent accessible notes; show/edit gated by ownership / write-share.
-- [#99](https://github.com/non-convex-labs/laravel-commonplace/issues/99) → S-NOTE-03, S-COL-02, S-INT-21 — two-tier exception model and S-NOTE-20 fallback documented (closed by [#100](https://github.com/non-convex-labs/laravel-commonplace/pull/100)).
+- [#98](https://github.com/non-convex-labs/laravel-commonplace/issues/98) → S-COL-14, S-COL-15 — index lists recent accessible notes; show/edit gated by ownership / write-share ([#107](https://github.com/non-convex-labs/laravel-commonplace/pull/107)).
+- [#99](https://github.com/non-convex-labs/laravel-commonplace/issues/99) → S-NOTE-03, S-COL-02, S-INT-21 — two-tier exception model and S-NOTE-20 fallback documented ([#100](https://github.com/non-convex-labs/laravel-commonplace/pull/100)).
 
-### Closed in the prior pass
+### Closed in earlier passes
 
 - [#68](https://github.com/non-convex-labs/laravel-commonplace/issues/68) → S-PUB-01, S-PUB-01b (public chrome) — fixed by [#88](https://github.com/non-convex-labs/laravel-commonplace/pull/88).
 - [#63](https://github.com/non-convex-labs/laravel-commonplace/issues/63) → S-COL-08 — `grantShare`/`revokeShare`/`listShares` shipped in [#91](https://github.com/non-convex-labs/laravel-commonplace/pull/91); see [S-COL-16](collaborator.md#s-col-16--grantshare-creates-or-updates-a-share-row-as-the-owner) / [S-COL-17](collaborator.md#s-col-17--revokeshare-deletes-the-row-and-returns-whether-one-was-removed) / [S-COL-18](collaborator.md#s-col-18--listshares-returns-the-owners-share-rows-with-recipient-eager-loaded).
