@@ -24,7 +24,24 @@ class BedrockEmbeddingProvider implements EmbeddingProvider
 
     public function embed(string $text): array
     {
-        $result = $this->client()->invokeModel($this->commandArgsFor($text));
+        // AWS SDK exceptions don't implement [[PublicMessage]] and can
+        // carry signed URLs / request IDs / region detail in their
+        // messages. Wrap them so the agent sees the same curated
+        // "bedrock unavailable" surface as the other providers (the
+        // batch path goes through PartialBatchEmbeddingException; this
+        // is the non-batch route reached by `embedQuery` →
+        // `SemanticSearchTool`).
+        try {
+            $result = $this->client()->invokeModel($this->commandArgsFor($text));
+        } catch (Throwable $e) {
+            // Allow our own curated exceptions to bubble — only the
+            // AWS-SDK / Guzzle Throwables need wrapping.
+            if ($e instanceof EmbeddingProviderUnavailable || $e instanceof EmbeddingProviderNotConfigured) {
+                throw $e;
+            }
+
+            throw new EmbeddingProviderUnavailable('bedrock', 'transport', previous: $e);
+        }
 
         return $this->decodeEmbedding($result);
     }

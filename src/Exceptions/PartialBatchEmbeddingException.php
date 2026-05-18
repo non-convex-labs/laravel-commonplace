@@ -41,11 +41,14 @@ final class PartialBatchEmbeddingException extends RuntimeException implements P
     /**
      * @param  array<int, array<int, float>>  $completed  Index → embedding vector
      * @param  int  $failedIndex  Position in the input array of the first failure
+     * @param  Throwable&PublicMessage  $cause  Must itself implement PublicMessage —
+     *                                          the intersection type makes the "curated previous chain"
+     *                                          invariant compile-time enforced rather than convention-only.
      */
     public function __construct(
         public readonly array $completed,
         public readonly int $failedIndex,
-        Throwable $cause,
+        Throwable&PublicMessage $cause,
     ) {
         parent::__construct(
             sprintf(

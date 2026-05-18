@@ -8,7 +8,6 @@ use NonConvexLabs\Commonplace\Exceptions\EmbeddingProviderUnavailable;
 use NonConvexLabs\Commonplace\Exceptions\PartialBatchEmbeddingException;
 use NonConvexLabs\Commonplace\Exceptions\PublicMessage;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 
 class PartialBatchEmbeddingExceptionTest extends TestCase
 {
@@ -29,7 +28,10 @@ class PartialBatchEmbeddingExceptionTest extends TestCase
         // for an embedding driver could carry `$response->body()` —
         // potentially the user's note content sent for embedding.
         // Verify the cause's message does not appear in the wire text.
-        $cause = new RuntimeException('user note content quoted by the provider');
+        // The cause itself must implement PublicMessage (constructor
+        // type-enforced); the curated `Unavailable` message is the
+        // only thing that could ever reach a caller via the chain.
+        $cause = new EmbeddingProviderUnavailable('voyage', 'rate_limited');
 
         $e = new PartialBatchEmbeddingException(
             completed: [[0.1], [0.2]],
@@ -41,8 +43,11 @@ class PartialBatchEmbeddingExceptionTest extends TestCase
             'Batch embedding partially failed at index 2 after 2 successes.',
             $e->getMessage(),
         );
-        $this->assertStringNotContainsString('user note content', $e->getMessage());
-        $this->assertStringNotContainsString('provider', $e->getMessage());
+        // Defensive: even the curated cause's text shouldn't be
+        // interpolated into the outer message — the outer message is
+        // index-counts only.
+        $this->assertStringNotContainsString('rate-limited', $e->getMessage());
+        $this->assertStringNotContainsString('voyage', $e->getMessage());
     }
 
     public function test_cause_is_preserved_as_previous_for_operator_report(): void

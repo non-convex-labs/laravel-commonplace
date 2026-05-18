@@ -23,6 +23,10 @@ use Throwable;
  * consistency (the MCP envelope never sees it). It still matters for
  * future surfaces that might read backup-destination errors — keeping
  * the discipline uniform avoids special cases.
+ *
+ * **Do NOT walk `getPrevious()` into agent-visible surfaces.** The
+ * chain intentionally carries operator-only detail (response bodies,
+ * URLs); the wire read goes through `getMessage()` only.
  */
 final class BackupDestinationUnavailable extends RuntimeException implements PublicMessage
 {

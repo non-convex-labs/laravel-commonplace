@@ -24,6 +24,11 @@ use Throwable;
  * envelope sanitiser never walks `$previous`, so anything downstream of
  * here stays operator-side.
  *
+ * **Do NOT walk `getPrevious()` into agent-visible surfaces.** The
+ * chain intentionally carries operator-only detail (HTTP status
+ * codes, request IDs, AWS-SDK error trails, signed URLs). The wire
+ * read goes through `getMessage()` only, which is the curated string.
+ *
  * ## Why two classes (this vs. [[EmbeddingProviderNotConfigured]])
  *
  * The classes split on retry semantics, not message shape. A caller that
