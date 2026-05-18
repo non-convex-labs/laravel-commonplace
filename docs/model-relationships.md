@@ -80,6 +80,8 @@ $note->tags()->attach(Tag::firstOrCreate(['name' => 'philosophy']));
 - **Primary key:** `id`
 - **Timestamps:** `created_at` only; `UPDATED_AT` is disabled ([`NoteVersion.php:16`](../src/Models/NoteVersion.php#L16)). Rows are immutable history.
 
+A `NoteVersion` row represents **displaced** content — a state that was once live on the `Note` row but has since been overwritten by an update or removed by a delete. Versions are not snapshots of every state: `createNote` does not write one, since the live `Note` row already is the original content. `updateNote` writes a row when `content_hash` changes (capturing the prior content), and `deleteNote` writes one final row before removing the live note. To reconstruct the full timeline for a path, read the current `Note` content alongside `note->versions()` newest-first; for deleted notes the versions persist via `note_path` after `note_id` becomes `null`.
+
 ### Columns
 
 | Column | Type | Purpose |

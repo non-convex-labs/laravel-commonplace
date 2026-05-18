@@ -101,10 +101,7 @@ $n = Note::where('path','projects/vault-cli')->first();
 
 **Intent.** Editing a note's body produces a new entry in version history, and queues it for re-embedding on the next reindex.
 
-> [!NOTE]
-> Validation 2026-05-17: the docs are ambiguous about whether `createNote` writes a row too. This scenario assumes "no — only update + delete do." Tracked in [#62](https://github.com/non-convex-labs/laravel-commonplace/issues/62) — resolve and update this scenario's preconditions.
-
-**Preconditions.** Alice owns `projects/launch` with one existing `NoteVersion` row (auto-written on create? no — only on update). Confirm: `commonplace_note_versions` has zero rows for this note after `createNote`.
+**Preconditions.** Alice owns `projects/launch`. `createNote` does not write a `NoteVersion` (versions track *displaced* content, see [model-relationships.md → NoteVersion](../model-relationships.md#noteversion)), so `commonplace_note_versions` has zero rows for this note going in.
 
 **Steps.**
 1. `Commonplace::updateNote('projects/launch', ['content' => "# Launch plan v2\n\nNew direction."], $alice);`

@@ -90,7 +90,6 @@ Last full pass: **2026-05-17**, against `main` (commit `2d3b300`), Laravel 13.9 
 
 | Scenario | Issue | Status |
 |---|---|---|
-| [S-NOTE-04](note-taker.md#s-note-04--update-writes-a-noteversion-and-clears-indexed_at) | [#62](https://github.com/non-convex-labs/laravel-commonplace/issues/62) | Spec ambiguous: does `createNote` write a `NoteVersion`? |
 | [S-PUB-01](public-visitor.md#s-pub-01--get-commonplacepublicpath-renders-public-notes) | [#68](https://github.com/non-convex-labs/laravel-commonplace/issues/68) | Public template renders authenticated owner chrome |
 | [S-PUB-04](public-visitor.md#s-pub-04--public-read-does-not-expose-listing-search-or-graph) | [#61](https://github.com/non-convex-labs/laravel-commonplace/issues/61) | `/{prefix}/public/` route precedence ambiguity |
 | [S-OPS-09](operator.md#s-ops-09--default-reindex-skips-rows-where-indexed_at--updated_at) | [#65](https://github.com/non-convex-labs/laravel-commonplace/issues/65) | 60-minute cooldown undocumented; description doesn't match actual SQL |
