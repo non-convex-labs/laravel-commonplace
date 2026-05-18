@@ -10,6 +10,7 @@ use League\CommonMark\Extension\Strikethrough\StrikethroughExtension;
 use League\CommonMark\Extension\Table\TableExtension;
 use League\CommonMark\Extension\TaskList\TaskListExtension;
 use NonConvexLabs\Commonplace\Markdown\Wikilink\WikilinkExtension;
+use NonConvexLabs\Commonplace\Support\MiddlewareList;
 
 return [
 
@@ -38,10 +39,11 @@ return [
         // create / edit / delete, search, graph). Override for Sanctum
         // SPA (cookie + statefulApi) or token-based access:
         //   COMMONPLACE_ROUTES_MIDDLEWARE=web,auth:sanctum
-        'middleware' => array_values(array_filter(array_map(
-            'trim',
-            explode(',', (string) env('COMMONPLACE_ROUTES_MIDDLEWARE', 'web,auth')),
-        ))),
+        // Parameterized middleware (e.g. `throttle:30,1`) is supported —
+        // see `MiddlewareList` for the parsing rule.
+        'middleware' => MiddlewareList::parse(
+            (string) env('COMMONPLACE_ROUTES_MIDDLEWARE', 'web,auth'),
+        ),
 
         // Public-read route group. When enabled, exposes notes with
         // `visibility = 'public'` at `{prefix}/public/{path}` without
@@ -58,10 +60,9 @@ return [
         'public' => [
             'enabled' => (bool) env('COMMONPLACE_PUBLIC_ROUTES_ENABLED', false),
             'prefix' => env('COMMONPLACE_PUBLIC_ROUTES_PREFIX'),
-            'middleware' => array_values(array_filter(array_map(
-                'trim',
-                explode(',', (string) env('COMMONPLACE_PUBLIC_ROUTES_MIDDLEWARE', 'web')),
-            ))),
+            'middleware' => MiddlewareList::parse(
+                (string) env('COMMONPLACE_PUBLIC_ROUTES_MIDDLEWARE', 'web'),
+            ),
         ],
     ],
 
@@ -275,10 +276,9 @@ return [
         // session cookies. Override per app:
         //   COMMONPLACE_MCP_MIDDLEWARE=auth:api          # Passport
         //   COMMONPLACE_MCP_MIDDLEWARE=web,auth:sanctum  # SPA cookie auth
-        'middleware' => array_values(array_filter(array_map(
-            'trim',
-            explode(',', (string) env('COMMONPLACE_MCP_MIDDLEWARE', 'auth:sanctum')),
-        ))),
+        'middleware' => MiddlewareList::parse(
+            (string) env('COMMONPLACE_MCP_MIDDLEWARE', 'auth:sanctum'),
+        ),
     ],
 
     /*

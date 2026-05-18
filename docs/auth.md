@@ -73,6 +73,20 @@ can't enumerate the private vault by probing paths. Editing, listing,
 and search aren't exposed via the public group. Those stay behind the
 authenticated routes.
 
+Rate-limit the public group with Laravel's `throttle` middleware:
+
+```dotenv
+COMMONPLACE_PUBLIC_ROUTES_MIDDLEWARE=web,throttle:30,1
+```
+
+Comma-separated env values support parameterized middleware. The parser
+splits on `,` only when the next segment looks like another middleware
+identifier, so `throttle:30,1` stays intact. The same applies to
+`COMMONPLACE_ROUTES_MIDDLEWARE` and `COMMONPLACE_MCP_MIDDLEWARE`. If you
+need `throttle`'s third *prefix* argument (`throttle:60,1,api`), set the
+stack in `config/commonplace.php` directly — the env string can't
+disambiguate a prefix from a trailing middleware name.
+
 ### Renaming the public segment
 
 The public group is registered before the authenticated catch-all, so the
