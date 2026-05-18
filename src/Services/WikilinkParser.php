@@ -7,6 +7,7 @@ namespace NonConvexLabs\Commonplace\Services;
 use NonConvexLabs\Commonplace\Contracts\WikilinkResolver;
 use NonConvexLabs\Commonplace\Markdown\Wikilink\ResolvedWikilink;
 use NonConvexLabs\Commonplace\Models\Note;
+use NonConvexLabs\Commonplace\Support\MarkdownCodeRanges;
 
 class WikilinkParser implements WikilinkResolver
 {
@@ -36,13 +37,19 @@ class WikilinkParser implements WikilinkResolver
 
     public function extractLinks(string $content): array
     {
-        if (! preg_match_all(self::PATTERN, $content, $matches)) {
+        if (! preg_match_all(self::PATTERN, $content, $matches, PREG_OFFSET_CAPTURE)) {
             return [];
         }
 
+        $codeRanges = MarkdownCodeRanges::find($content);
         $links = [];
 
-        foreach ($matches[1] as $raw) {
+        foreach ($matches[0] as $i => $full) {
+            if (MarkdownCodeRanges::contains($codeRanges, $full[1])) {
+                continue;
+            }
+
+            $raw = $matches[1][$i][0];
             $parts = explode('|', $raw, 2);
             $target = trim($parts[0]);
             $display = isset($parts[1]) ? trim($parts[1]) : $this->defaultDisplay($target);

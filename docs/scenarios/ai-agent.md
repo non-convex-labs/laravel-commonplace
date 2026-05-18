@@ -343,9 +343,6 @@ No mutation. No version row added.
 
 **Intent.** Two pre-existing limitations of `WikilinkParser::extractLinks`. The agent should know not to expect rewrites in those positions.
 
-> [!NOTE]
-> Validation 2026-05-17: the anchor-suffix limitation holds, but the **fenced-code-block limitation does not** — `[[old/path]]` inside a ```` ```text ```` fence *is* rewritten by `move-tool`. Tracked in [#95](https://github.com/non-convex-labs/laravel-commonplace/issues/95). Until that lands, the agent must treat code-fenced wikilinks as eligible for rewrite and audit accordingly.
-
 **Preconditions.** Two referring notes — one with the wikilink in a fenced code block, one with `[[old/path#heading]]`.
 
 **Steps.**
