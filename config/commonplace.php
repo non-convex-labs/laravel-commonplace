@@ -86,6 +86,14 @@ return [
             'api_key' => env('VOYAGE_API_KEY'),
             'model' => env('VOYAGE_EMBEDDING_MODEL', 'voyage-3.5'),
             'dimensions' => (int) env('VOYAGE_EMBEDDING_DIMENSIONS', 1024),
+
+            // 429 backoff knobs. The driver retries rate-limit responses
+            // with exponential backoff + jitter; other failures (5xx,
+            // timeouts) still throw immediately. `retry_max` is the
+            // number of retries AFTER the first attempt (so 3 = up to
+            // 4 total requests per chunk).
+            'retry_max' => (int) env('VOYAGE_RETRY_MAX', 3),
+            'retry_base_delay' => (float) env('VOYAGE_RETRY_BASE_DELAY', 1.0),
         ],
 
         'openai' => [
@@ -166,6 +174,20 @@ return [
         'cooldown_minutes' => (int) env('COMMONPLACE_REINDEX_COOLDOWN', 60),
         'batch_size' => (int) env('COMMONPLACE_REINDEX_BATCH_SIZE', 10),
         'batch_delay_seconds' => (int) env('COMMONPLACE_REINDEX_BATCH_DELAY', 25),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Doctor
+    |--------------------------------------------------------------------------
+    | `probe_embedding_provider` — when true, `commonplace:doctor` calls
+    | `embedQuery()` on the configured provider as part of the embedding
+    | check. The same probe is opt-in via the `--live` flag. Default is
+    | false so routine doctor runs don't burn paid API quota.
+    */
+
+    'doctor' => [
+        'probe_embedding_provider' => (bool) env('COMMONPLACE_DOCTOR_PROBE_EMBEDDING', false),
     ],
 
     /*

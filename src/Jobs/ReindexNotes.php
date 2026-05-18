@@ -14,6 +14,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
 use NonConvexLabs\Commonplace\Contracts\VectorStorage;
+use NonConvexLabs\Commonplace\Exceptions\PartialBatchEmbeddingException;
 use NonConvexLabs\Commonplace\Models\Note;
 
 #[Tries(3)]
@@ -62,11 +63,12 @@ class ReindexNotes implements ShouldQueue
             }
 
             $texts = $batch->map(fn (Note $note) => $note->title."\n\n".$note->content)->all();
+            $batchNotes = $batch->values();
 
             try {
                 $embeddings = $embedder->embedBatch(array_values($texts));
 
-                foreach ($batch->values() as $index => $note) {
+                foreach ($batchNotes as $index => $note) {
                     $vector->store($note->id, $embeddings[$index]);
                     $note->forceFill(['indexed_at' => now()])->save();
                 }
@@ -74,6 +76,27 @@ class ReindexNotes implements ShouldQueue
                 Log::info('Commonplace reindex batch complete', [
                     'batch' => $batchIndex + 1,
                     'notes' => $batch->count(),
+                ]);
+            } catch (PartialBatchEmbeddingException $e) {
+                // Checkpoint what the driver did manage to embed before
+                // it gave up. The remaining notes keep `indexed_at IS
+                // NULL` so the next ReindexNotes run picks them up
+                // (queue-level Tries(3)/Backoff handles re-dispatch).
+                foreach ($e->completed as $index => $embedding) {
+                    if (! isset($batchNotes[$index])) {
+                        continue;
+                    }
+
+                    $note = $batchNotes[$index];
+                    $vector->store($note->id, $embedding);
+                    $note->forceFill(['indexed_at' => now()])->save();
+                }
+
+                Log::warning('Commonplace reindex batch partially failed', [
+                    'batch' => $batchIndex + 1,
+                    'completed' => count($e->completed),
+                    'remaining' => $batch->count() - count($e->completed),
+                    'error' => $e->getMessage(),
                 ]);
             } catch (\RuntimeException $e) {
                 Log::error('Commonplace reindexing failed', [

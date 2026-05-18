@@ -38,14 +38,16 @@ VOYAGE_EMBEDDING_DIMENSIONS=1024
 
 ### Rate limits and failure modes
 
-The driver does not retry 429s. Any failed HTTP call — rate limit, timeout, 5xx — throws `RuntimeException` immediately. `embedBatch()` splits inputs into chunks of 128; a failure mid-iteration aborts the rest of the call and discards every chunk that already succeeded. The caller receives nothing. Unlike the [Bedrock driver](#bedrock), Voyage does not surface a `PartialBatchEmbeddingException` — `embedBatch()` fails atomically and there is no partial-progress signal.
+The driver retries 429s with exponential backoff + jitter. Each chunk of 128 inputs is retried up to `commonplace.embedding.voyage.retry_max` times (default 3 retries after the initial attempt, so up to 4 total requests per chunk). Delay between attempts is `retry_base_delay * 2^attempt + 0–200ms jitter`, capped at 30 seconds. Defaults are `VOYAGE_RETRY_MAX=3` and `VOYAGE_RETRY_BASE_DELAY=1.0` (seconds). Other failures (5xx, timeouts) still throw immediately — those are not transient on the same timescale and would burn quota retrying.
 
-Queue-level retry catches the next attempt: `ReindexNotes` carries `#[Tries(3)]` and `#[Backoff([10, 30, 120])]`. That retries the *entire batch* and is not 429-aware — a 500 looks the same as a rate-limit hit.
+Partial-batch progress is now surfaced. `embedBatch()` splits inputs into chunks of 128; if one chunk fails after retries AND at least one earlier chunk succeeded, the driver throws `PartialBatchEmbeddingException` carrying the embeddings that did complete. `ReindexNotes` catches this, checkpoints the completed notes (`indexed_at` set, vector stored), and leaves the failed remainder with `indexed_at IS NULL` so the next run picks them up — re-billing only what's left.
 
-> [!WARNING]
-> `php artisan commonplace:doctor` checks config and calls `dimensions()`, but never hits the Voyage API. `dimensions()` reads from config and never exercises the API key, so an invalid or missing key passes the doctor check and only surfaces on the first real embed. The same is true for a quota-exhausted account.
+Queue-level retry still catches the outer attempt: `ReindexNotes` carries `#[Tries(3)]` and `#[Backoff([10, 30, 120])]`. That layer retries any non-429 failure and is the safety net beneath driver-level backoff.
 
-The only knob is `COMMONPLACE_REINDEX_BATCH_DELAY` (default `25`), a flat pause between batches in the reindex job. There is no token-per-minute awareness. On a free-tier or low-quota account, lower `COMMONPLACE_REINDEX_BATCH_SIZE` to shrink the unit of retry — a queue retry redoes the entire job-level batch, so smaller batches mean less re-embedding work on the retry — and raise `COMMONPLACE_REINDEX_BATCH_DELAY` to keep average RPM under your limit.
+> [!NOTE]
+> `php artisan commonplace:doctor` does not hit the Voyage API by default — `dimensions()` reads from config and never exercises the API key. Pass `--live` (or set `COMMONPLACE_DOCTOR_PROBE_EMBEDDING=true`) to exercise the configured provider with a real `embedQuery('doctor probe')` call. Off by default so routine doctor runs don't burn paid API quota.
+
+For low-quota accounts, lower `COMMONPLACE_REINDEX_BATCH_SIZE` to shrink the unit of retry, and raise `COMMONPLACE_REINDEX_BATCH_DELAY` (default `25`) to keep average RPM under your limit. The driver-level 429 backoff handles short bursts; the reindex-level delays handle sustained rate budgets.
 
 ## OpenAI
 
