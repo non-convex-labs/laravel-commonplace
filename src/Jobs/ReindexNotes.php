@@ -82,14 +82,30 @@ class ReindexNotes implements ShouldQueue
                 // it gave up. The remaining notes keep `indexed_at IS
                 // NULL` so the next ReindexNotes run picks them up
                 // (queue-level Tries(3)/Backoff handles re-dispatch).
+                $strayIndices = [];
+
                 foreach ($e->completed as $index => $embedding) {
                     if (! isset($batchNotes[$index])) {
+                        $strayIndices[] = $index;
+
                         continue;
                     }
 
                     $note = $batchNotes[$index];
                     $vector->store($note->id, $embedding);
                     $note->forceFill(['indexed_at' => now()])->save();
+                }
+
+                if ($strayIndices !== []) {
+                    // Embeddings whose indices don't map to a batch note are
+                    // paid-for and discarded — almost certainly a driver bug
+                    // (off-by-one or wrong index basis). Log loudly so the
+                    // discrepancy is investigable instead of silently dropped.
+                    Log::warning('Commonplace reindex received stray embedding indices', [
+                        'batch' => $batchIndex + 1,
+                        'stray_indices' => $strayIndices,
+                        'expected_keys' => array_keys($batchNotes),
+                    ]);
                 }
 
                 Log::warning('Commonplace reindex batch partially failed', [
