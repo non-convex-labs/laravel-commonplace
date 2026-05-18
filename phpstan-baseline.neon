@@ -93,7 +93,13 @@ parameters:
 		-
 			message: '#^Parameter \#1 \$view of function view expects view\-string\|null, string given\.$#'
 			identifier: argument.type
-			count: 5
+			count: 7
+			path: src/Http/Controllers/NoteController.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\NoteVersion\:\:\$content\.$#'
+			identifier: property.notFound
+			count: 1
 			path: src/Http/Controllers/NoteController.php
 
 		-

@@ -93,6 +93,15 @@ Route::middleware(config('commonplace.routes.middleware', ['web', 'auth']))
             ->where('path', '.*')
             ->name('edit');
 
+        Route::get('/history/{path}/{version}', [NoteController::class, 'historyVersion'])
+            ->where('path', '.*')
+            ->where('version', '[0-9]+')
+            ->name('historyVersion');
+
+        Route::get('/history/{path}', [NoteController::class, 'history'])
+            ->where('path', '.*')
+            ->name('history');
+
         Route::put('/{path}', [NoteController::class, 'update'])
             ->where('path', '.*')
             ->name('update');
