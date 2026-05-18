@@ -32,8 +32,16 @@ Route::middleware(['web'])
 // being caught by the authenticated `{path}` catch-all (which would
 // 302 the visitor to login).
 if ($publicEnabled) {
+    // Empty-string override falls back to the default; non-empty values get
+    // their slashes normalized so leading/trailing `/` from .env don't
+    // produce `//` or trailing-slash inconsistency at registration time.
+    $rawPublicPrefix = config('commonplace.routes.public.prefix');
+    $publicPrefix = is_string($rawPublicPrefix) && trim($rawPublicPrefix, '/') !== ''
+        ? trim($rawPublicPrefix, '/')
+        : trim((string) config('commonplace.routes.prefix', 'commonplace'), '/').'/public';
+
     Route::middleware(config('commonplace.routes.public.middleware', ['web']))
-        ->prefix((string) config('commonplace.routes.prefix', 'commonplace').'/public')
+        ->prefix($publicPrefix)
         ->as('commonplace.public.')
         ->group(function (): void {
             Route::get('/raw/{path}', [PublicNoteController::class, 'showRaw'])

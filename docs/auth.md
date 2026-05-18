@@ -73,6 +73,27 @@ can't enumerate the private vault by probing paths. Editing, listing,
 and search aren't exposed via the public group. Those stay behind the
 authenticated routes.
 
+### Renaming the public segment
+
+The public group is registered before the authenticated catch-all, so the
+public segment **shadows any vault folder of the same name**. With the
+default setup, a note at vault path `public/handbook` is reachable through
+the public group (or 404s under it if `visibility != public`) instead of
+through the authenticated `{prefix}/{path}` show route. The same applies if
+you rename the segment — picking `share` shadows a folder called `share`.
+
+Set `COMMONPLACE_PUBLIC_ROUTES_PREFIX` to a full path that doesn't collide
+with any of your vault's top-level folders:
+
+```dotenv
+COMMONPLACE_PUBLIC_ROUTES_PREFIX=commonplace/share
+```
+
+The value overrides the entire public-group prefix (not just the trailing
+segment), so you can also publish at a different root — e.g.
+`COMMONPLACE_PUBLIC_ROUTES_PREFIX=p` to drop the `commonplace/` prefix from
+public URLs. Rerun `php artisan route:cache` after changing.
+
 Pair this with the [user model contract](user-model.md) for the
 `getAuthIdentifier()` and `name` requirements on the authenticated
 side.
