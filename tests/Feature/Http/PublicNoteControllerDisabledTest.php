@@ -6,6 +6,7 @@ namespace NonConvexLabs\Commonplace\Tests\Feature\Http;
 
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use NonConvexLabs\Commonplace\Models\Note;
 use NonConvexLabs\Commonplace\Tests\Fixtures\InteractsWithCommonplaceDatabase;
 use NonConvexLabs\Commonplace\Tests\Fixtures\User;
 use NonConvexLabs\Commonplace\Tests\TestCase;
@@ -64,5 +65,25 @@ class PublicNoteControllerDisabledTest extends TestCase
         $user = User::factory()->create();
 
         $this->actingAs($user)->get('/commonplace')->assertOk();
+    }
+
+    public function test_authenticated_user_with_note_under_public_path_also_gets_404(): void
+    {
+        // Documented contract: when public routes are disabled, the
+        // `<auth-prefix>/public/*` URL space is reserved package-wide.
+        // A vault note at path `public/handbook` is therefore not
+        // reachable at `/commonplace/public/handbook` even for the
+        // authenticated owner. Operators who want that vault path back
+        // can move the public group to a non-conflicting prefix via
+        // `COMMONPLACE_PUBLIC_ROUTES_PREFIX`.
+        $user = User::factory()->create();
+
+        Note::factory()->create([
+            'user_id' => $user->id,
+            'path' => 'public/handbook',
+            'visibility' => 'private',
+        ]);
+
+        $this->actingAs($user)->get('/commonplace/public/handbook')->assertNotFound();
     }
 }

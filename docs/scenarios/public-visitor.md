@@ -138,7 +138,7 @@ Assumptions:
 
 ### S-PUB-06 — With `COMMONPLACE_PUBLIC_ROUTES_ENABLED=false`, the public group isn't registered
 
-**Intent.** Public-read is opt-in. With the toggle off, all `/public/*` URLs return 404 from the framework. Sealing applies to the *default* prefix only — an overridden `COMMONPLACE_PUBLIC_ROUTES_PREFIX` sits outside the auth catch-all and doesn't need it.
+**Intent.** Public-read is opt-in. With the toggle off, all URLs under the (default *or* overridden) public prefix return 404 from the framework. The prefix is reserved package-wide regardless of toggle state — a vault note at path `public/X` is therefore not reachable via `/commonplace/public/X` even for the authenticated owner. Operators who need that vault path back can move the public group to a non-conflicting prefix via `COMMONPLACE_PUBLIC_ROUTES_PREFIX`.
 
 **Preconditions.** `COMMONPLACE_PUBLIC_ROUTES_ENABLED=false`. `public/handbook` still has `visibility=public`.
 

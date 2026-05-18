@@ -77,20 +77,35 @@ if ($publicEnabled) {
         });
 }
 
-// When the public group is OFF, seal its *default* prefix
-// (`<auth-prefix>/public/...`) with a no-middleware 404 trap. Without
-// this, URLs under `/commonplace/public/...` fall through to the auth
-// catch-all and 302 unauthenticated visitors to /login — leaking that
-// the URL space is at least handled. An overridden public prefix
-// doesn't need sealing because it sits outside the auth catch-all.
-// See S-PUB-06 / #97.
+// When the public group is OFF, seal both the *default* public prefix
+// (`<auth-prefix>/public/...`) and any custom prefix the operator
+// configured. Without these traps, URLs under those prefixes would
+// fall through to the auth catch-all and 302 unauthenticated visitors
+// to /login — leaking that the URL space is at least handled. The
+// traps run without `web` / `auth` middleware so the 404 emits
+// cleanly. See S-PUB-06 / #97.
+//
+// Note: this means a vault note at path `public/X` (or matching the
+// custom prefix) is unreachable via the authenticated catch-all even
+// when public routes are disabled. The prefix is reserved package-
+// wide. Operators who want that vault path back should set a
+// non-conflicting `COMMONPLACE_PUBLIC_ROUTES_PREFIX`.
 if (! $publicEnabled) {
-    $defaultPublicPrefix = trim((string) config('commonplace.routes.prefix', 'commonplace'), '/').'/public';
+    $disabledPrefixes = [
+        trim((string) config('commonplace.routes.prefix', 'commonplace'), '/').'/public',
+    ];
 
-    Route::prefix($defaultPublicPrefix)
-        ->group(function (): void {
-            Route::any('/{any?}', [PublicNoteController::class, 'disabled'])->where('any', '.*');
-        });
+    $rawDisabledOverride = config('commonplace.routes.public.prefix');
+    if (is_string($rawDisabledOverride) && trim($rawDisabledOverride, '/') !== '') {
+        $disabledPrefixes[] = trim($rawDisabledOverride, '/');
+    }
+
+    foreach (array_unique($disabledPrefixes) as $sealedPrefix) {
+        Route::prefix($sealedPrefix)
+            ->group(function (): void {
+                Route::any('/{any?}', [PublicNoteController::class, 'disabled'])->where('any', '.*');
+            });
+    }
 }
 
 if (! $authEnabled) {
