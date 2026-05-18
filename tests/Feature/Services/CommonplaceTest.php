@@ -856,4 +856,54 @@ class CommonplaceTest extends TestCase
             .'Covered in the host app integration tests.'
         );
     }
+
+    public function test_get_neighborhood_casts_seed_note_id_to_bigint(): void
+    {
+        // Regression guard for issue #109. Without the `?::bigint` cast on the
+        // seed, PDO sends `note_id` as text and Postgres rejects the recursive
+        // join with `operator does not exist: bigint = text`. We can't execute
+        // the recursive CTE on the SQLite test connection, so we assert the
+        // shape of the SQL literal in the source instead.
+        $this->assertSeedNoteIdCastInMethod('getNeighborhood');
+    }
+
+    public function test_get_shortest_path_casts_seed_note_id_to_bigint(): void
+    {
+        // Regression guard for issue #109 — same failure mode as
+        // getNeighborhood(). See that test for the rationale.
+        $this->assertSeedNoteIdCastInMethod('getShortestPath');
+    }
+
+    /**
+     * Assert that the recursive-CTE seed inside the given Commonplace method
+     * casts its first bound parameter to bigint, e.g.
+     * `SELECT ?::bigint AS note_id`. Reads the SQL literal out of the method
+     * source via reflection so the test does not need a live Postgres.
+     */
+    private function assertSeedNoteIdCastInMethod(string $method): void
+    {
+        $reflection = new \ReflectionMethod(Commonplace::class, $method);
+        $file = $reflection->getFileName();
+        $this->assertNotFalse($file, "Could not locate source file for Commonplace::{$method}().");
+
+        $source = file($file);
+        $this->assertNotFalse($source, "Could not read source file for Commonplace::{$method}().");
+
+        $body = implode('', array_slice(
+            $source,
+            $reflection->getStartLine() - 1,
+            $reflection->getEndLine() - $reflection->getStartLine() + 1,
+        ));
+
+        $this->assertStringContainsString(
+            'WITH RECURSIVE graph AS',
+            $body,
+            "Commonplace::{$method}() no longer contains a recursive CTE — update this regression test.",
+        );
+        $this->assertMatchesRegularExpression(
+            '/SELECT\s+\?::bigint\s+AS\s+note_id/i',
+            $body,
+            "Commonplace::{$method}() recursive CTE seed must cast `?` to bigint (Postgres rejects `bigint = text`).",
+        );
+    }
 }

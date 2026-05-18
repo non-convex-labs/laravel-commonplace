@@ -102,13 +102,16 @@ Last full pass: **2026-05-18**, against `main` (commit `541fd35`), Laravel 13.9 
 
 Playwright walk-through of Alice + Bob against `main/` confirmed S-NOTE-22/24, S-PUB-01b, S-COL-15 visually.
 
-_Two divergences found this pass:_
+_Open divergences from this pass:_
 
 - [#108](https://github.com/non-convex-labs/laravel-commonplace/issues/108) → S-PUB-07 (env parsing) — `config/commonplace.php` splits `COMMONPLACE_PUBLIC_ROUTES_MIDDLEWARE` on `,` which mangles `throttle:30,1`. Same parser is used for `COMMONPLACE_ROUTES_MIDDLEWARE` and `COMMONPLACE_MCP_MIDDLEWARE`. Workaround: drop the second arg.
-- [#109](https://github.com/non-convex-labs/laravel-commonplace/issues/109) → S-NOTE-18a/b/c, S-AI-19, S-AI-20 (Postgres) — `getNeighborhood` and `getShortestPath` send the seed `note_id` as a text PDO param, so the recursive CTE fails with `operator does not exist: bigint = text`. Fix: cast as `?::bigint`. `getHubNotes` is unaffected.
 - [#110](https://github.com/non-convex-labs/laravel-commonplace/issues/110) → S-AI-25 (MCP transport) — sister to #109. Unhandled `QueryException` in a tool implementation leaks as HTTP 500 with a bare body instead of a JSON-RPC error envelope. Discovered while exercising the failing graph tools on Postgres.
 
 Not exercised this pass: Voyage fault injection (S-OPS-24/25 — needs `Http::fake` in a feature test), backup to real GitHub (S-OPS-16/17/19), Octane (S-OPS-21 — Octane not installed), S-INT-20 (custom user model — deferred).
+
+### Closed since the 2026-05-18 multi-flavor pass
+
+- [#109](https://github.com/non-convex-labs/laravel-commonplace/issues/109) → S-NOTE-18a/b/c, S-AI-19, S-AI-20 — Postgres `getNeighborhood` / `getShortestPath` recursive CTEs now cast the seed `note_id` to `bigint`, so the join no longer fails with `operator does not exist: bigint = text`.
 
 ### Closed in the 2026-05-17 pass
 
