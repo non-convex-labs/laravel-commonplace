@@ -119,11 +119,15 @@ class AssetControllerTest extends TestCase
 
         $this->writePublishedOverride("/* override */\n");
 
-        $publishedHeader = (string) $this->get('/commonplace/assets/commonplace.css')
-            ->headers->get('Cache-Control');
+        $publishedResponse = $this->get('/commonplace/assets/commonplace.css');
+        $publishedHeader = (string) $publishedResponse->headers->get('Cache-Control');
 
         $this->assertSame($bundledHeader, $publishedHeader);
         $this->assertStringContainsString('max-age=3600', $bundledHeader);
+        // Also prove the second request actually ran the controller
+        // against the freshly-written override (and wasn't memoised
+        // from the first call), so the assertSame above isn't a tautology.
+        $this->assertStringContainsString('/* override */', (string) $publishedResponse->getContent());
     }
 
     public function test_js_route_ignores_resource_path_and_serves_bundled_copy(): void
