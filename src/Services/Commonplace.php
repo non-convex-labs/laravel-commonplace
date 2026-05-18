@@ -438,10 +438,30 @@ class Commonplace
                 ->get();
         }
 
-        return NoteVersion::where('note_path', $path)
+        // Note row is gone — share rows cascaded with it, so we can't gate
+        // on `shares`. Only users who themselves authored at least one
+        // version of this path get to read the tombstone. The creator is
+        // captured as `changed_by` on the first version; collaborators who
+        // ever wrote an update are caught the same way.
+        $versions = NoteVersion::where('note_path', $path)
             ->with('author')
             ->orderByDesc('id')
             ->get();
+
+        if ($versions->isEmpty()) {
+            return $versions;
+        }
+
+        $userId = $user->getAuthIdentifier();
+        $hasAuthoredVersion = $versions->contains(
+            fn (NoteVersion $version) => $version->changed_by === $userId,
+        );
+
+        if (! $hasAuthoredVersion) {
+            throw new AuthorizationException('You do not have access to this note\'s history.');
+        }
+
+        return $versions;
     }
 
     public function getNeighborhood(string $path, int $maxHops, Authenticatable $user): array

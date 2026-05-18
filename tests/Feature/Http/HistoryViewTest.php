@@ -85,6 +85,34 @@ class HistoryViewTest extends TestCase
         $response->assertSee('Version history');
     }
 
+    public function test_history_index_403s_for_deleted_notes_authored_by_someone_else(): void
+    {
+        $intruder = User::factory()->create();
+
+        $this->commonplace->createNote(
+            path: 'projects/private-tombstone',
+            content: '# original',
+            tags: [],
+            visibility: 'private',
+            owner: $this->owner,
+        );
+        $this->commonplace->updateNote('projects/private-tombstone', ['content' => '# v2'], $this->owner);
+        $this->commonplace->deleteNote('projects/private-tombstone', $this->owner);
+
+        $this->actingAs($intruder)
+            ->get(route('commonplace.history', ['path' => 'projects/private-tombstone']))
+            ->assertForbidden();
+
+        // The version-detail route inherits the same gate.
+        $version = NoteVersion::where('note_path', 'projects/private-tombstone')
+            ->orderByDesc('id')
+            ->first();
+
+        $this->actingAs($intruder)
+            ->get(route('commonplace.historyVersion', ['path' => 'projects/private-tombstone', 'version' => $version->id]))
+            ->assertForbidden();
+    }
+
     public function test_history_link_appears_on_note_show_page(): void
     {
         Note::factory()->create([
