@@ -28,7 +28,7 @@ The Eloquent models the package ships with, the tables behind them, and how they
 |---|---|---|
 | `id` | bigint PK | Surrogate key. |
 | `path` | string, unique | Vault-relative path; doubles as route key. |
-| `title` | string | Display title (typically the first H1). |
+| `title` | string | Display title. On `createNote`, resolved from YAML frontmatter `title:` if present, else from the basename with dashes swapped for spaces and run through `Str::title()` (e.g. `journal/2026-05-16-notes` → `2026 05 16 Notes`). No H1 parsing happens. See [`createNote`](services.md#createnote). |
 | `content` | longText | Raw markdown body. |
 | `content_hash` | string | Stable hash of `content`; drives version dedup. |
 | `visibility` | string, default `private` | `private` or `public`; consumed by `accessibleBy`. |
