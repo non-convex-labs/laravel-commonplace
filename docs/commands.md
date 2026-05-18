@@ -87,8 +87,20 @@ commonplace:reindex
 
 | Flag | Type | Default | Purpose |
 |---|---|---|---|
-| `--force` | bool | `false` | `UPDATE commonplace_notes SET indexed_at = NULL` before dispatching, so every note is re-embedded. Required after switching driver or model — without it, the job only embeds rows where `indexed_at IS NULL OR updated_at > indexed_at`. |
+| `--force` | bool | `false` | `UPDATE commonplace_notes SET indexed_at = NULL` on every row, then skips the cooldown filter — the job sees every note as a candidate. Required after switching driver or model. Without it, the default scope is `indexed_at IS NULL AND updated_at < now - cooldown`. |
 | `--sync` | bool | `false` | Dispatch via `dispatchSync()` so the job runs inline in the current process. Without it, the job is queued and a worker must be running. |
+
+### What gets picked up by default
+
+Without `--force`, the job only embeds notes that:
+
+- Have never been indexed (`indexed_at IS NULL`), **and**
+- Were last touched at least `commonplace.reindex.cooldown_minutes` ago (default 60, env `COMMONPLACE_REINDEX_COOLDOWN`).
+
+The cooldown is a save-debounce. A note created or edited within the cooldown window is skipped until it settles, so a burst of saves doesn't burn one embedding request per keystroke. If you need to embed a just-created note immediately, use `--force` or wait out the cooldown.
+
+> [!NOTE]
+> A note that was already indexed and then edited (`updated_at > indexed_at`) is **not** picked up by the default invocation — the scope keys on `indexed_at IS NULL` only. Use `--force` to bring stale embeddings up to date in the meantime. Tracked in [#85](https://github.com/non-convex-labs/laravel-commonplace/issues/85).
 
 ### Exit codes
 
