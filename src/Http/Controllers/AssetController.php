@@ -27,9 +27,20 @@ class AssetController extends Controller
 
         $contents = (string) file_get_contents($path);
 
+        // When debug is on (any environment — local dev, a staging deploy
+        // chasing a prod-shaped bug, etc.) the consumer is iterating on
+        // theme variables and needs each refresh to actually re-fetch.
+        // Filenames are unversioned, so there's no query-string buster
+        // available to them. `no-store` is sufficient and unambiguous
+        // across intermediaries; `no-cache, must-revalidate` add nothing
+        // once `no-store` is present.
+        $cacheControl = (bool) config('app.debug')
+            ? 'no-store'
+            : 'public, max-age=3600';
+
         return response($contents, 200, [
             'Content-Type' => 'text/css; charset=UTF-8',
-            'Cache-Control' => 'public, max-age=3600',
+            'Cache-Control' => $cacheControl,
         ]);
     }
 

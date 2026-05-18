@@ -45,6 +45,12 @@ no Vite step required.
 > retheme; read the bundled file under `vendor/` if you just want
 > to inspect the defaults.
 
+> [!TIP]
+> Iterating on overrides? The CSS route emits `Cache-Control:
+> no-store` when `APP_DEBUG=true`, so every refresh re-fetches.
+> When debug is off the route emits `public, max-age=3600` for
+> production.
+
 Here's a stark light/dark with a brand accent color:
 
 ```css
