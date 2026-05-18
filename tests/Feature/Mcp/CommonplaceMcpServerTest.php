@@ -4,16 +4,20 @@ declare(strict_types=1);
 
 namespace NonConvexLabs\Commonplace\Tests\Feature\Mcp;
 
+use ErrorException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\LostConnectionException;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Route;
 use Laravel\Mcp\Server\McpServiceProvider;
 use Laravel\Mcp\Server\Methods\ListTools;
 use Laravel\Mcp\Server\Transport\FakeTransporter;
 use Laravel\Mcp\Server\Transport\JsonRpcRequest;
 use Mockery;
+use NonConvexLabs\Commonplace\Exceptions\PublicMessage;
 use NonConvexLabs\Commonplace\Mcp\CommonplaceMcpServer;
 use NonConvexLabs\Commonplace\Mcp\Tools\BacklinksTool;
 use NonConvexLabs\Commonplace\Mcp\Tools\CreateNoteTool;
@@ -477,40 +481,168 @@ class CommonplaceMcpServerTest extends TestCase
     }
 
     /**
-     * S-AI-25 regression: any Throwable escaping a tool handler — not just
-     * the domain exceptions individual tools opt to catch — must be
-     * surfaced as a JSON-RPC `result.isError` envelope at the transport
-     * level, never as an HTTP 500 / generic JSON-RPC error. See
-     * docs/scenarios/ai-agent.md → S-AI-25 and issue #110.
+     * S-AI-25 regression: any Throwable escaping a tool handler — not
+     * just the domain exceptions individual tools opt to catch — must
+     * be surfaced as a JSON-RPC `result.isError` envelope at the
+     * transport level, never as an HTTP 500 / generic JSON-RPC error.
+     *
+     * Under the fail-closed allowlist (#118), an unmarked exception
+     * (here: a bare `RuntimeException` not implementing `PublicMessage`)
+     * MUST collapse to the fixed generic string — its `getMessage()`
+     * is NEVER on the wire. Operators still see the full stack via
+     * `report()`.
+     *
+     * See docs/scenarios/ai-agent.md → S-AI-25 and issues #110 / #118.
      */
     public function test_unhandled_throwable_in_tool_is_converted_to_is_error_envelope(): void
     {
         $mock = Mockery::mock(Commonplace::class);
         $mock->shouldReceive('listNotes')
             ->once()
-            ->andThrow(new RuntimeException('simulated query failure'));
+            ->andThrow(new RuntimeException('embedding provider rate-limited: voyage-3.5'));
 
         $this->app->instance(Commonplace::class, $mock);
 
         $response = CommonplaceMcpServer::actingAs($this->owner)->tool(ListTool::class, []);
 
-        // The agent client sees a structured tool error envelope, not a
-        // transport error and not a 500. The operator still gets the
-        // original exception via report() / Laravel's exception logger.
-        $response->assertHasErrors(['simulated query failure']);
-
-        // Peek at the raw JSON-RPC payload to confirm the exact envelope
-        // shape required by S-AI-25 — a `result` with `isError: true` and
-        // a single text content item, not a top-level JSON-RPC `error`.
         $raw = (fn (): array => $this->response->toArray())
             ->call($response);
 
+        // Envelope shape — required by S-AI-25.
         $this->assertSame('2.0', $raw['jsonrpc']);
         $this->assertArrayHasKey('result', $raw);
         $this->assertArrayNotHasKey('error', $raw);
         $this->assertTrue($raw['result']['isError']);
         $this->assertSame('text', $raw['result']['content'][0]['type']);
-        $this->assertStringContainsString('simulated query failure', $raw['result']['content'][0]['text']);
+
+        // Fail-closed contract (#118) — unmarked Throwables collapse.
+        $this->assertSame(
+            'The tool failed to complete the request.',
+            $raw['result']['content'][0]['text'],
+        );
+        $this->assertStringNotContainsString(
+            'voyage-3.5',
+            $raw['result']['content'][0]['text'],
+            'unmarked RuntimeException::getMessage() must not reach the wire',
+        );
+    }
+
+    /**
+     * #118 contract: exceptions that implement the [[PublicMessage]]
+     * marker interface opt their `getMessage()` into the envelope.
+     * Used by tool authors for hand-curated, agent-actionable error
+     * strings that are known not to embed PII.
+     */
+    public function test_public_message_marker_lets_exception_message_through(): void
+    {
+        $marked = new class('curated agent-actionable hint') extends RuntimeException implements PublicMessage {};
+
+        $mock = Mockery::mock(Commonplace::class);
+        $mock->shouldReceive('listNotes')->once()->andThrow($marked);
+        $this->app->instance(Commonplace::class, $mock);
+
+        $response = CommonplaceMcpServer::actingAs($this->owner)->tool(ListTool::class, []);
+
+        $raw = (fn (): array => $this->response->toArray())->call($response);
+
+        $this->assertTrue($raw['result']['isError']);
+        $this->assertSame(
+            'curated agent-actionable hint',
+            $raw['result']['content'][0]['text'],
+        );
+    }
+
+    /**
+     * #118 regression: `ErrorException` from PHP's filesystem builtins
+     * (`file_get_contents`, `fopen`) embeds the absolute path of the
+     * file the call tried to access. Before the fail-closed sanitiser
+     * that path would land verbatim in the agent client's view of the
+     * tool error, leaking host filesystem layout. The envelope now
+     * collapses to the generic string; the operator still gets the
+     * full ErrorException via `report()`.
+     */
+    public function test_error_exception_with_filesystem_path_is_redacted(): void
+    {
+        $leakyPath = '/var/www/secrets/app-bearer-token.txt';
+        $errorException = new ErrorException(
+            "file_get_contents({$leakyPath}): Failed to open stream: No such file or directory",
+            severity: E_WARNING,
+        );
+
+        $mock = Mockery::mock(Commonplace::class);
+        $mock->shouldReceive('listNotes')->once()->andThrow($errorException);
+        $this->app->instance(Commonplace::class, $mock);
+
+        $response = CommonplaceMcpServer::actingAs($this->owner)->tool(ListTool::class, []);
+
+        $raw = (fn (): array => $this->response->toArray())->call($response);
+        $envelopeText = $raw['result']['content'][0]['text'];
+
+        $this->assertTrue($raw['result']['isError']);
+        $this->assertSame('The tool failed to complete the request.', $envelopeText);
+        $this->assertStringNotContainsString($leakyPath, $envelopeText);
+        $this->assertStringNotContainsString('/var/www', $envelopeText);
+        $this->assertStringNotContainsString('app-bearer-token', $envelopeText);
+    }
+
+    /**
+     * #118 regression: Laravel's `ConnectionException` (and
+     * Guzzle/Symfony HTTP client exceptions in general) embed the
+     * full request URL — including internal hostnames, paths, and
+     * signed query strings that can carry bearer tokens. The
+     * fail-closed envelope strips all of it.
+     */
+    public function test_http_client_exception_with_url_is_redacted(): void
+    {
+        $leakyUrl = 'https://internal.example.com/v1/keys?token=AKIA-secret&signature=abc123';
+        $httpException = new ConnectionException(
+            "cURL error 6: Could not resolve host: internal.example.com (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for {$leakyUrl}",
+        );
+
+        $mock = Mockery::mock(Commonplace::class);
+        $mock->shouldReceive('listNotes')->once()->andThrow($httpException);
+        $this->app->instance(Commonplace::class, $mock);
+
+        $response = CommonplaceMcpServer::actingAs($this->owner)->tool(ListTool::class, []);
+
+        $raw = (fn (): array => $this->response->toArray())->call($response);
+        $envelopeText = $raw['result']['content'][0]['text'];
+
+        $this->assertTrue($raw['result']['isError']);
+        $this->assertSame('The tool failed to complete the request.', $envelopeText);
+        $this->assertStringNotContainsString('internal.example.com', $envelopeText);
+        $this->assertStringNotContainsString('AKIA-secret', $envelopeText);
+        $this->assertStringNotContainsString('token=', $envelopeText);
+    }
+
+    /**
+     * #118 regression: Eloquent's `ModelNotFoundException::getMessage()`
+     * reads "No query results for model [App\Models\Note] {id}",
+     * leaking the consumer's model namespace. Tools normally catch
+     * this internally and collapse to "Note not found." (see the
+     * `*_collapses_inaccessible_into_not_found` tests above), but if
+     * one bubbles past — e.g. a relation `firstOrFail` inside a service
+     * method — the envelope must NOT carry the class name through.
+     */
+    public function test_model_not_found_exception_with_class_name_is_redacted(): void
+    {
+        $modelClass = 'App\\Models\\InternalAuditLog';
+        $modelException = (new ModelNotFoundException)->setModel($modelClass);
+
+        $mock = Mockery::mock(Commonplace::class);
+        $mock->shouldReceive('listNotes')->once()->andThrow($modelException);
+        $this->app->instance(Commonplace::class, $mock);
+
+        $response = CommonplaceMcpServer::actingAs($this->owner)->tool(ListTool::class, []);
+
+        $raw = (fn (): array => $this->response->toArray())->call($response);
+        $envelopeText = $raw['result']['content'][0]['text'];
+
+        $this->assertTrue($raw['result']['isError']);
+        $this->assertSame('The tool failed to complete the request.', $envelopeText);
+        $this->assertStringNotContainsString('InternalAuditLog', $envelopeText);
+        $this->assertStringNotContainsString('App\\Models', $envelopeText);
+        $this->assertStringNotContainsString('No query results', $envelopeText);
     }
 
     /**
