@@ -60,12 +60,52 @@
                 </div>
             </article>
         @empty
-            @if (count($subfolders) === 0)
+            @if (count($subfolders) === 0 && (! isset($recentNotes) || $recentNotes->isEmpty()))
                 <div class="cp-empty">
                     <p>Your vault is empty. <a href="{{ route('commonplace.create') }}">Create your first note.</a></p>
                 </div>
             @endif
         @endforelse
     </div>
+
+    @isset ($recentNotes)
+        @if ($recentNotes->isNotEmpty())
+            <section class="cp-recent" aria-labelledby="cp-recent-heading">
+                <h2 id="cp-recent-heading">Recent in folders</h2>
+                <ul class="cp-note-list" role="list">
+                    @foreach ($recentNotes as $note)
+                        <li class="cp-note-card">
+                            <div class="cp-note-card-content">
+                                <h3><a href="{{ route('commonplace.show', ['path' => $note->path]) }}" class="cp-note-card-link">{{ $note->title }}</a></h3>
+
+                                <nav class="cp-note-path" aria-label="Note path">
+                                    @foreach (explode('/', $note->path) as $segment)
+                                        @if (! $loop->first)
+                                            <span aria-hidden="true">/</span>
+                                        @endif
+                                        <span>{{ $segment }}</span>
+                                    @endforeach
+                                </nav>
+
+                                @if ($note->tags->isNotEmpty())
+                                    <ul class="cp-tag-list" role="list" aria-label="Tags">
+                                        @foreach ($note->tags as $tag)
+                                            <li class="cp-tag">{{ $tag->name }}</li>
+                                        @endforeach
+                                    </ul>
+                                @endif
+
+                                @if ($note->updated_at)
+                                    <time datetime="{{ $note->updated_at->toIso8601String() }}">
+                                        Updated {{ $note->updated_at->diffForHumans() }}
+                                    </time>
+                                @endif
+                            </div>
+                        </li>
+                    @endforeach
+                </ul>
+            </section>
+        @endif
+    @endisset
 </section>
 @endsection

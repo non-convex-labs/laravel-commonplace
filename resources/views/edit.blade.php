@@ -62,10 +62,12 @@
         </div>
     </form>
 
-    <form method="POST" action="{{ route('commonplace.destroy', ['path' => $note->path]) }}" class="cp-delete-section" onsubmit="return confirm('Delete this note? This cannot be undone.');">
-        @csrf
-        @method('DELETE')
-        <button type="submit" class="cp-delete-btn">Delete this note</button>
-    </form>
+    @if ($canDelete)
+        <form method="POST" action="{{ route('commonplace.destroy', ['path' => $note->path]) }}" class="cp-delete-section" onsubmit="return confirm('Delete this note? This cannot be undone.');">
+            @csrf
+            @method('DELETE')
+            <button type="submit" class="cp-delete-btn">Delete this note</button>
+        </form>
+    @endif
 </section>
 @endsection

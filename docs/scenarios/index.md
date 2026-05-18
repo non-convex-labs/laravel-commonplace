@@ -88,13 +88,17 @@ Scenarios in this folder are the **spec** — they describe what the package sho
 
 Last full pass: **2026-05-17**, against `main` (commit `bf6d762`), Laravel 13.9 + SQLite + `in_php_cosine` + Voyage (`voyage-3.5`, 1024 dim). Sandbox: [commonplace-sandbox/scripts/](https://github.com/non-convex-labs/commonplace-sandbox/tree/main/scripts) — `scenarios-note-taker.php`, `scenarios-web.py`, `scenarios-mcp.py`, `scenarios-sharing-public.py`.
 
-| Scenario | Issue | Status |
-|---|---|---|
-| [S-COL-14](collaborator.md#s-col-14--collaborators-index-lists-owned--shared--public-notes-intermixed), [S-COL-15](collaborator.md#s-col-15--edit-link-is-absent-for-shared-notes-the-caller-cant-write) | [#98](https://github.com/non-convex-labs/laravel-commonplace/issues/98) | Web UI doesn't gate non-owner edit/delete; non-owner index recent-notes empty |
+_No known divergences as of 2026-05-18._
 
-When a fix lands, the linked scenario gets the `> [!NOTE]` annotation removed and this row drops from the table.
+### Closed since the last pass
 
-### Closed in this pass
+- [#95](https://github.com/non-convex-labs/laravel-commonplace/issues/95) → S-AI-17 — `move-tool` no longer rewrites wikilinks inside code fences ([#103](https://github.com/non-convex-labs/laravel-commonplace/pull/103)).
+- [#96](https://github.com/non-convex-labs/laravel-commonplace/issues/96) → S-PUB-04 — bare `/{prefix}/public/` now 404s ([#105](https://github.com/non-convex-labs/laravel-commonplace/pull/105)).
+- [#97](https://github.com/non-convex-labs/laravel-commonplace/issues/97) → S-PUB-05, S-PUB-06 — PUT/DELETE on public URL now 405; toggle-off 404s instead of redirecting ([#106](https://github.com/non-convex-labs/laravel-commonplace/pull/106)).
+- [#98](https://github.com/non-convex-labs/laravel-commonplace/issues/98) → S-COL-14, S-COL-15 — index lists recent accessible notes; show/edit gated by ownership / write-share.
+- [#99](https://github.com/non-convex-labs/laravel-commonplace/issues/99) → S-NOTE-03, S-COL-02, S-INT-21 — two-tier exception model and S-NOTE-20 fallback documented (closed by [#100](https://github.com/non-convex-labs/laravel-commonplace/pull/100)).
+
+### Closed in the prior pass
 
 - [#68](https://github.com/non-convex-labs/laravel-commonplace/issues/68) → S-PUB-01, S-PUB-01b (public chrome) — fixed by [#88](https://github.com/non-convex-labs/laravel-commonplace/pull/88).
 - [#63](https://github.com/non-convex-labs/laravel-commonplace/issues/63) → S-COL-08 — `grantShare`/`revokeShare`/`listShares` shipped in [#91](https://github.com/non-convex-labs/laravel-commonplace/pull/91); see [S-COL-16](collaborator.md#s-col-16--grantshare-creates-or-updates-a-share-row-as-the-owner) / [S-COL-17](collaborator.md#s-col-17--revokeshare-deletes-the-row-and-returns-whether-one-was-removed) / [S-COL-18](collaborator.md#s-col-18--listshares-returns-the-owners-share-rows-with-recipient-eager-loaded).

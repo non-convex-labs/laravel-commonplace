@@ -247,6 +247,191 @@ class NoteControllerTest extends TestCase
         $response->assertForbidden();
     }
 
+    public function test_edit_forbids_read_share_recipient(): void
+    {
+        // Regression for #98 / S-COL-15. A `permission=read` share lets
+        // a collaborator past `readNote` but the edit form must not be
+        // reachable — only `permission=write` shares should open it.
+        $recipient = User::factory()->create();
+        $note = Note::factory()->create([
+            'user_id' => $this->owner->id,
+            'path' => 'references/shared-doc',
+            'visibility' => 'private',
+        ]);
+        Share::create([
+            'note_id' => $note->id,
+            'user_id' => $recipient->id,
+            'permission' => 'read',
+        ]);
+
+        $response = $this->actingAs($recipient)
+            ->get(route('commonplace.edit', ['path' => 'references/shared-doc']));
+
+        $response->assertForbidden();
+    }
+
+    public function test_edit_allows_write_share_recipient(): void
+    {
+        $recipient = User::factory()->create();
+        $note = Note::factory()->create([
+            'user_id' => $this->owner->id,
+            'path' => 'references/shared-doc',
+            'content' => 'Body.',
+            'visibility' => 'private',
+        ]);
+        Share::create([
+            'note_id' => $note->id,
+            'user_id' => $recipient->id,
+            'permission' => 'write',
+        ]);
+
+        $response = $this->actingAs($recipient)
+            ->get(route('commonplace.edit', ['path' => 'references/shared-doc']));
+
+        $response->assertOk();
+        $response->assertSee('Body.');
+    }
+
+    public function test_edit_forbids_public_visitor_who_is_not_owner(): void
+    {
+        // A public-visibility note is readable by anyone (via `readNote`),
+        // but the edit form must still be owner/write-share gated.
+        $visitor = User::factory()->create();
+        Note::factory()->create([
+            'user_id' => $this->owner->id,
+            'path' => 'public/handbook',
+            'visibility' => 'public',
+        ]);
+
+        $response = $this->actingAs($visitor)
+            ->get(route('commonplace.edit', ['path' => 'public/handbook']));
+
+        $response->assertForbidden();
+    }
+
+    public function test_show_renders_edit_and_delete_for_owner(): void
+    {
+        Note::factory()->create([
+            'user_id' => $this->owner->id,
+            'path' => 'topics/mine',
+            'visibility' => 'private',
+        ]);
+
+        $response = $this->actingAs($this->owner)
+            ->get(route('commonplace.show', ['path' => 'topics/mine']));
+
+        $response->assertOk();
+        $response->assertSee('/commonplace/edit/topics/mine', false);
+        $response->assertSee('cp-delete-form');
+    }
+
+    public function test_show_hides_edit_and_delete_for_read_share_recipient(): void
+    {
+        $recipient = User::factory()->create();
+        $note = Note::factory()->create([
+            'user_id' => $this->owner->id,
+            'path' => 'references/shared-doc',
+            'visibility' => 'private',
+        ]);
+        Share::create([
+            'note_id' => $note->id,
+            'user_id' => $recipient->id,
+            'permission' => 'read',
+        ]);
+
+        $response = $this->actingAs($recipient)
+            ->get(route('commonplace.show', ['path' => 'references/shared-doc']));
+
+        $response->assertOk();
+        $response->assertDontSee('/commonplace/edit/references/shared-doc', false);
+        $response->assertDontSee('cp-delete-form');
+    }
+
+    public function test_show_shows_edit_but_hides_delete_for_write_share_recipient(): void
+    {
+        $recipient = User::factory()->create();
+        $note = Note::factory()->create([
+            'user_id' => $this->owner->id,
+            'path' => 'references/shared-doc',
+            'visibility' => 'private',
+        ]);
+        Share::create([
+            'note_id' => $note->id,
+            'user_id' => $recipient->id,
+            'permission' => 'write',
+        ]);
+
+        $response = $this->actingAs($recipient)
+            ->get(route('commonplace.show', ['path' => 'references/shared-doc']));
+
+        $response->assertOk();
+        $response->assertSee('/commonplace/edit/references/shared-doc', false);
+        $response->assertDontSee('cp-delete-form');
+    }
+
+    public function test_index_does_not_double_render_root_level_notes_in_recent_block(): void
+    {
+        // The loose-root list already shows notes whose path has no `/`.
+        // The Recent block is scoped to subfolder paths so it doesn't
+        // duplicate them. Pin the contract.
+        Note::factory()->create([
+            'user_id' => $this->owner->id,
+            'path' => 'root-note',
+            'title' => 'Root Note',
+            'visibility' => 'private',
+        ]);
+
+        $response = $this->actingAs($this->owner)->get(route('commonplace.index'));
+
+        $response->assertOk();
+        $response->assertSeeText('Root Note');
+        // Title appears exactly once on the page (loose-root list only).
+        $body = $response->getContent() ?: '';
+        $this->assertSame(1, substr_count($body, '>Root Note<'));
+    }
+
+    public function test_index_lists_recent_owned_shared_and_public_notes_for_collaborator(): void
+    {
+        // Regression for #98 / S-COL-14. Bob authenticated; sees his own
+        // notes plus a read-share plus a public note — all in subfolders,
+        // so the loose-root list is empty but the Recent block surfaces
+        // them.
+        $bob = User::factory()->create();
+
+        Note::factory()->create([
+            'user_id' => $bob->id,
+            'path' => 'bob/note-1',
+            'title' => 'Bob One',
+            'visibility' => 'private',
+        ]);
+
+        $sharedToBob = Note::factory()->create([
+            'user_id' => $this->owner->id,
+            'path' => 'references/shared-doc',
+            'title' => 'Shared To Bob',
+            'visibility' => 'private',
+        ]);
+        Share::create([
+            'note_id' => $sharedToBob->id,
+            'user_id' => $bob->id,
+            'permission' => 'read',
+        ]);
+
+        Note::factory()->create([
+            'user_id' => $this->owner->id,
+            'path' => 'public/handbook',
+            'title' => 'Public Handbook',
+            'visibility' => 'public',
+        ]);
+
+        $response = $this->actingAs($bob)->get(route('commonplace.index'));
+
+        $response->assertOk();
+        $response->assertSee('Bob One');
+        $response->assertSee('Shared To Bob');
+        $response->assertSee('Public Handbook');
+    }
+
     public function test_update_snapshots_version_and_persists_changes(): void
     {
         Note::factory()->create([

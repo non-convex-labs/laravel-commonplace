@@ -36,6 +36,13 @@ class NoteController extends Controller
         return $this->browseFolder('', $request);
     }
 
+    /**
+     * Cap for the index "Recent" block — keeps the page short for
+     * users with large vaults. 20 is enough to surface activity
+     * without scrolling the folder list off-screen.
+     */
+    private const RECENT_NOTES_LIMIT = 20;
+
     public function browse(Request $request, string $path = ''): View
     {
         return $this->browseFolder($path, $request);
@@ -74,6 +81,8 @@ class NoteController extends Controller
             'renderedContent' => $this->markdown->renderNote($note->content),
             'backlinks' => $backlinks,
             'breadcrumbs' => $this->buildBreadcrumbs($note->path),
+            'canEdit' => $this->commonplace->canEdit($note, $user),
+            'canDelete' => $this->commonplace->canDelete($note, $user),
         ]);
     }
 
@@ -145,16 +154,27 @@ class NoteController extends Controller
 
     public function edit(Request $request, string $path): View
     {
+        $user = $request->user();
+
         try {
-            $note = $this->commonplace->readNote($path, $request->user());
+            $note = $this->commonplace->readNote($path, $user);
         } catch (ModelNotFoundException) {
             abort(404);
         } catch (AuthorizationException) {
             abort(403);
         }
 
+        // Read access lets a `permission=read` share recipient or any
+        // visitor on a public note past `readNote`. The edit form is
+        // only useful to write-eligible callers — gate here so the
+        // form route mirrors what `updateNote` will accept.
+        if (! $this->commonplace->canEdit($note, $user)) {
+            abort(403);
+        }
+
         return view('commonplace::edit', [
             'note' => $note,
+            'canDelete' => $this->commonplace->canDelete($note, $user),
         ]);
     }
 
@@ -266,15 +286,35 @@ class NoteController extends Controller
 
     private function browseFolder(string $folder, Request $request): View
     {
-        $result = $this->noteBrowser->browse($request->user(), $folder);
+        $user = $request->user();
+        $result = $this->noteBrowser->browse($user, $folder);
         $view = $folder === '' ? 'commonplace::index' : 'commonplace::browse';
 
-        return view($view, [
+        $data = [
             'folder' => $folder,
             'notes' => $result['notes'],
             'subfolders' => $result['subfolders'],
             'breadcrumbs' => $this->buildBreadcrumbs($folder),
-        ]);
+        ];
+
+        if ($folder === '' && $user !== null) {
+            // The root index shows folders + a flat "Recent" list across
+            // all accessible notes IN SUBFOLDERS. Notes at the vault root
+            // already render in `$notes`, so the Recent block is scoped
+            // to subfolder paths to avoid double-rendering. Without this
+            // block, a collaborator whose notes all live in subfolders
+            // sees an empty page even though their `accessibleBy` set is
+            // non-empty. See S-COL-14 / #98.
+            $data['recentNotes'] = Note::accessibleBy($user)
+                ->where('path', 'like', '%/%')
+                ->with(['tags', 'owner'])
+                ->orderByDesc('updated_at')
+                ->orderByDesc('id')
+                ->limit(self::RECENT_NOTES_LIMIT)
+                ->get();
+        }
+
+        return view($view, $data);
     }
 
     private function journal(Request $request, int $year, int $month, ?string $selectedDate): View

@@ -90,20 +90,20 @@ Assumptions:
 
 ## Write-side boundary
 
-### S-COL-05 — Collaborator cannot update a shared note
+### S-COL-05 — A `permission=read` recipient cannot update a shared note
 
-**Intent.** `Commonplace::checkAccess(..., 'write')` requires ownership. The `Share.permission` column exists for future use; today even `permission=write` is captured but ignored.
+**Intent.** `Commonplace::checkAccess(..., 'write')` requires ownership **or** a `permission=write` share row. A `permission=read` recipient is rejected.
 
 **Preconditions.** `references/shared-doc` shared with Bob with `permission=read`.
 
 **Steps.**
 1. As Bob: `Commonplace::updateNote('references/shared-doc', ['content' => '...'], $bob);`.
 
-**Expected.** Throws `AuthorizationException`. No mutation. No `NoteVersion` written.
+**Expected.** Throws `AuthorizationException` ("You do not have write access to this note."). No mutation. No `NoteVersion` written. A separate user with `permission=write` on the same note would succeed — see [S-COL-16](#s-col-16--grantshare-creates-or-updates-a-share-row-as-the-owner).
 
 **Verify with.** Tinker — assert exception and unchanged content_hash.
 
-**Source.** [services.md → updateNote](../services.md#updatenote), [`Commonplace.php:599`](../src/Services/Commonplace.php#L599).
+**Source.** [services.md → updateNote](../services.md#updatenote), [`Commonplace.php`](../src/Services/Commonplace.php) (`checkAccess`).
 
 ---
 
@@ -256,9 +256,6 @@ Assumptions:
 
 **Intent.** The browse view doesn't visually split owned vs shared. The `accessibleBy` scope is applied; ordering is `updated_at DESC` across the union.
 
-> [!NOTE]
-> Validation 2026-05-17: Bob's `/commonplace` recent-notes block is **empty** (not just missing shared/public — even Bob's own notes don't render). The folder list does correctly surface every accessible top-level folder (so the page itself isn't broken, only the recent-notes section). The data is reachable via `$bob->recentNotes()` from tinker, so the gap is in the view layer / controller query, not in the service. Tracked in [#98](https://github.com/non-convex-labs/laravel-commonplace/issues/98).
-
 **Preconditions.** Bob has 2 own notes, 1 share, 1 visible public note.
 
 **Steps.**
@@ -274,10 +271,7 @@ Assumptions:
 
 ### S-COL-15 — Edit link is absent for shared notes the caller can't write
 
-**Intent.** The edit form is gated behind the same write check. The link / button isn't rendered for a non-owner.
-
-> [!NOTE]
-> Validation 2026-05-17: the action bar on the note-show view **renders Edit, Delete, View markdown, Download markdown, and History affordances to non-owners**, and the corresponding `GET /commonplace/edit/{path}` route returns 200 with a working textarea + save button. The mutation itself is still blocked because `Commonplace::updateNote()` / `deleteNote()` enforce ownership server-side (and the PUT/DELETE form submission rejects via that path), but the UI layer and the controller routes for the edit/delete forms are not gated. Tracked in [#98](https://github.com/non-convex-labs/laravel-commonplace/issues/98). Defense-in-depth — the spec wants the gate at view + controller + service, not just service.
+**Intent.** The edit form is gated behind the same write check. The link / button isn't rendered for a non-owner; the controller route also rejects.
 
 **Preconditions.** `references/shared-doc` shared with Bob (read only).
 
@@ -313,7 +307,7 @@ Assumptions:
 - Step 1 returns a `Share` row with `permission=read`, `note_id` = the doc's id, `user_id` = Carol's id.
 - Step 2 returns the *same* row (same `id`) with `permission=write`. `commonplace_shares` has exactly one row for `(note, Carol)` afterwards.
 - Passing `$permission` outside `['read', 'write']` raises `InvalidArgumentException`.
-- Today the write check (`checkAccess(..., 'write')`) still requires ownership — see [S-COL-05](#s-col-05--collaborator-cannot-update-a-shared-note). `permission=write` is captured for future use but doesn't yet unlock writes.
+- After step 2 Carol can call `Commonplace::updateNote('references/shared-doc', …, $carol)` successfully — `checkAccess(..., 'write')` honors `permission=write` share rows.
 
 **Verify with.** Tinker, plus `SELECT count(*) FROM commonplace_shares WHERE user_id = ?` against Carol.
 
