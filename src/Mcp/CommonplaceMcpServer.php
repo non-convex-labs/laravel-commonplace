@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NonConvexLabs\Commonplace\Mcp;
 
+use Illuminate\Database\LostConnectionException;
 use Illuminate\Database\QueryException;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server;
@@ -30,6 +31,7 @@ use NonConvexLabs\Commonplace\Mcp\Tools\SemanticSearchTool;
 use NonConvexLabs\Commonplace\Mcp\Tools\ShortestPathTool;
 use NonConvexLabs\Commonplace\Mcp\Tools\SuggestedLinksTool;
 use NonConvexLabs\Commonplace\Mcp\Tools\UpdateNoteTool;
+use PDOException;
 use Throwable;
 
 #[Name('commonplace')]
@@ -133,30 +135,64 @@ class CommonplaceMcpServer extends Server
     }
 
     /**
-     * Sanitise an exception message for the wire (issue #115). The full
-     * Throwable is still available to operators via report(); only the
-     * MCP envelope's text is redacted.
+     * Sanitise an exception message for the wire. The full Throwable is
+     * still available to operators via report(); only the MCP envelope's
+     * text is redacted.
      *
-     * QueryException is special-cased: its formatted message embeds the
-     * DB connection metadata (Host, Port, Database) and the parameterized
-     * SQL, and its previous PDOException's message embeds the offending
-     * row in a `DETAIL:` line. Both surface to whoever holds the bearer
-     * token. We collapse the message to the bare SQLSTATE category so
-     * callers can still tell a unique-violation from a deadlock without
-     * being handed schema or row data.
+     * Database-layer exceptions are redacted because their formatted
+     * messages embed connection metadata (Host, Port, Database), the
+     * parameterized SQL, and PDO's `DETAIL:` row data.
+     *
+     * Branch order matters: `QueryException` and `DeadlockException`
+     * both extend `PDOException`, so the more specific checks have to
+     * come first. Reordering this list would silently regress #115 by
+     * collapsing `QueryException` into the bare-PDO branch and losing
+     * the SQLSTATE preservation.
+     *
+     * - `QueryException` (#115) — preserve SQLSTATE so callers can tell
+     *   unique-violation from deadlock from check-constraint, but drop
+     *   the connection/SQL/DETAIL trail.
+     * - `LostConnectionException` (#118) — Laravel itself constructs
+     *   this with a fixed string today, but the class is open for
+     *   userland subclasses to throw with richer messages. Defense in
+     *   depth: collapse the entire class hierarchy to a fixed string.
+     * - bare `PDOException` (#118) — covers `DeadlockException` (which
+     *   extends `PDOException` directly, NOT `QueryException`) and any
+     *   raw PDO errors that escape Laravel's wrapping. Preserve the
+     *   SQLSTATE on the `getCode()` so retry-aware clients can still
+     *   discriminate; everything else collapses.
+     *
+     * Other Throwables (RuntimeException, InvalidArgumentException,
+     * ModelNotFoundException, etc.) pass through verbatim — tools rely
+     * on their messages for actionable caller-facing errors. That
+     * includes a known leak surface for stdlib classes whose messages
+     * embed file paths, internal URLs, env values, cache keys, model
+     * class names — closing those requires the allowlist-sanitiser
+     * design tracked in #118.
      */
     protected function publicMessageFor(Throwable $throwable): string
     {
         if ($throwable instanceof QueryException) {
-            $sqlState = (string) $throwable->getCode();
+            return $this->databaseErrorWithSqlState((string) $throwable->getCode());
+        }
 
-            return $sqlState !== ''
-                ? "Database error: SQLSTATE[{$sqlState}]"
-                : 'Database error.';
+        if ($throwable instanceof LostConnectionException) {
+            return 'Database connection lost.';
+        }
+
+        if ($throwable instanceof PDOException) {
+            return $this->databaseErrorWithSqlState((string) $throwable->getCode());
         }
 
         return $throwable->getMessage() !== ''
             ? $throwable->getMessage()
             : 'The tool failed to complete the request.';
+    }
+
+    private function databaseErrorWithSqlState(string $sqlState): string
+    {
+        return $sqlState !== ''
+            ? "Database error: SQLSTATE[{$sqlState}]"
+            : 'Database error.';
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NonConvexLabs\Commonplace\Tests\Feature\Mcp;
 
+use Illuminate\Database\LostConnectionException;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -590,5 +591,101 @@ class CommonplaceMcpServerTest extends TestCase
         // Callers still get the SQLSTATE category so unique-violation vs
         // deadlock vs check-constraint stays distinguishable.
         $this->assertStringContainsString('SQLSTATE[23505]', $envelopeText);
+    }
+
+    /**
+     * Issue #118 regression: DeadlockException extends PDOException
+     * directly — not QueryException — so the #115 redaction branch
+     * doesn't catch it. Its PDO-level message embeds DETAIL row data
+     * on Postgres. The MCP envelope must collapse bare PDOExceptions
+     * (including DeadlockException) to a "Database error: SQLSTATE[...]"
+     * — same shape as QueryException, so retry-aware clients can still
+     * discriminate. Operators still see the full exception via report().
+     */
+    public function test_bare_pdo_exception_is_redacted_to_database_error_with_sqlstate(): void
+    {
+        $leakyMessage = 'SQLSTATE[40P01]: Deadlock detected: 7 ERROR:  '
+            .'deadlock detected'."\n"
+            .'DETAIL:  Process 1234 waits for ShareLock on transaction 5678; '
+            .'blocked by process 9012.'."\n"
+            .'CONTEXT:  while updating tuple (0,123) in relation "private_users"';
+
+        $pdoException = new class($leakyMessage) extends \PDOException
+        {
+            public function __construct(string $message)
+            {
+                parent::__construct($message, 0);
+                $this->code = '40P01';
+            }
+        };
+
+        $mock = Mockery::mock(Commonplace::class);
+        $mock->shouldReceive('listNotes')
+            ->once()
+            ->andThrow($pdoException);
+
+        $this->app->instance(Commonplace::class, $mock);
+
+        $response = CommonplaceMcpServer::actingAs($this->owner)->tool(ListTool::class, []);
+
+        $raw = (fn (): array => $this->response->toArray())
+            ->call($response);
+
+        $envelopeText = $raw['result']['content'][0]['text'];
+
+        $this->assertTrue($raw['result']['isError']);
+        // SQLSTATE is preserved (so retry-aware clients can still
+        // discriminate deadlock from constraint violation), but the
+        // DETAIL row, CONTEXT relation, and process/transaction IDs
+        // are all gone.
+        $this->assertSame('Database error: SQLSTATE[40P01]', $envelopeText);
+        $this->assertStringNotContainsString('DETAIL', $envelopeText);
+        $this->assertStringNotContainsString('CONTEXT', $envelopeText);
+        $this->assertStringNotContainsString('private_users', $envelopeText);
+        $this->assertStringNotContainsString('Deadlock detected', $envelopeText);
+    }
+
+    /**
+     * Issue #118 regression (defense in depth): LostConnectionException
+     * extends LogicException, NOT PDOException, so it bypasses the
+     * QueryException + PDOException branches. Laravel itself throws it
+     * with a fixed string ("Lost connection and no reconnector
+     * available.") that carries no PII, but userland subclasses can
+     * embed connection details. Test the contract by throwing a
+     * subclass — any LostConnectionException, framework or userland,
+     * collapses to the same fixed string.
+     */
+    public function test_lost_connection_exception_subclass_is_redacted(): void
+    {
+        $leakySubclass = new class extends LostConnectionException
+        {
+            public function __construct()
+            {
+                parent::__construct(
+                    "Lost connection to the 'tenant_42_replica' MySQL server "
+                    .'(host: db-internal.example.com, user: app_rw).'
+                );
+            }
+        };
+
+        $mock = Mockery::mock(Commonplace::class);
+        $mock->shouldReceive('listNotes')
+            ->once()
+            ->andThrow($leakySubclass);
+
+        $this->app->instance(Commonplace::class, $mock);
+
+        $response = CommonplaceMcpServer::actingAs($this->owner)->tool(ListTool::class, []);
+
+        $raw = (fn (): array => $this->response->toArray())
+            ->call($response);
+
+        $envelopeText = $raw['result']['content'][0]['text'];
+
+        $this->assertTrue($raw['result']['isError']);
+        $this->assertSame('Database connection lost.', $envelopeText);
+        $this->assertStringNotContainsString('tenant_42_replica', $envelopeText);
+        $this->assertStringNotContainsString('db-internal.example.com', $envelopeText);
+        $this->assertStringNotContainsString('app_rw', $envelopeText);
     }
 }
