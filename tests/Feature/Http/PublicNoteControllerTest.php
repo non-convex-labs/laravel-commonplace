@@ -116,4 +116,77 @@ class PublicNoteControllerTest extends TestCase
         // re-bootstraps to flip the flag is brittle in testbench).
         $this->assertTrue($this->app['router']->has('commonplace.public.show'));
     }
+
+    public function test_public_show_does_not_render_edit_or_delete_affordances(): void
+    {
+        Note::factory()->create([
+            'path' => 'public/handbook',
+            'title' => 'Handbook',
+            'content' => 'Body.',
+            'visibility' => 'public',
+        ]);
+
+        $response = $this->get('/commonplace/public/public/handbook');
+
+        $response->assertOk();
+        $response->assertDontSee('/commonplace/edit/');
+        $response->assertDontSee('cp-delete-btn');
+        $response->assertDontSee('cp-delete-form');
+        $response->assertDontSee('/commonplace/download/');
+    }
+
+    public function test_public_show_does_not_render_authenticated_nav_links(): void
+    {
+        Note::factory()->create([
+            'path' => 'public/handbook',
+            'title' => 'Handbook',
+            'content' => 'Body.',
+            'visibility' => 'public',
+        ]);
+
+        $response = $this->get('/commonplace/public/public/handbook');
+
+        $response->assertOk();
+        $response->assertDontSee('/commonplace/create');
+        $response->assertDontSee('/commonplace/search');
+        $response->assertDontSee('/commonplace/graph');
+        $response->assertDontSee('commonplace-topbar');
+        $response->assertDontSee('commonplace-nav');
+    }
+
+    public function test_public_show_view_markdown_link_points_to_public_raw_endpoint(): void
+    {
+        Note::factory()->create([
+            'path' => 'public/handbook',
+            'title' => 'Handbook',
+            'content' => 'Body.',
+            'visibility' => 'public',
+        ]);
+
+        $response = $this->get('/commonplace/public/public/handbook');
+
+        $response->assertOk();
+        $response->assertSee('/commonplace/public/raw/public/handbook', false);
+        // The auth-gated /commonplace/raw/{path} must not leak into the
+        // public template — that would 302 visitors to /login.
+        $response->assertDontSee('href="/commonplace/raw/', false);
+    }
+
+    public function test_public_show_returns_404_for_private_note_without_leaking_auth_template(): void
+    {
+        Note::factory()->create([
+            'path' => 'notes/hidden',
+            'title' => 'Hidden',
+            'content' => 'Hidden body.',
+            'visibility' => 'private',
+        ]);
+
+        $response = $this->get('/commonplace/public/notes/hidden');
+
+        $response->assertNotFound();
+        // The 404 path must not render the authenticated layout chrome,
+        // which would suggest the wrong template path was reached.
+        $response->assertDontSee('commonplace-topbar');
+        $response->assertDontSee('Hidden body.');
+    }
 }
