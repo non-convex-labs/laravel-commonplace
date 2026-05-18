@@ -1,10 +1,34 @@
 parameters:
 	ignoreErrors:
 		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$content\.$#'
+			identifier: property.notFound
+			count: 2
+			path: src/Backup/BackupBundle.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$path\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Backup/BackupBundle.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$title\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Backup/BackupBundle.php
+
+		-
 			message: '#^Trait NonConvexLabs\\Commonplace\\Concerns\\HasCommonplaceNotes is used zero times and is not analysed\.$#'
 			identifier: trait.unused
 			count: 1
 			path: src/Concerns/HasCommonplaceNotes.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Link\:\:\$target_path\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Console/RelinkCommand.php
 
 		-
 			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Link\:\:\$source_note_id\.$#'
@@ -61,18 +85,6 @@ parameters:
 			path: src/Http/Controllers/NoteController.php
 
 		-
-			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$content\.$#'
-			identifier: property.notFound
-			count: 2
-			path: src/Http/Controllers/PublicNoteController.php
-
-		-
-			message: '#^Parameter \#1 \$view of function view expects view\-string\|null, string given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Http/Controllers/PublicNoteController.php
-
-		-
 			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$path\.$#'
 			identifier: property.notFound
 			count: 5
@@ -91,16 +103,28 @@ parameters:
 			path: src/Http/Controllers/NoteController.php
 
 		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\NoteVersion\:\:\$content\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Http/Controllers/NoteController.php
+
+		-
 			message: '#^Parameter \#1 \$view of function view expects view\-string\|null, string given\.$#'
 			identifier: argument.type
 			count: 7
 			path: src/Http/Controllers/NoteController.php
 
 		-
-			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\NoteVersion\:\:\$content\.$#'
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$content\.$#'
 			identifier: property.notFound
+			count: 2
+			path: src/Http/Controllers/PublicNoteController.php
+
+		-
+			message: '#^Parameter \#1 \$view of function view expects view\-string\|null, string given\.$#'
+			identifier: argument.type
 			count: 1
-			path: src/Http/Controllers/NoteController.php
+			path: src/Http/Controllers/PublicNoteController.php
 
 		-
 			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$content\.$#'
@@ -143,30 +167,6 @@ parameters:
 			identifier: argument.type
 			count: 1
 			path: src/Http/Controllers/SearchController.php
-
-		-
-			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$content\.$#'
-			identifier: property.notFound
-			count: 2
-			path: src/Backup/BackupBundle.php
-
-		-
-			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$path\.$#'
-			identifier: property.notFound
-			count: 1
-			path: src/Backup/BackupBundle.php
-
-		-
-			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$title\.$#'
-			identifier: property.notFound
-			count: 1
-			path: src/Backup/BackupBundle.php
-
-		-
-			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Link\:\:\$target_path\.$#'
-			identifier: property.notFound
-			count: 1
-			path: src/Console/RelinkCommand.php
 
 		-
 			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$content\.$#'
@@ -631,12 +631,6 @@ parameters:
 			path: src/Mcp/Tools/UpdateNoteTool.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$permission\.$#'
-			identifier: property.notFound
-			count: 1
-			path: src/Services/Commonplace.php
-
-		-
 			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$content\.$#'
 			identifier: property.notFound
 			count: 6
@@ -669,7 +663,7 @@ parameters:
 		-
 			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$path\.$#'
 			identifier: property.notFound
-			count: 7
+			count: 8
 			path: src/Services/Commonplace.php
 
 		-
@@ -688,6 +682,18 @@ parameters:
 			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$visibility\.$#'
 			identifier: property.notFound
 			count: 3
+			path: src/Services/Commonplace.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\NoteVersion\:\:\$changed_by\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Services/Commonplace.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Share\:\:\$permission\.$#'
+			identifier: property.notFound
+			count: 1
 			path: src/Services/Commonplace.php
 
 		-
@@ -717,6 +723,12 @@ parameters:
 		-
 			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$path\.$#'
 			identifier: property.notFound
+			count: 2
+			path: src/Services/NoteBrowser.php
+
+		-
+			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$path\.$#'
+			identifier: property.notFound
 			count: 1
 			path: src/Services/WikilinkParser.php
 
@@ -725,9 +737,3 @@ parameters:
 			identifier: property.notFound
 			count: 1
 			path: src/Services/WikilinkParser.php
-
-		-
-			message: '#^Access to an undefined property NonConvexLabs\\Commonplace\\Models\\Note\:\:\$path\.$#'
-			identifier: property.notFound
-			count: 2
-			path: src/Services/NoteBrowser.php
