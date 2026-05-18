@@ -553,6 +553,32 @@ class CommonplaceMcpServerTest extends TestCase
     }
 
     /**
+     * #118 edge case: a `PublicMessage`-implementing exception with an
+     * empty `getMessage()` falls back to the generic string rather
+     * than emitting an empty `text` field. An empty envelope text
+     * would be agent-hostile UX *and* would hide a constructor bug
+     * in the consumer's exception class.
+     */
+    public function test_public_message_marker_with_empty_message_falls_back_to_generic_string(): void
+    {
+        $emptyMarked = new class('') extends RuntimeException implements PublicMessage {};
+
+        $mock = Mockery::mock(Commonplace::class);
+        $mock->shouldReceive('listNotes')->once()->andThrow($emptyMarked);
+        $this->app->instance(Commonplace::class, $mock);
+
+        $response = CommonplaceMcpServer::actingAs($this->owner)->tool(ListTool::class, []);
+
+        $raw = (fn (): array => $this->response->toArray())->call($response);
+
+        $this->assertTrue($raw['result']['isError']);
+        $this->assertSame(
+            'The tool failed to complete the request.',
+            $raw['result']['content'][0]['text'],
+        );
+    }
+
+    /**
      * #118 regression: `ErrorException` from PHP's filesystem builtins
      * (`file_get_contents`, `fopen`) embeds the absolute path of the
      * file the call tried to access. Before the fail-closed sanitiser
@@ -586,11 +612,19 @@ class CommonplaceMcpServerTest extends TestCase
     }
 
     /**
-     * #118 regression: Laravel's `ConnectionException` (and
-     * Guzzle/Symfony HTTP client exceptions in general) embed the
-     * full request URL — including internal hostnames, paths, and
-     * signed query strings that can carry bearer tokens. The
-     * fail-closed envelope strips all of it.
+     * #118 regression: HTTP client exception classes
+     * (`Illuminate\Http\Client\ConnectionException`, Guzzle's
+     * `ConnectException` / `RequestException`, Symfony's
+     * `TransportException`) vary in whether they embed the full
+     * URL, the cURL error string, the response body, or some
+     * combination — depending on the client, the failure mode, and
+     * how userland wraps them. Rather than try to reproduce any one
+     * vendor's exact format, this test pins the sanitiser-side
+     * contract: an *unmarked* exception whose message embeds a URL
+     * with auth-bearing query parameters (the worst-case shape) MUST
+     * collapse to the generic string, with nothing of the URL
+     * surviving. The fixture is constructed to exercise that
+     * collapse — it does NOT claim to mirror Guzzle's wire format.
      */
     public function test_http_client_exception_with_url_is_redacted(): void
     {
