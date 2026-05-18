@@ -6,25 +6,51 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [v0.2.0] — 2026-05-18
+
+### Added
+
+- Note version history view in the UI. ([#69](https://github.com/non-convex-labs/laravel-commonplace/pull/92))
+- Share service methods: `grant`, `revoke`, `list`. ([#63](https://github.com/non-convex-labs/laravel-commonplace/pull/91))
+- Voyage embedding driver: 429 retry, partial-batch handling, doctor probe. ([#86](https://github.com/non-convex-labs/laravel-commonplace/pull/93))
+- Pint auto-fix workflow on push to `main`. ([#52](https://github.com/non-convex-labs/laravel-commonplace/pull/82))
+
 ### Changed
 
-- Embedding-provider drivers (OpenAI / Voyage / Cohere / Bedrock) and the GitHub backup destination now throw curated `PublicMessage`-implementing exceptions instead of bare `RuntimeException` with `$response->body()` concatenated into the message. Restores the agent-visible breadcrumb that #118 fail-closed (an embedding rate-limit reads as `"Embedding provider 'voyage' is unavailable (rate-limited). Retry with backoff."` instead of the generic `"The tool failed to complete the request."`) without re-introducing the response-body leak vector — message text is composed from package-controlled allowlists only. New classes: `EmbeddingProviderUnavailable`, `EmbeddingProviderNotConfigured`, `BackupDestinationUnavailable`, `BackupDestinationNotConfigured`, `MarkdownRendererConfigError`. `PartialBatchEmbeddingException` drops the cause-message concat from its constructor (the cause stays accessible via `getPrevious()` for operator `report()`) and is marked `PublicMessage`. `SemanticSearchTool::handle()` narrows its `catch (\RuntimeException)` to the curated types so anything unexpected falls through to the envelope sanitiser's fail-close. ([#132](https://github.com/non-convex-labs/laravel-commonplace/issues/132))
-- **BREAKING (MCP envelope).** `CommonplaceMcpServer::publicMessageFor()` is now fail-closed: unhandled `Throwable`s escaping a tool handler collapse to a fixed `"The tool failed to complete the request."` string instead of passing `getMessage()` through verbatim. Closes the residual pass-through leak from `ErrorException` (filesystem paths), HTTP client exceptions (internal URLs / bearer-token query strings), `LockTimeoutException` (cache keys), `ModelNotFoundException` (consumer model class names), and any Doctrine DBAL exception a consumer pulls in. Tool authors and package consumers extending the MCP surface opt their own exception classes into wire-visible messages by implementing the new `NonConvexLabs\Commonplace\Exceptions\PublicMessage` marker interface. The in-package `PgvectorDriverNotReady` is marked as the first opt-in (its messages are hand-written remediation hints with no PII). Operators still see the full exception via `report()`, and a `Log::warning('mcp.envelope.redacted', ['class' => ..., 'tool' => ...])` breadcrumb is emitted at the catch site so it's grep-able which class needs marking next. DB-stack branches (`QueryException`, `LostConnectionException`, bare `PDOException`) are unchanged — they keep the SQLSTATE-preserving collapse from #115 / #130. ([#118](https://github.com/non-convex-labs/laravel-commonplace/issues/118))
-- **BREAKING (HTTP API).** Authenticated read routes no longer return `403` on inaccessible-but-existing notes. The catch-all show route `GET /{prefix}/{path}` falls through to the folder browser (HTTP 200), and `/{prefix}/raw/{path}`, `/{prefix}/download/{path}`, `/{prefix}/history/{path}`, `/{prefix}/graph/neighborhood/{path}`, and `/{prefix}/suggested-links/{path}` all `404` in both the inaccessible and missing cases. The collapse closes a status-code enumeration channel an authenticated caller could otherwise use to probe foreign paths. Write surfaces (`edit`, `update`, `destroy`) still return `403`. Consumers that scripted against `403` to detect access denial should use the share API instead. The "Visibility scope" cross-cutting invariant in `docs/scenarios/index.md` and the docs in `http-api.md` / `scenarios/note-taker.md` / `scenarios/collaborator.md` are rewritten to describe the now-uniform read surface and acknowledge a residual timing side channel as out of scope for the threat model. ([#117](https://github.com/non-convex-labs/laravel-commonplace/pull/124), [#123](https://github.com/non-convex-labs/laravel-commonplace/pull/127))
-- `AssetController::css` now emits `Cache-Control: no-store` when `APP_DEBUG=true`, so iterating on a published CSS override doesn't fight a 1-hour cache. Production keeps `public, max-age=3600`. JS responses are unchanged. ([#121](https://github.com/non-convex-labs/laravel-commonplace/pull/125))
-- `AssetController::css` now serves the consumer's published override at `resources/css/commonplace/commonplace.css` when present, falling back to the bundled copy otherwise. The bundled file's header carries a note that the override is a hard pin — package CSS upgrades require `--force` re-publish or deleting the override. ([#116](https://github.com/non-convex-labs/laravel-commonplace/pull/120))
-- MCP tool errors that bubble up as `QueryException` now redact to `Database error: SQLSTATE[<code>]` instead of leaking DB host/port/database, the parameterized SQL trace, or PDO's `DETAIL:` row data. The redaction also covers bare `PDOException` (including `DeadlockException`, which extends `PDOException` directly) using the same `SQLSTATE[<code>]` form so retry-aware clients can still discriminate deadlock from constraint violation. `LostConnectionException` (which extends `LogicException` and bypasses the PDO branches) collapses to `"Database connection lost."` as defense-in-depth against userland subclasses. Operators still see the full exception via `report()`. ([#115](https://github.com/non-convex-labs/laravel-commonplace/pull/119), [#118](https://github.com/non-convex-labs/laravel-commonplace/issues/118))
-- MCP tool exceptions now ride a JSON-RPC `result.isError` envelope at HTTP 200 instead of leaking as a bare 500. Protocol-level errors (parse, unknown method) still propagate as JSON-RPC `error` responses. ([#110](https://github.com/non-convex-labs/laravel-commonplace/pull/114))
+- MCP tool errors travel via JSON-RPC `result.isError` envelope at HTTP 200 instead of bare 500s. ([#110](https://github.com/non-convex-labs/laravel-commonplace/pull/114))
+- MCP `tools/list` now returns all 16 tools (raised default page size). ([#75](https://github.com/non-convex-labs/laravel-commonplace/pull/75))
+- Curated `PublicMessage` exceptions for embedding providers and the GitHub backup destination — wire-visible operator hints without response-body leaks. ([#132](https://github.com/non-convex-labs/laravel-commonplace/pull/133))
+- `AssetController::css` emits `Cache-Control: no-store` when `APP_DEBUG=true`, and serves the consumer's published override when present. ([#121](https://github.com/non-convex-labs/laravel-commonplace/pull/125), [#116](https://github.com/non-convex-labs/laravel-commonplace/pull/120))
+- Reindex default scope picks up notes with stale embeddings. ([#85](https://github.com/non-convex-labs/laravel-commonplace/pull/90))
+- Public-route prefix is configurable. ([#61](https://github.com/non-convex-labs/laravel-commonplace/pull/89))
+- `updateNote` regenerates the title from basename when the frontmatter title is removed. ([#81](https://github.com/non-convex-labs/laravel-commonplace/pull/94))
 
 ### Fixed
 
-- The `COMMONPLACE_*_MIDDLEWARE` env parser now preserves the comma inside parameterized middleware tokens, so `COMMONPLACE_PUBLIC_ROUTES_MIDDLEWARE="web,throttle:30,1"` parses as a single `throttle:30,1` token. Consumers on the old published config need `php artisan vendor:publish --tag=commonplace-config --force` to pick up the fix. ([#108](https://github.com/non-convex-labs/laravel-commonplace/pull/113))
-- Postgres `getNeighborhood` / `getShortestPath` recursive CTEs cast the seed `note_id` to `bigint`, so the join no longer fails with `operator does not exist: bigint = text`. ([#109](https://github.com/non-convex-labs/laravel-commonplace/pull/112))
-- `tests/Feature/Http/AssetControllerTest.php` JS-override negative test now asserts the bundled `CP_JS_BUNDLED_MARKER` sentinel positively, so an empty body can't slip past the absence check. ([#122](https://github.com/non-convex-labs/laravel-commonplace/pull/126))
+- `COMMONPLACE_*_MIDDLEWARE` env parser preserves commas inside parameterized middleware tokens (`throttle:30,1`). ([#108](https://github.com/non-convex-labs/laravel-commonplace/pull/113))
+- Postgres recursive CTEs cast seed `note_id` to `bigint`. ([#109](https://github.com/non-convex-labs/laravel-commonplace/pull/112))
+- Wikilink move-rewrite skips occurrences inside code fences and inline code. ([#95](https://github.com/non-convex-labs/laravel-commonplace/pull/103))
+- Tags prune on note delete and tag-replace. ([#71](https://github.com/non-convex-labs/laravel-commonplace/pull/87))
+- All package migrations auto-load — `php artisan migrate` Just Works. ([#77](https://github.com/non-convex-labs/laravel-commonplace/pull/77))
+- Public-read view drops auth-only chrome. ([#68](https://github.com/non-convex-labs/laravel-commonplace/pull/88))
+- `NoteVersion` contract: stores displaced content; `createNote` writes none. ([#78](https://github.com/non-convex-labs/laravel-commonplace/pull/78))
+- `AssetControllerTest` asserts the bundled JS marker positively. ([#122](https://github.com/non-convex-labs/laravel-commonplace/pull/126))
+- Two real bugs surfaced and fixed during a PHPStan baseline refresh. ([#101](https://github.com/non-convex-labs/laravel-commonplace/pull/101))
+
+### Security
+
+- **BREAKING (MCP envelope).** Fail-close — unhandled `Throwable`s from MCP tool handlers collapse to a fixed string. Opt classes in via the new `PublicMessage` marker. ([#118](https://github.com/non-convex-labs/laravel-commonplace/pull/131))
+- **BREAKING (HTTP API).** Authenticated read routes `404` instead of `403` on inaccessible notes — closes a status-code enumeration channel. Write surfaces still `403`. ([#117](https://github.com/non-convex-labs/laravel-commonplace/pull/124), [#123](https://github.com/non-convex-labs/laravel-commonplace/pull/127))
+- MCP DB-stack exceptions (`QueryException`, `PDOException`, `DeadlockException`, `LostConnectionException`) redact to `SQLSTATE[<code>]`. ([#115](https://github.com/non-convex-labs/laravel-commonplace/pull/119), [#118](https://github.com/non-convex-labs/laravel-commonplace/pull/130))
+- MCP read tools collapse inaccessible into `"Note not found."`. ([#76](https://github.com/non-convex-labs/laravel-commonplace/pull/76))
+- Public route prefix sealed against method-override and toggle leaks. ([#97](https://github.com/non-convex-labs/laravel-commonplace/pull/106))
+- Public route prefix sealed against the auth catch-all. ([#96](https://github.com/non-convex-labs/laravel-commonplace/pull/105))
+- UI gates non-owner actions at both controller and view. ([#98](https://github.com/non-convex-labs/laravel-commonplace/pull/107))
 
 ## [v0.1.0] — 2026-05-17
 
 Initial public release. See git history for the full feature surface and the `docs/scenarios/index.md` validation log for the spec-vs-implementation baseline.
 
-[Unreleased]: https://github.com/non-convex-labs/laravel-commonplace/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/non-convex-labs/laravel-commonplace/compare/v0.2.0...HEAD
+[v0.2.0]: https://github.com/non-convex-labs/laravel-commonplace/compare/v0.1.0...v0.2.0
 [v0.1.0]: https://github.com/non-convex-labs/laravel-commonplace/releases/tag/v0.1.0
