@@ -39,14 +39,14 @@ Assumptions:
 **Preconditions.** S-COL-01 has run.
 
 **Steps.**
-1. `Share::where(['note_id' => $note->id, 'user_id' => $bob->id])->delete();`
+1. `Commonplace::revokeShare('references/shared-doc', $bob, $alice);` (or `Share::where(['note_id' => $note->id, 'user_id' => $bob->id])->delete();`).
 2. As Bob: `Commonplace::readNote('references/shared-doc', $bob);`.
 
-**Expected.** Step 2 throws `ModelNotFoundException`.
+**Expected.** Step 2 throws `Illuminate\Auth\Access\AuthorizationException` (\"You do not have access to this note.\"). The note still exists, so the service raises the access-denied class, not `ModelNotFoundException`. The MCP boundary collapses both into `Note not found.` per [S-AI-07](ai-agent.md#s-ai-07--read-note-tool-returns-full-content-absent-or-inaccessible-notes-both-say-note-not-found); the service layer is informative because in-process callers are trusted. See [S-NOTE-03](note-taker.md#s-note-03--read-a-note-requires-visibility-access) for the same two-tier model.
 
-**Verify with.** Tinker.
+**Verify with.** Tinker — assert the exception class explicitly.
 
-**Source.** [model-relationships.md → Share](../model-relationships.md#share).
+**Source.** [model-relationships.md → Share](../model-relationships.md#share), [services.md → revokeShare](../services.md#revokeshare).
 
 ---
 
@@ -143,21 +143,19 @@ Assumptions:
 
 ### S-COL-08 — Collaborator cannot grant or revoke shares on a note they don't own
 
-**Intent.** Share management is the owner's prerogative. There is no UI or service method that lets a recipient sub-share what they've been given.
+**Intent.** Share management is the owner's prerogative. A recipient cannot sub-share what they've been given.
 
-> [!NOTE]
-> Validation 2026-05-17: the package today has **no first-class API** for granting or revoking shares — not in the `Commonplace` service, not in `routes/web.php`, not in `src/Mcp/Tools/`. Adopters must `Share::create([...])` directly. That makes this scenario trivially "pass" (there's nothing exposed for a non-owner to call) but masks a real gap: an owner also has no first-class API to *grant* a share. Tracked in [#63](https://github.com/non-convex-labs/laravel-commonplace/issues/63).
-
-**Preconditions.** `references/shared-doc` shared with Bob.
+**Preconditions.** Alice owns `references/shared-doc`. Bob has a read share on it. A third user `$carol` is authenticated.
 
 **Steps.**
-1. As Bob, attempt to write a `Share` row for a third user against the same note.
+1. As Bob: `Commonplace::grantShare('references/shared-doc', $carol, 'read', $bob);` — pass Bob as the `$owner` argument.
+2. As Bob: `Commonplace::revokeShare('references/shared-doc', $bob, $bob);` — try to remove his own share with himself as the asserted owner.
 
-**Expected.** The package exposes no API for this. The model is plain Eloquent so a determined caller can `Share::create(...)` directly — that's outside the service surface and outside the package's protection. The HTTP / MCP surface offers no endpoint.
+**Expected.** Both calls throw `Illuminate\Auth\Access\AuthorizationException` ("You are not the owner of this note."). The `$owner` parameter on `grantShare` / `revokeShare` / `listShares` is what gates ownership — see [S-COL-16](#s-col-16--grantshare-creates-or-updates-a-share-row-as-the-owner). Callers that omit `$owner` skip the check; that's intended for trusted contexts (artisan commands, fixtures), and is the caller's responsibility to keep off untrusted surfaces.
 
-**Verify with.** Grep for share endpoints in `routes/web.php` and `src/Mcp/Tools/` — none exist.
+**Verify with.** Tinker — assert the exception class on both calls.
 
-**Source.** [http-api.md → All routes](../http-api.md#all-routes), [mcp-tools.md → Tools matrix](../mcp-tools.md#tools-matrix).
+**Source.** [services.md → grantShare](../services.md#grantshare), [services.md → revokeShare](../services.md#revokeshare).
 
 ---
 
@@ -258,6 +256,9 @@ Assumptions:
 
 **Intent.** The browse view doesn't visually split owned vs shared. The `accessibleBy` scope is applied; ordering is `updated_at DESC` across the union.
 
+> [!NOTE]
+> Validation 2026-05-17: Bob's `/commonplace` recent-notes block is **empty** (not just missing shared/public — even Bob's own notes don't render). The folder list does correctly surface every accessible top-level folder (so the page itself isn't broken, only the recent-notes section). The data is reachable via `$bob->recentNotes()` from tinker, so the gap is in the view layer / controller query, not in the service. Tracked in [#98](https://github.com/non-convex-labs/laravel-commonplace/issues/98).
+
 **Preconditions.** Bob has 2 own notes, 1 share, 1 visible public note.
 
 **Steps.**
@@ -265,7 +266,7 @@ Assumptions:
 
 **Expected.** Four entries in the recent list. No distinction between owned and shared in the listing (a future enhancement could surface this; today it's flat).
 
-**Verify with.** Browser.
+**Verify with.** Browser, or `curl` + assertion that the response HTML contains at least one anchor whose `href` ends in each of the four note paths.
 
 **Source.** [http-api.md → NoteController](../http-api.md#notecontroller).
 
@@ -275,13 +276,86 @@ Assumptions:
 
 **Intent.** The edit form is gated behind the same write check. The link / button isn't rendered for a non-owner.
 
-**Preconditions.** `references/shared-doc` shared with Bob.
+> [!NOTE]
+> Validation 2026-05-17: the action bar on the note-show view **renders Edit, Delete, View markdown, Download markdown, and History affordances to non-owners**, and the corresponding `GET /commonplace/edit/{path}` route returns 200 with a working textarea + save button. The mutation itself is still blocked because `Commonplace::updateNote()` / `deleteNote()` enforce ownership server-side (and the PUT/DELETE form submission rejects via that path), but the UI layer and the controller routes for the edit/delete forms are not gated. Tracked in [#98](https://github.com/non-convex-labs/laravel-commonplace/issues/98). Defense-in-depth — the spec wants the gate at view + controller + service, not just service.
+
+**Preconditions.** `references/shared-doc` shared with Bob (read only).
 
 **Steps.**
 1. As Bob: `GET /commonplace/references/shared-doc`.
+2. As Bob: `GET /commonplace/edit/references/shared-doc`.
+3. As Bob: `POST /commonplace/references/shared-doc` with `_method=DELETE` and a valid CSRF token.
 
-**Expected.** The view renders the note. No edit affordance is shown to non-owners. A direct `GET /commonplace/edit/references/shared-doc` returns 403 (`AuthorizationException`).
+**Expected.**
+- Step 1: the view renders the note. No `<a href=".../commonplace/edit/...">`, no `<form>` carrying `_method=DELETE`. View-markdown and download links may remain (read affordances are fine).
+- Step 2: 403 `AuthorizationException`. The edit form is never served to a non-owner.
+- Step 3: 403, and `commonplace_notes` row for `references/shared-doc` is unchanged. No `NoteVersion` is written.
 
-**Verify with.** Browser inspection + direct URL probe.
+**Verify with.** Browser inspection (step 1) + `curl -I` (steps 2–3) + a tinker assertion that the row's `content_hash` is unchanged.
 
-**Source.** [http-api.md → NoteController](../http-api.md#notecontroller).
+**Source.** [http-api.md → NoteController](../http-api.md#notecontroller), `src/Http/Controllers/NoteController.php` (`edit`, `update`, `destroy` need an ownership policy / gate up front).
+
+---
+
+## Share management API
+
+### S-COL-16 — `grantShare` creates or updates a share row as the owner
+
+**Intent.** First-class API for owners to extend access. Idempotent on `(note_id, user_id)`: a second call with a different `permission` updates the existing row rather than inserting a duplicate.
+
+**Preconditions.** Alice owns `references/shared-doc`. Bob has no share on it. A third user `$carol` is authenticated.
+
+**Steps.**
+1. As Alice: `Commonplace::grantShare('references/shared-doc', $carol, 'read', $alice);`.
+2. As Alice: `Commonplace::grantShare('references/shared-doc', $carol, 'write', $alice);`.
+
+**Expected.**
+- Step 1 returns a `Share` row with `permission=read`, `note_id` = the doc's id, `user_id` = Carol's id.
+- Step 2 returns the *same* row (same `id`) with `permission=write`. `commonplace_shares` has exactly one row for `(note, Carol)` afterwards.
+- Passing `$permission` outside `['read', 'write']` raises `InvalidArgumentException`.
+- Today the write check (`checkAccess(..., 'write')`) still requires ownership — see [S-COL-05](#s-col-05--collaborator-cannot-update-a-shared-note). `permission=write` is captured for future use but doesn't yet unlock writes.
+
+**Verify with.** Tinker, plus `SELECT count(*) FROM commonplace_shares WHERE user_id = ?` against Carol.
+
+**Source.** [services.md → grantShare](../services.md#grantshare).
+
+---
+
+### S-COL-17 — `revokeShare` deletes the row and returns whether one was removed
+
+**Intent.** Symmetric to `grantShare`. Returns a boolean so a caller can distinguish "removed" from "no-op" without an extra query.
+
+**Preconditions.** S-COL-16 has run; Carol has a `write` share on `references/shared-doc`.
+
+**Steps.**
+1. As Alice: `Commonplace::revokeShare('references/shared-doc', $carol, $alice);`.
+2. As Alice: re-call the same `revokeShare`.
+
+**Expected.**
+- Step 1 returns `true`. `commonplace_shares` has zero rows for `(note, Carol)`.
+- Step 2 returns `false` (idempotent — no row to delete).
+- Carol's subsequent `readNote('references/shared-doc', $carol)` throws `AuthorizationException` per [S-COL-02](#s-col-02--revoking-a-share-removes-access-immediately).
+
+**Verify with.** Tinker — capture and compare the boolean return.
+
+**Source.** [services.md → revokeShare](../services.md#revokeshare).
+
+---
+
+### S-COL-18 — `listShares` returns the owner's share rows with recipient eager-loaded
+
+**Intent.** Owners need to see who currently has access. The returned `Collection<Share>` has `user` (the recipient) eager-loaded so a UI can render names without an N+1.
+
+**Preconditions.** Alice owns `references/shared-doc`. Bob has read; Carol has write.
+
+**Steps.**
+1. As Alice: `Commonplace::listShares('references/shared-doc', $alice);`.
+2. As Bob (non-owner) with the ownership check enabled: `Commonplace::listShares('references/shared-doc', $bob);`.
+
+**Expected.**
+- Step 1 returns a `Collection<Share>` of size 2. Each `Share` has `permission` and the `user` relation already loaded — `$share->user->name` does not trigger a query.
+- Step 2 throws `AuthorizationException`. Omitting `$owner` skips the check (for fixture / artisan use); the caller chooses whether to enforce.
+
+**Verify with.** Tinker; assert `DB::getQueryLog()` shows no extra queries when reading `$shares->first()->user->name`.
+
+**Source.** [services.md → listShares](../services.md#listshares).

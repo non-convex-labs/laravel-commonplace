@@ -14,10 +14,7 @@ Assumptions:
 
 ### S-PUB-01 — `GET /commonplace/public/{path}` renders public notes
 
-**Intent.** Public visitors get an HTML view of any `visibility=public` note, with the same Blade layout the authenticated views use.
-
-> [!NOTE]
-> Validation 2026-05-17: fixed in [#88](https://github.com/non-convex-labs/laravel-commonplace/pull/88) — the public route now renders the minimal `commonplace::public.show` template instead of the authenticated owner's template. See [S-PUB-01b](#s-pub-01b--public-template-does-not-expose-authenticated-only-chrome) below for the precise template contract that is now enforced by tests.
+**Intent.** Public visitors get an HTML view of any `visibility=public` note. The route renders the minimal `commonplace::public.show` template (separate from the authenticated owner's template) so it doesn't ship private-vault chrome to unauthenticated readers. See [S-PUB-01b](#s-pub-01b--public-template-does-not-expose-authenticated-only-chrome) for the precise template contract.
 
 **Preconditions.** `public/handbook` is public.
 
@@ -56,10 +53,7 @@ Assumptions:
 
 ### S-PUB-01b — Public template does not expose authenticated-only chrome
 
-> [!NOTE]
-> Validation 2026-05-17: fixed in [#88](https://github.com/non-convex-labs/laravel-commonplace/pull/88). The public route now renders a separate `commonplace::public.show` template with no Edit / Delete / Download / nav affordances, and "View markdown" points at `commonplace.public.showRaw`. Enforced by tests in `tests/Feature/Http/PublicNoteControllerTest.php`.
-
-**Intent.** The public-read view is for unauthenticated readers. Affordances that require login (Edit, Delete, Download, the top-nav links to Search / Graph / New / Notes-index) should not appear on a public page. The "View markdown" link must point at the public-raw URL, not the auth-gated one.
+**Intent.** The public-read view is for unauthenticated readers. Affordances that require login (Edit, Delete, Download, the top-nav links to Search / Graph / New / Notes-index) should not appear on a public page. The "View markdown" link must point at the public-raw URL, not the auth-gated one. Enforced by tests in `tests/Feature/Http/PublicNoteControllerTest.php`.
 
 **Preconditions.** Public-read enabled. `public/handbook` is public.
 
@@ -106,7 +100,7 @@ Assumptions:
 **Intent.** Read-by-known-path is intentionally the only operation. There is no way to enumerate which paths exist.
 
 > [!NOTE]
-> Validation 2026-05-17: `/{prefix}/public/` (trailing slash, empty path) currently falls through to the **authenticated catch-all** and redirects to `/login` (302), rather than 404ing under the public group. Related to [#61](https://github.com/non-convex-labs/laravel-commonplace/issues/61) — the public group doesn't match an empty `{path}`. Other endpoints in this scenario (`/public/search`, `/public/graph`) correctly return 404.
+> Validation 2026-05-17: `/{prefix}/public/` (trailing slash, empty path) currently returns **200** with a folder-browser-like response instead of 404. Other endpoints in this scenario (`/public/search`, `/public/graph`, `/public/api/graph`) correctly return 404. Tracked in [#96](https://github.com/non-convex-labs/laravel-commonplace/issues/96) (follow-up to the closed [#61](https://github.com/non-convex-labs/laravel-commonplace/issues/61), which added the prefix-override knob but didn't tighten the empty-`{path}` match on the default prefix).
 
 **Preconditions.** Public-read enabled.
 
@@ -128,6 +122,9 @@ Assumptions:
 
 **Intent.** Mutation paths are entirely absent from the public route group.
 
+> [!NOTE]
+> Validation 2026-05-17: `POST` correctly returns 405. `PUT` and `DELETE` return **419** (CSRF mismatch) — the requests reach the authenticated `web` group's CSRF guard instead of being terminated at the public boundary. Tracked in [#97](https://github.com/non-convex-labs/laravel-commonplace/issues/97). The bug masks the spec but doesn't enable a write: the underlying service-layer ownership check still blocks anything that gets past the boundary.
+
 **Preconditions.** Public-read enabled.
 
 **Steps.**
@@ -135,7 +132,7 @@ Assumptions:
 2. `PUT /commonplace/public/public/handbook`.
 3. `DELETE /commonplace/public/public/handbook`.
 
-**Expected.** Each returns 405 or 404 (depending on Laravel's method matcher behavior with the unregistered verbs).
+**Expected.** Each returns 405 or 404 (depending on Laravel's method matcher behavior with the unregistered verbs). Specifically, **not** 419 — that would mean the request reached the web/CSRF middleware on the authenticated side.
 
 **Verify with.** `curl -i` each.
 
@@ -149,10 +146,13 @@ Assumptions:
 
 **Intent.** Public-read is opt-in. With the toggle off, all `/public/*` URLs return 404 from the framework.
 
+> [!NOTE]
+> Validation 2026-05-17: returns **302 → /login** instead of 404. With the public group unregistered, the URL is caught by the authenticated catch-all `GET /commonplace/{path}` and the `auth` middleware redirects. Tracked in [#97](https://github.com/non-convex-labs/laravel-commonplace/issues/97). No data leak (the auth gate is enforced) but the spec wants a framework 404 so a misconfigured deploy can't be inferred from the redirect.
+
 **Preconditions.** `COMMONPLACE_PUBLIC_ROUTES_ENABLED=false`. `public/handbook` still has `visibility=public`.
 
 **Steps.**
-1. `GET /commonplace/public/public/handbook`.
+1. `GET /commonplace/public/public/handbook` (unauthenticated).
 
 **Expected.** 404.
 
@@ -210,8 +210,32 @@ Assumptions:
 **Expected.** ... actually a known ambiguity. The public group's `/public/{path}` matches first; visiting `/commonplace/public/handbook` will hit `PublicNoteController` even when authenticated, and 404 if the note isn't `visibility=public`. The authenticated path to a note literally named `public/handbook` is `/commonplace/public/handbook` — same URL — so the public group precedence shadows the authenticated route for any folder named `public`.
 
 > [!NOTE]
-> This is a real edge worth verifying against running code. The docs imply route precedence is settled but don't call out that `public/` as a vault folder name conflicts with the public-read prefix. If your vault uses `public/` as a folder for `visibility=public` notes, the behavior is consistent (the public group handles it). If you use `public/` as a folder for *private* notes, those notes won't render under the authenticated routes via that URL.
+> This is a real edge worth verifying against running code. The docs imply route precedence is settled but don't call out that `public/` as a vault folder name conflicts with the public-read prefix. If your vault uses `public/` as a folder for `visibility=public` notes, the behavior is consistent (the public group handles it). If you use `public/` as a folder for *private* notes, those notes won't render under the authenticated routes via that URL. The mitigation is [S-PUB-10](#s-pub-10--commonplace_public_routes_prefix-moves-the-public-group-off-of-public) — move the public group to a non-colliding prefix.
 
 **Verify with.** Try both — same URL, with and without auth — and confirm the 404 vs 200 outcomes.
 
 **Source.** [http-api.md → All routes](../http-api.md#all-routes).
+
+---
+
+### S-PUB-10 — `COMMONPLACE_PUBLIC_ROUTES_PREFIX` moves the public group off of `/public`
+
+**Intent.** Adopters whose vaults use `public/` as a legal folder name can override the prefix so the public-read group lives at a different segment (e.g. `commonplace/share/`). The authenticated catch-all then handles `public/*` URLs without the public group shadowing them.
+
+**Preconditions.** Public-read enabled. A note exists at vault path `public/private-thing` with `visibility=private`. A second note exists at `public/handbook` with `visibility=public`.
+
+**Steps.**
+1. With default config — `COMMONPLACE_PUBLIC_ROUTES_PREFIX` unset — confirm S-PUB-09's shadowing applies.
+2. Set `COMMONPLACE_PUBLIC_ROUTES_PREFIX=commonplace/share`. Run `php artisan route:clear` (and `route:cache` if cached).
+3. Unauthenticated `GET /commonplace/share/public/handbook`.
+4. Unauthenticated `GET /commonplace/public/handbook`.
+5. Authenticated (as the owner) `GET /commonplace/public/private-thing`.
+
+**Expected.**
+- (3) 200 with the public note rendered — the public group now lives at `share/`.
+- (4) 302 → `/login` (the URL is no longer in the public group, so it falls into the authenticated catch-all; unauth gets redirected). Authenticated, the same URL returns the public note via the auth catch-all.
+- (5) 200 — the authenticated route can now reach private notes under `public/` because the public group no longer shadows them.
+
+**Verify with.** `curl -i` each URL with and without cookies; `php artisan route:list | grep share` confirms the prefix change took effect.
+
+**Source.** `config/commonplace.php` (`routes.public.prefix`), [auth.md → Public-read mode](../auth.md#public-read-mode), PR [#89](https://github.com/non-convex-labs/laravel-commonplace/pull/89).

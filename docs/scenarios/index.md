@@ -86,14 +86,20 @@ When adding a new feature, write the scenarios first, then the docs, then the im
 
 Scenarios in this folder are the **spec** — they describe what the package should do. When validation against a running install finds a divergence, the scenario stays as-is and the divergence is tracked in a GitHub issue. The table below links scenarios with known gaps to the issues that own the fix.
 
-Last full pass: **2026-05-17**, against `main` (commit `2d3b300`), Laravel 13.9 + SQLite + `in_php_cosine` + Voyage (`voyage-3.5`, 1024 dim).
+Last full pass: **2026-05-17**, against `main` (commit `bf6d762`), Laravel 13.9 + SQLite + `in_php_cosine` + Voyage (`voyage-3.5`, 1024 dim). Sandbox: [commonplace-sandbox/scripts/](https://github.com/non-convex-labs/commonplace-sandbox/tree/main/scripts) — `scenarios-note-taker.php`, `scenarios-web.py`, `scenarios-mcp.py`, `scenarios-sharing-public.py`.
 
 | Scenario | Issue | Status |
 |---|---|---|
-| [S-PUB-01](public-visitor.md#s-pub-01--get-commonplacepublicpath-renders-public-notes) | [#68](https://github.com/non-convex-labs/laravel-commonplace/issues/68) | Public template renders authenticated owner chrome |
-| [S-PUB-04](public-visitor.md#s-pub-04--public-read-does-not-expose-listing-search-or-graph) | [#61](https://github.com/non-convex-labs/laravel-commonplace/issues/61) | `/{prefix}/public/` route precedence ambiguity |
-| [S-OPS-09](operator.md#s-ops-09--default-reindex-skips-rows-where-indexed_at--updated_at) | [#65](https://github.com/non-convex-labs/laravel-commonplace/issues/65) | 60-minute cooldown undocumented; description doesn't match actual SQL |
-| [S-COL-08](collaborator.md#s-col-08--collaborator-cannot-grant-or-revoke-shares-on-a-note-they-dont-own) | [#63](https://github.com/non-convex-labs/laravel-commonplace/issues/63) | No first-class API for granting/revoking shares (gap, not bug) |
-| [S-NOTE-WEB-HISTORY](note-taker.md#s-note-29--view-version-history-via-the-web-ui) | [#69](https://github.com/non-convex-labs/laravel-commonplace/issues/69) | No web-UI view for note history; only service + MCP expose it |
+| [S-AI-17](ai-agent.md#s-ai-17--move-tool-does-not-rewrite-wikilinks-inside-fenced-code-or-with-anchor-suffixes) | [#95](https://github.com/non-convex-labs/laravel-commonplace/issues/95) | Wikilinks inside fenced code blocks ARE rewritten by `move-tool` (spec says they shouldn't be) |
+| [S-PUB-04](public-visitor.md#s-pub-04--public-read-does-not-expose-listing-search-or-graph) | [#96](https://github.com/non-convex-labs/laravel-commonplace/issues/96) | `/{prefix}/public/` (empty `{path}`) returns 200 instead of 404 (follow-up to closed [#61](https://github.com/non-convex-labs/laravel-commonplace/issues/61)) |
+| [S-PUB-05](public-visitor.md#s-pub-05--public-read-does-not-expose-write-edit-delete-move), [S-PUB-06](public-visitor.md#s-pub-06--with-commonplace_public_routes_enabledfalse-the-public-group-isnt-registered) | [#97](https://github.com/non-convex-labs/laravel-commonplace/issues/97) | Public route group leaks: PUT/DELETE return 419; toggle-off returns 302 |
+| [S-COL-14](collaborator.md#s-col-14--collaborators-index-lists-owned--shared--public-notes-intermixed), [S-COL-15](collaborator.md#s-col-15--edit-link-is-absent-for-shared-notes-the-caller-cant-write) | [#98](https://github.com/non-convex-labs/laravel-commonplace/issues/98) | Web UI doesn't gate non-owner edit/delete; non-owner index recent-notes empty |
 
 When a fix lands, the linked scenario gets the `> [!NOTE]` annotation removed and this row drops from the table.
+
+### Closed in this pass
+
+- [#68](https://github.com/non-convex-labs/laravel-commonplace/issues/68) → S-PUB-01, S-PUB-01b (public chrome) — fixed by [#88](https://github.com/non-convex-labs/laravel-commonplace/pull/88).
+- [#63](https://github.com/non-convex-labs/laravel-commonplace/issues/63) → S-COL-08 — `grantShare`/`revokeShare`/`listShares` shipped in [#91](https://github.com/non-convex-labs/laravel-commonplace/pull/91); see [S-COL-16](collaborator.md#s-col-16--grantshare-creates-or-updates-a-share-row-as-the-owner) / [S-COL-17](collaborator.md#s-col-17--revokeshare-deletes-the-row-and-returns-whether-one-was-removed) / [S-COL-18](collaborator.md#s-col-18--listshares-returns-the-owners-share-rows-with-recipient-eager-loaded).
+- [#65](https://github.com/non-convex-labs/laravel-commonplace/issues/65) → S-OPS-09 — cooldown documented in [#83](https://github.com/non-convex-labs/laravel-commonplace/pull/83); scenario rewritten to describe actual behavior.
+- [#69](https://github.com/non-convex-labs/laravel-commonplace/issues/69) → S-NOTE-29 — web-UI history view shipped in [#92](https://github.com/non-convex-labs/laravel-commonplace/pull/92).

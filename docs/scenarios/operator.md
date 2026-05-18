@@ -154,28 +154,34 @@ Assumptions:
 
 ## Reindex
 
-### S-OPS-09 — Default reindex skips rows where `indexed_at > updated_at`
+### S-OPS-09 — Default reindex picks up stale rows past the cooldown
 
-**Intent.** Without `--force`, the job only re-embeds notes whose `indexed_at` is null or stale relative to `updated_at`. Cheap to run periodically.
+**Intent.** Without `--force`, the job re-embeds notes whose `indexed_at` is `NULL` but whose `updated_at` is older than the cooldown window — defaulting to 60 minutes (`commonplace.reindex.cooldown_minutes`). The cooldown exists so a flurry of edits doesn't burn embedding quota for content the author may still be revising; the assumption is that a note that's been settled for an hour is worth indexing. Notes touched inside the window stay `indexed_at = NULL` until either the cooldown expires or `--force` runs.
 
-> [!NOTE]
-> Validation 2026-05-17: the actual predicate is **`indexed_at IS NULL AND updated_at < now() - 60min`** — a 60-minute cooldown on `updated_at`, not a comparison to `indexed_at`. Default reindex won't pick up notes created or edited in the last hour. The cooldown is configurable via `commonplace.reindex.cooldown_minutes` but isn't documented. Tracked in [#65](https://github.com/non-convex-labs/laravel-commonplace/issues/65); once docs are fixed, update this scenario's Intent and Expected to match.
-
-**Preconditions.** A mix of notes — some never indexed, some indexed and unchanged, some changed since last index.
+**Preconditions.** A mix of notes:
+- `A`: never indexed, last edit 2+ hours ago.
+- `B`: never indexed, edited within the last 60 minutes.
+- `C`: indexed, unchanged.
+- `D`: indexed, edited within the last 60 minutes.
 
 **Steps.**
 1. `php artisan commonplace:reindex`.
 2. Inspect `commonplace_notes.indexed_at` distribution.
 
-**Expected.** Only the `indexed_at IS NULL OR updated_at > indexed_at` rows are re-embedded. Other rows untouched.
+**Expected.**
+- `A` gets a fresh `indexed_at` (the predicate `indexed_at IS NULL AND updated_at < now() - cooldown` matches).
+- `B`'s `indexed_at` stays `NULL` (recent edit — under cooldown).
+- `C` is untouched (already indexed, no edits).
+- `D` is untouched (the default scope intentionally ignores updated-since-index when within cooldown; use `--force` if you need it).
 
 **Verify with.**
 ```sql
-SELECT COUNT(*) FROM commonplace_notes WHERE indexed_at IS NULL;
--- 0 after a successful reindex
+-- Confirm fixture B remained skipped, A picked up:
+SELECT path, indexed_at, updated_at FROM commonplace_notes WHERE path IN ('A', 'B');
 ```
+Tinker can construct the fixtures directly: set `updated_at` to `now()->subMinutes(120)` for `A` and `now()` for `B`, both with `indexed_at = NULL`.
 
-**Source.** [commands.md → commonplace:reindex](../commands.md#commonplacereindex).
+**Source.** [commands.md → commonplace:reindex](../commands.md#commonplacereindex), `config/commonplace.php` (`reindex.cooldown_minutes`).
 
 ---
 
@@ -452,3 +458,69 @@ Schedule::job(new \NonConvexLabs\Commonplace\Jobs\BackupVault)->dailyAt('02:00')
 **Verify with.** Console output of doctor + tinker assertions on `embedding_dimensions` and `distance` values from the search results.
 
 **Source.** [embedding-drivers.md → Voyage](../embedding-drivers.md#voyage), [commands.md → commonplace:reindex](../commands.md#commonplacereindex), [services.md → semanticSearch](../services.md#semanticsearch).
+
+---
+
+### S-OPS-24 — Voyage 429 retries with exponential backoff; non-429 failures surface immediately
+
+**Intent.** Voyage's free tier rate-limits aggressively. The driver retries 429s in-process with exponential backoff + jitter so a short burst doesn't fail the whole reindex. Non-retryable failures (5xx, timeouts, malformed responses) are *not* retried in-process — the queue-level retry on `ReindexNotes` handles the next attempt, which avoids burning quota on errors that aren't transient on the millisecond timescale.
+
+**Preconditions.** Voyage driver configured. A way to inject a fake 429 response (`Http::fake()` in a test, or a tinker harness that overrides the binding).
+
+**Steps.**
+1. Stub the Voyage endpoint to return `429` twice then `200` with a normal embedding.
+2. Call `Commonplace::semanticSearch('anything', $user, SemanticSearchScope::Mine);` (or invoke `embedQuery` directly).
+3. Stub the endpoint to return `500` once then `200`. Repeat.
+4. Stub the endpoint to return `429` 4+ times (beyond `commonplace.embedding.voyage.retry_max`, default 3). Repeat.
+
+**Expected.**
+- (2) The call succeeds. `Http::recorded()` shows three POSTs to `/v1/embeddings`; the gaps between them follow `baseDelay * 2^attempt + jitter`, capped at 30s (defaults: 1s, 2s, 4s, 8s, … capped).
+- (3) The call throws `RuntimeException` immediately on the first 5xx. No second POST. The reason: retry budget is for `429`s only.
+- (4) The call throws `RuntimeException` after `retry_max + 1` total POSTs. The exception message contains `Voyage AI API error: <body>`.
+
+**Verify with.** `Http::fake()` + `Http::assertSentCount()` + `Sleep::assertSlept()` in a feature test. Manually, the doctor `--live` probe will exercise the happy path.
+
+**Source.** `src/Drivers/Embedding/VoyageEmbeddingProvider.php` (`postWithRetry`), [embedding-drivers.md → Voyage](../embedding-drivers.md#voyage).
+
+---
+
+### S-OPS-25 — Voyage `embedBatch` checkpoints completed chunks on partial failure
+
+**Intent.** Voyage caps each request at 128 inputs. The driver chunks larger batches and treats each chunk as its own retry unit. If a later chunk fails after retries while earlier chunks succeeded, the driver throws `PartialBatchEmbeddingException` carrying the completed embeddings so `ReindexNotes` can persist them and resume from the failure point on retry, instead of re-billing tokens for work that already landed.
+
+**Preconditions.** Voyage driver. A way to inject a sequence of stubbed responses.
+
+**Steps.**
+1. Call `embedBatch` with 300 texts (3 chunks at 128/128/44).
+2. Stub: chunk 1 → 200, chunk 2 → 429 × `retry_max+1`, chunk 3 → never reached.
+
+**Expected.**
+- The call throws `NonConvexLabs\Commonplace\Exceptions\PartialBatchEmbeddingException`.
+- `$e->completed` is an array of 128 embeddings (chunk 1's results).
+- `$e->failedIndex` is `128` (the position in the input array where the next attempt should resume).
+- `$e->cause` is the underlying `RuntimeException` from `postWithRetry`.
+- If chunk 1 *also* fails, the exception is the bare `RuntimeException` (no partial batch to surface), to match the simpler single-text `embed()` failure mode.
+
+**Verify with.** `Http::fake()` + assert `$e->failedIndex` and `count($e->completed)`. The `ReindexNotes` job catches this exception and writes the completed slice before letting Laravel's queue retry handle the next attempt.
+
+**Source.** `src/Drivers/Embedding/VoyageEmbeddingProvider.php` (`embedBatch`), `src/Exceptions/PartialBatchEmbeddingException.php`, [embedding-drivers.md → Voyage](../embedding-drivers.md#voyage).
+
+---
+
+### S-OPS-26 — `commonplace:doctor --live` probes the configured embedding provider
+
+**Intent.** The default doctor skips network checks (it's read-only and offline-safe). `--live` (or `commonplace.doctor.probe_embedding_provider=true`) actually calls `embedQuery('probe')` against the configured provider and reports whether a dimension-matched vector came back. Catches missing API keys, wrong base URL, expired tokens, model name typos, and dimension drift between the configured driver and the stored rows — all before reindex starts.
+
+**Preconditions.** A configured embedding driver. Network access to the provider.
+
+**Steps.**
+1. `php artisan commonplace:doctor` (no flag).
+2. `php artisan commonplace:doctor --live`.
+
+**Expected.**
+- (1) The `Embedding provider probe` line reads `[SKIP] disabled (pass --live or set commonplace.doctor.probe_embedding_provider=true)`.
+- (2) The probe runs. On success the line reads `[OK] Embedding provider probe: embedQuery() returned a N-dim vector` where `N` matches `$driver->dimensions()`. On failure it reads `[FAIL]` with the underlying provider error, and `--exit-code` propagates the failure.
+
+**Verify with.** Console output of both invocations.
+
+**Source.** [commands.md → commonplace:doctor](../commands.md#commonplacedoctor), `config/commonplace.php` (`doctor.probe_embedding_provider`).
