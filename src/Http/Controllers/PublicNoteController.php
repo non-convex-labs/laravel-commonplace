@@ -37,6 +37,16 @@ class PublicNoteController extends Controller
         ]);
     }
 
+    /**
+     * Seal off the bare public prefix (`/{prefix}/public` and the
+     * trailing-slash variant) so it can't fall through to the auth
+     * catch-all. See S-PUB-04 / #96.
+     */
+    public function root(): Response
+    {
+        abort(404);
+    }
+
     public function showRaw(Request $request, string $path): Response
     {
         $note = $this->resolvePublicNote($path);
