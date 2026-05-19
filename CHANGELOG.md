@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- Threat model doc for the MCP surface — in-scope risks (prompt injection via note content, cross-user injection via shares, embedding-traversal influence), current mitigations, named gaps, and an operator checklist. Read before enabling MCP in production. ([#142](https://github.com/non-convex-labs/laravel-commonplace/pull/142))
+
 ## [v0.2.0] — 2026-05-18
 
 ### Added
