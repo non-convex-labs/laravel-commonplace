@@ -53,6 +53,7 @@ php artisan commonplace:doctor
 ## Operations
 
 - [Backup](backup.md) — pluggable destinations, the bundle format, and how to write your own.
+- [Threat model](threat-model.md) — what the MCP surface puts at risk, what the package mitigates today, and what's on you. Read before enabling MCP in production.
 
 ## Scenarios
 
