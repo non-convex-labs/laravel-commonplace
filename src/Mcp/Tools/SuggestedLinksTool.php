@@ -13,6 +13,7 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 use NonConvexLabs\Commonplace\Enums\SemanticSearchScope;
+use NonConvexLabs\Commonplace\Exceptions\InvalidSemanticSearchScope;
 use NonConvexLabs\Commonplace\Services\Commonplace;
 
 #[Description('Suggest notes that should be linked to a given note based on semantic similarity (embedding distance). Only returns notes that are NOT already linked. Use to discover missing connections.')]
@@ -30,9 +31,7 @@ class SuggestedLinksTool extends Tool
             $scope = $rawScope === null || $rawScope === ''
                 ? SemanticSearchScope::Mine
                 : (SemanticSearchScope::tryFrom((string) $rawScope)
-                    ?? throw new \InvalidArgumentException(
-                        "Unknown scope '{$rawScope}'. Use one of: mine, public, accessible."
-                    ));
+                    ?? throw new InvalidSemanticSearchScope);
 
             $results = $this->commonplace->getSuggestedLinks(
                 path: $request->get('path'),
@@ -50,7 +49,12 @@ class SuggestedLinksTool extends Tool
             }
 
             return Response::json($payload);
-        } catch (\InvalidArgumentException $e) {
+        } catch (InvalidSemanticSearchScope $e) {
+            // Narrowed from `\InvalidArgumentException` so any future
+            // unmarked argument-validation throw falls through to the
+            // MCP envelope's fail-close instead of leaking here.
+            // InvalidSemanticSearchScope implements PublicMessage with
+            // an allowlisted body built from the enum cases.
             return Response::error($e->getMessage());
         } catch (AuthorizationException|ModelNotFoundException) {
             // Collapse "inaccessible" and "missing" into the same response

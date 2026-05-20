@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NonConvexLabs\Commonplace\Tests\Feature\Jobs;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use NonConvexLabs\Commonplace\Jobs\UpdateWikilinksJob;
 use NonConvexLabs\Commonplace\Models\Link;
 use NonConvexLabs\Commonplace\Models\Note;
@@ -28,6 +29,18 @@ class UpdateWikilinksJobTest extends TestCase
 
         $this->commonplace = $this->app->make(Commonplace::class);
         $this->owner = User::factory()->create();
+    }
+
+    public function test_it_dispatches_to_the_wikilinks_queue(): void
+    {
+        Queue::fake();
+
+        UpdateWikilinksJob::dispatch(1, 'old', 'new');
+
+        // User-facing; pinned off the slow backup / embeddings
+        // queues so a stuck external provider can't delay the
+        // rewrite. See styleguide §6.
+        Queue::assertPushedOn('commonplace-wikilinks', UpdateWikilinksJob::class);
     }
 
     public function test_rewrites_plain_aliased_and_basename_forms(): void

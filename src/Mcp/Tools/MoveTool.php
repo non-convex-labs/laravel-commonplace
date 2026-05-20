@@ -11,6 +11,7 @@ use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
+use NonConvexLabs\Commonplace\Exceptions\NotePathConflict;
 use NonConvexLabs\Commonplace\Services\Commonplace;
 
 #[Description('Move or rename a note to a new path. Preserves version history and asynchronously updates [[wikilinks]] in all referencing notes. Prefer this over delete + recreate.')]
@@ -38,7 +39,12 @@ class MoveTool extends Tool
             return Response::error($e->getMessage());
         } catch (ModelNotFoundException) {
             return Response::error('Note not found.');
-        } catch (\InvalidArgumentException $e) {
+        } catch (NotePathConflict $e) {
+            // Narrowed from `\InvalidArgumentException` so any future
+            // unmarked argument-validation throw in the call path falls
+            // through to the MCP envelope's fail-close instead of
+            // leaking via this Response::error. NotePathConflict
+            // implements PublicMessage with a static, allowlisted body.
             return Response::error($e->getMessage());
         }
     }

@@ -36,13 +36,16 @@ class ReindexNotesTest extends TestCase
         config()->set('commonplace.reindex.batch_delay_seconds', 0);
     }
 
-    public function test_it_dispatches_to_the_queue(): void
+    public function test_it_dispatches_to_the_embeddings_queue(): void
     {
         Queue::fake();
 
         ReindexNotes::dispatch();
 
-        Queue::assertPushed(ReindexNotes::class);
+        // External-API + sleep-heavy; pinned off the user-facing
+        // queues so a slow provider can't starve them. See
+        // styleguide §6.
+        Queue::assertPushedOn('commonplace-embeddings', ReindexNotes::class);
     }
 
     public function test_it_runs_without_error_when_no_notes_need_reindexing(): void

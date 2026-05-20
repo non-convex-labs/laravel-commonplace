@@ -35,6 +35,14 @@ class BackupVault implements ShouldQueue
     use Queueable;
     use SerializesModels;
 
+    public function __construct()
+    {
+        // Multi-destination fan-out; serially walks every configured
+        // destination. Same queue family as BackupToGitHub — operators
+        // get one pool to size for backup I/O.
+        $this->onQueue('commonplace-backups');
+    }
+
     public function failed(Throwable $exception): void
     {
         Log::error('Commonplace backup failed', [

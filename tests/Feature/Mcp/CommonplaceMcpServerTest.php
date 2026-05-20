@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Route;
 use Laravel\Mcp\Server\McpServiceProvider;
 use Laravel\Mcp\Server\Methods\ListTools;
 use Laravel\Mcp\Server\Transport\FakeTransporter;
-use Laravel\Mcp\Server\Transport\JsonRpcRequest;
+use Laravel\Mcp\Transport\JsonRpcRequest;
 use Mockery;
 use NonConvexLabs\Commonplace\Exceptions\PublicMessage;
 use NonConvexLabs\Commonplace\Mcp\CommonplaceMcpServer;

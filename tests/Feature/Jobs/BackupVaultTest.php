@@ -7,6 +7,7 @@ namespace NonConvexLabs\Commonplace\Tests\Feature\Jobs;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use NonConvexLabs\Commonplace\Backup\BackupBundle;
 use NonConvexLabs\Commonplace\Contracts\BackupDestination;
@@ -20,6 +21,15 @@ class BackupVaultTest extends TestCase
 {
     use InteractsWithCommonplaceDatabase;
     use RefreshDatabase;
+
+    public function test_it_dispatches_to_the_backups_queue(): void
+    {
+        Queue::fake();
+
+        BackupVault::dispatch();
+
+        Queue::assertPushedOn('commonplace-backups', BackupVault::class);
+    }
 
     public function test_it_throws_when_no_destinations_configured(): void
     {

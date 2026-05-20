@@ -34,13 +34,15 @@ class BackupToGitHubTest extends TestCase
         config()->set('commonplace.backup.github.token', 'gh-token');
     }
 
-    public function test_it_dispatches_to_the_queue(): void
+    public function test_it_dispatches_to_the_backups_queue(): void
     {
         Queue::fake();
 
         BackupToGitHub::dispatch();
 
-        Queue::assertPushed(BackupToGitHub::class);
+        // Pinned to `commonplace-backups` so worker pools can be sized
+        // independently of user-facing jobs. See styleguide §6.
+        Queue::assertPushedOn('commonplace-backups', BackupToGitHub::class);
     }
 
     public function test_it_throws_when_repo_is_missing(): void

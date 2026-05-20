@@ -26,7 +26,14 @@ class ReindexNotes implements ShouldQueue
     use Queueable;
     use SerializesModels;
 
-    public function __construct(public readonly bool $force = false) {}
+    public function __construct(public readonly bool $force = false)
+    {
+        // External-API + sleep-heavy. Pin to a dedicated queue so a
+        // slow embedding provider can't starve user-facing jobs
+        // (wikilink rewrites, backups). Operators can scale the
+        // embeddings worker pool independently. See styleguide §6.
+        $this->onQueue('commonplace-embeddings');
+    }
 
     public function failed(\Throwable $exception): void
     {

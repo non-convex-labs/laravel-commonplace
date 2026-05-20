@@ -14,6 +14,7 @@ use NonConvexLabs\Commonplace\Contracts\EmbeddingProvider;
 use NonConvexLabs\Commonplace\Contracts\VectorSearch;
 use NonConvexLabs\Commonplace\Enums\SemanticSearchScope;
 use NonConvexLabs\Commonplace\Enums\Visibility;
+use NonConvexLabs\Commonplace\Exceptions\NotePathConflict;
 use NonConvexLabs\Commonplace\Jobs\UpdateWikilinksJob;
 use NonConvexLabs\Commonplace\Models\Link;
 use NonConvexLabs\Commonplace\Models\Note;
@@ -402,7 +403,7 @@ class Commonplace
         }
 
         if (Note::where('path', $toPath)->exists()) {
-            throw new \InvalidArgumentException("A note already exists at path: {$toPath}");
+            throw new NotePathConflict;
         }
 
         // `DB::afterCommit` fires *immediately* when called outside a
