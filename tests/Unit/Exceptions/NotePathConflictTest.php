@@ -28,21 +28,14 @@ class NotePathConflictTest extends TestCase
 
     public function test_message_is_static(): void
     {
+        // Byte-for-byte pin. The original throw interpolated $toPath,
+        // bypassing the MCP envelope chokepoint when MoveTool caught
+        // and re-emitted via Response::error(). Any future drift that
+        // reintroduces caller input would change the message and
+        // fail here.
         $this->assertSame(
             'A note already exists at the destination path.',
             (new NotePathConflict)->getMessage(),
         );
-    }
-
-    public function test_no_caller_supplied_path_in_message(): void
-    {
-        // The original throw interpolated $toPath into the message,
-        // bypassing the MCP envelope chokepoint when MoveTool caught
-        // and re-emitted via Response::error(). Pin that the message
-        // never carries path-shaped input.
-        $message = (new NotePathConflict)->getMessage();
-
-        $this->assertStringNotContainsString('/', $message);
-        $this->assertStringNotContainsString('path:', $message);
     }
 }

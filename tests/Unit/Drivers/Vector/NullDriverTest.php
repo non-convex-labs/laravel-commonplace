@@ -40,8 +40,10 @@ class NullDriverTest extends TestCase
 
         $driver->store(123, [0.1, 0.2, 0.3]);
 
-        // "noop" means no observable side effect: searching the same
-        // vector immediately after still returns empty.
-        $this->assertCount(0, $driver->search(Note::query(), [0.1, 0.2, 0.3], 10));
+        // "noop" means no observable mutation on the driver. A real
+        // store would plausibly flip the enabled flag, accumulate
+        // warnings, or otherwise change driver state; pin those.
+        $this->assertFalse($driver->isEnabled());
+        $this->assertSame([], $driver->lastWarnings());
     }
 }

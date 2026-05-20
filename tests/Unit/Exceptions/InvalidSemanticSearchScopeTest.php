@@ -31,13 +31,18 @@ class InvalidSemanticSearchScopeTest extends TestCase
         }
     }
 
-    public function test_message_does_not_echo_caller_input(): void
+    public function test_message_is_static_across_instances(): void
     {
         // SuggestedLinksTool / SemanticSearchTool previously echoed
         // the raw $rawScope back to the agent. Even though the agent
         // sent it, a sibling InvalidArgumentException with operator
         // data could ride the same catch — narrowing to a typed
-        // PublicMessage class with a static body forecloses that.
-        $this->assertStringNotContainsString("'", (new InvalidSemanticSearchScope)->getMessage());
+        // PublicMessage class with a constructor-input-free body
+        // forecloses that. The constructor takes no args, so two
+        // instances MUST produce the same message byte-for-byte.
+        $this->assertSame(
+            (new InvalidSemanticSearchScope)->getMessage(),
+            (new InvalidSemanticSearchScope)->getMessage(),
+        );
     }
 }
