@@ -33,6 +33,14 @@ class BackupToGitHub implements ShouldQueue
     use Queueable;
     use SerializesModels;
 
+    public function __construct()
+    {
+        // Long-running outbound I/O. Pin to the shared backups queue
+        // so worker concurrency can be tuned independently of
+        // user-facing jobs.
+        $this->onQueue('commonplace-backups');
+    }
+
     public function failed(Throwable $exception): void
     {
         Log::error('Commonplace GitHub backup failed', [

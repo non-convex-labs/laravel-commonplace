@@ -9,6 +9,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Added
 
 - Threat model doc for the MCP surface — in-scope risks (prompt injection via note content, cross-user injection via shares, embedding-traversal influence), current mitigations, named gaps, and an operator checklist. Read before enabling MCP in production. ([#142](https://github.com/non-convex-labs/laravel-commonplace/pull/142))
+- `NotePathConflict` and `InvalidSemanticSearchScope` `PublicMessage` exceptions — typed replacements for the bare `\InvalidArgumentException` throws that `MoveTool`, `SuggestedLinksTool`, and `SemanticSearchTool` previously caught and re-emitted via `Response::error()`. Message text is now package-controlled allowlist only; any future un-marked argument-validation throw falls through to the MCP envelope's fail-close.
+
+### Changed
+
+- Package jobs land on named queues — `commonplace-backups` (`BackupVault`, `BackupToGitHub`), `commonplace-embeddings` (`ReindexNotes`), `commonplace-wikilinks` (`UpdateWikilinksJob`) — so a slow workload can't starve a user-facing one. Operators can size each worker pool independently. ([styleguide §6](docs/styleguides/laravel_styleguide.md))
+- Bumped `laravel/mcp` import paths: `Laravel\Mcp\Transport\JsonRpc{Request,Response}` and `Laravel\Mcp\Exceptions\JsonRpcException` moved out of `Laravel\Mcp\Server\…` in v0.7.1 (2026-05-19).
+
+### Fixed
+
+- `Model::preventLazyLoading()` is now wired in the package's `TestCase` so N+1 regressions in package code surface during `composer test` rather than slipping through SQLite. (Audit gap — CLAUDE.md asserted this was enabled; it wasn't.)
+- Replaced an `assertTrue(true)` placeholder in `NullDriverTest::test_store_is_a_noop` with a real behavioural assertion (a subsequent `search()` still returns empty).
 
 ## [v0.2.0] — 2026-05-18
 

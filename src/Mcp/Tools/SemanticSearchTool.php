@@ -13,6 +13,7 @@ use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 use NonConvexLabs\Commonplace\Enums\SemanticSearchScope;
 use NonConvexLabs\Commonplace\Exceptions\EmbeddingProviderNotConfigured;
 use NonConvexLabs\Commonplace\Exceptions\EmbeddingProviderUnavailable;
+use NonConvexLabs\Commonplace\Exceptions\InvalidSemanticSearchScope;
 use NonConvexLabs\Commonplace\Exceptions\PgvectorDriverNotReady;
 use NonConvexLabs\Commonplace\Services\Commonplace;
 
@@ -29,9 +30,7 @@ class SemanticSearchTool extends Tool
             $scope = $rawScope === null || $rawScope === ''
                 ? SemanticSearchScope::Accessible
                 : (SemanticSearchScope::tryFrom((string) $rawScope)
-                    ?? throw new \InvalidArgumentException(
-                        "Unknown scope '{$rawScope}'. Use one of: mine, public, accessible."
-                    ));
+                    ?? throw new InvalidSemanticSearchScope);
 
             $results = $this->commonplace->semanticSearch(
                 query: $request->get('query'),
@@ -56,11 +55,12 @@ class SemanticSearchTool extends Tool
             }
 
             return Response::json($payload);
-        } catch (\InvalidArgumentException $e) {
-            // Caller-supplied scope echoed back to the same caller —
-            // benign by construction (the agent already knows what it
-            // sent). Stays out of the envelope sanitiser path because
-            // the tool's own catch returns Response::error here.
+        } catch (InvalidSemanticSearchScope $e) {
+            // Narrowed from `\InvalidArgumentException` so any future
+            // unmarked argument-validation throw falls through to the
+            // MCP envelope's fail-close instead of leaking here.
+            // InvalidSemanticSearchScope implements PublicMessage with
+            // an allowlisted body built from the enum cases.
             return Response::error($e->getMessage());
         } catch (EmbeddingProviderUnavailable|EmbeddingProviderNotConfigured|PgvectorDriverNotReady $e) {
             // Narrowed (#132) from `catch (\RuntimeException)` so any

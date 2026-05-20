@@ -4,12 +4,24 @@ declare(strict_types=1);
 
 namespace NonConvexLabs\Commonplace\Tests;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Application;
 use NonConvexLabs\Commonplace\CommonplaceServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
 
 abstract class TestCase extends Orchestra
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Surface N+1 bugs in the package's own code rather than
+        // letting them slip through SQLite and only show up against a
+        // host app in production. Per `docs/styleguides/laravel_styleguide.md`
+        // §4 — Model::preventLazyLoading() in non-prod.
+        Model::preventLazyLoading();
+    }
+
     /**
      * @param  Application  $app
      */

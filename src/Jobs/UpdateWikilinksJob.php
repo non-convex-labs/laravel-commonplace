@@ -62,7 +62,13 @@ class UpdateWikilinksJob implements ShouldQueue
         public readonly int $movedNoteId,
         public readonly string $fromPath,
         public readonly string $toPath,
-    ) {}
+    ) {
+        // User-facing: the agent just renamed a note and expects
+        // backlinks to follow. Pin off the default queue (and off the
+        // slow backup / embeddings queues) so a stuck external
+        // provider doesn't delay the rewrite. See styleguide §6.
+        $this->onQueue('commonplace-wikilinks');
+    }
 
     public function failed(Throwable $exception): void
     {

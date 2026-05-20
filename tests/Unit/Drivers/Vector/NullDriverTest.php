@@ -40,6 +40,10 @@ class NullDriverTest extends TestCase
 
         $driver->store(123, [0.1, 0.2, 0.3]);
 
-        $this->assertTrue(true); // no DB write occurred; assertion just keeps phpunit happy
+        // "noop" means no observable mutation on the driver. A real
+        // store would plausibly flip the enabled flag, accumulate
+        // warnings, or otherwise change driver state; pin those.
+        $this->assertFalse($driver->isEnabled());
+        $this->assertSame([], $driver->lastWarnings());
     }
 }
